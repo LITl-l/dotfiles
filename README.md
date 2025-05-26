@@ -35,6 +35,9 @@ This configuration sets up [Neovim](https://neovim.io/) with:
     ```bash
     mkdir -p ~/.config/nvim
     cp .config/nvim/init.lua ~/.config/nvim/
+    # If you want to copy the entire lua subdirectory as well:
+    # cp -r .config/nvim/lua ~/.config/nvim/
     ```
     (If you use a different `$XDG_CONFIG_HOME`, replace `~/.config` accordingly).
+    The main configuration file is `init.lua`, which in turn loads modularized settings from files located in the `.config/nvim/lua/` directory (e.g., `plugins.lua` for plugin management, `options.lua` for editor settings, and `keymaps.lua` for keybindings). You'll need to copy the `lua` subdirectory as well if you are copying files manually.
 4.  **Install plugins**: The first time you launch Neovim (`nvim`), `lazy.nvim` will automatically install the configured plugins. You can also run `:Lazy sync` inside Neovim to manage plugins.
