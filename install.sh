@@ -74,6 +74,7 @@ install_all_tools() {
         "homebrew"
         "zsh"
         "git"
+        "lazygit"
         "starship"
         "sheldon"
         "nvim"
