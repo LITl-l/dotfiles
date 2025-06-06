@@ -88,6 +88,7 @@ install_tool() {
 install_all_tools() {
     local tools=(
         "homebrew"
+        "proto"
         "zsh"
         "git"
         "lazygit"
@@ -97,7 +98,6 @@ install_all_tools() {
         "tmux"
         "wezterm"
         "eza"
-        "proto"
         "docker"
     )
     
@@ -107,6 +107,16 @@ install_all_tools() {
         # After installing homebrew, ensure it's available for subsequent tools
         if [ "$tool" = "homebrew" ] && command -v brew >/dev/null 2>&1; then
             log_info "Homebrew is now available for subsequent installations"
+        fi
+        
+        # After installing proto, ensure it and rust are available for subsequent tools
+        if [ "$tool" = "proto" ]; then
+            if command -v proto >/dev/null 2>&1; then
+                log_info "Proto toolchain manager is now available for subsequent installations"
+                if proto run cargo -- --version >/dev/null 2>&1; then
+                    log_info "Rust/Cargo is now available via proto for subsequent installations"
+                fi
+            fi
         fi
     done
 }
