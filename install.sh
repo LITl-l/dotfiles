@@ -57,11 +57,27 @@ install_tool() {
     
     if [ -f "$install_script" ]; then
         log_info "Installing $tool..."
-        if bash "$install_script"; then
-            log_success "$tool installation completed"
+        
+        # Special handling for homebrew to ensure environment is loaded
+        if [ "$tool" = "homebrew" ]; then
+            if bash "$install_script"; then
+                # Load homebrew environment after installation
+                if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+                    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+                    export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+                fi
+                log_success "$tool installation completed"
+            else
+                log_error "$tool installation failed"
+                return 1
+            fi
         else
-            log_error "$tool installation failed"
-            return 1
+            if bash "$install_script"; then
+                log_success "$tool installation completed"
+            else
+                log_error "$tool installation failed"
+                return 1
+            fi
         fi
     else
         log_warning "No installation script found for $tool"
@@ -87,6 +103,11 @@ install_all_tools() {
     
     for tool in "${tools[@]}"; do
         install_tool "$tool"
+        
+        # After installing homebrew, ensure it's available for subsequent tools
+        if [ "$tool" = "homebrew" ] && command -v brew >/dev/null 2>&1; then
+            log_info "Homebrew is now available for subsequent installations"
+        fi
     done
 }
 
