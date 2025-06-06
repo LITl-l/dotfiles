@@ -18,8 +18,11 @@ ln -sf "$SCRIPT_DIR/plugins.toml" "$HOME/.config/sheldon/plugins.toml"
 if ! command -v sheldon >/dev/null 2>&1; then
     echo "Installing Sheldon..."
     
-    # Try to install via cargo (direct command or proto)
-    if command -v cargo >/dev/null 2>&1; then
+    # Try Homebrew first (preferred - no compilation needed)
+    if command -v brew >/dev/null 2>&1; then
+        brew install sheldon
+    # Fallback to cargo/proto (requires build tools)
+    elif command -v cargo >/dev/null 2>&1; then
         cargo install sheldon
     elif command -v proto >/dev/null 2>&1 && proto run cargo -- --version >/dev/null 2>&1; then
         proto run cargo -- install sheldon
@@ -32,12 +35,15 @@ if ! command -v sheldon >/dev/null 2>&1; then
         if command -v cargo >/dev/null 2>&1; then
             cargo install sheldon
         else
-            echo "Error: Rust/Cargo not found"
-            echo "Please ensure Rust is installed first by running:"
-            echo "  ./proto/install.sh"
+            echo "Error: Neither Homebrew nor Rust/Cargo found"
+            echo "Please install one of the following:"
+            echo "  Option 1 (recommended): ./homebrew/install.sh"
+            echo "  Option 2: ./install-build-tools.sh && ./proto/install.sh"
             exit 1
         fi
     fi
+else
+    echo "Sheldon already installed"
 fi
 
 echo "Sheldon setup complete!"

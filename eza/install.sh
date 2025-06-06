@@ -27,8 +27,9 @@ if ! command -v eza >/dev/null 2>&1; then
                 cargo install eza
             else
                 echo "Error: Neither Homebrew nor Rust/Cargo found"
-                echo "Please ensure either Homebrew or Rust is installed first by running:"
-                echo "  ./homebrew/install.sh  OR  ./proto/install.sh"
+                echo "Please install one of the following:"
+                echo "  Option 1 (recommended): ./homebrew/install.sh"
+                echo "  Option 2: ./install-build-tools.sh && ./proto/install.sh"
                 exit 1
             fi
         fi
