@@ -1,0 +1,130 @@
+# Git configuration
+
+[user]
+    # User configuration should be set in ~/.config/git/config.local
+    # Example:
+    # name = Your Name
+    # email = your.email@example.com
+
+[core]
+    editor = nvim
+    pager = delta
+    excludesfile = ~/.config/git/ignore
+    attributesfile = ~/.config/git/attributes
+    autocrlf = input
+    safecrlf = warn
+    whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
+
+[init]
+    defaultBranch = main
+
+[color]
+    ui = auto
+    branch = auto
+    diff = auto
+    interactive = auto
+    status = auto
+
+[alias]
+    # Status
+    s = status -s
+    st = status
+
+    # Branch
+    br = branch
+    co = checkout
+    cob = checkout -b
+    
+    # Commit
+    c = commit
+    cm = commit -m
+    ca = commit --amend
+    can = commit --amend --no-edit
+    
+    # Diff
+    d = diff
+    dc = diff --cached
+    ds = diff --staged
+    
+    # Add
+    a = add
+    aa = add --all
+    ap = add --patch
+    
+    # Log
+    l = log --oneline --graph --decorate
+    lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+    ll = log --pretty=format:'%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]' --decorate --numstat
+    
+    # Remote
+    f = fetch
+    pl = pull
+    ps = push
+    psu = push -u origin HEAD
+    
+    # Stash
+    ss = stash save
+    sl = stash list
+    sp = stash pop
+    sa = stash apply
+    
+    # Reset
+    unstage = reset HEAD --
+    undo = reset --soft HEAD^
+    
+    # Show
+    last = log -1 HEAD
+    
+    # Utilities
+    aliases = config --get-regexp alias
+    branches = branch -a
+    remotes = remote -v
+    contributors = shortlog --summary --numbered
+    
+    # Cleanup
+    cleanup = !git branch --merged | grep -v '\\*\\|main\\|master\\|develop' | xargs -n 1 git branch -d
+
+[push]
+    default = current
+    autoSetupRemote = true
+
+[pull]
+    rebase = true
+
+[fetch]
+    prune = true
+
+[merge]
+    ff = only
+    conflictstyle = diff3
+
+[rebase]
+    autoStash = true
+
+[diff]
+    algorithm = histogram
+    colorMoved = default
+
+[delta]
+    navigate = true
+    line-numbers = true
+    side-by-side = false
+    syntax-theme = Catppuccin-mocha
+
+[interactive]
+    diffFilter = delta --color-only
+
+[ghq]
+    root = ~/src
+
+[filter "lfs"]
+    clean = git-lfs clean -- %f
+    smudge = git-lfs smudge -- %f
+    process = git-lfs filter-process
+    required = true
+
+[credential]
+    helper = cache --timeout=3600
+
+[include]
+    path = ~/.config/git/config.local
