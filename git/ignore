@@ -97,3 +97,9 @@ vendor/
 # Misc
 .directory
 .sass-cache/
+
+# Claude Code settings
+**/.claude/settings.local.json
+
+# Proto trace dumps
+dump-*.json

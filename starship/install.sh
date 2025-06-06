@@ -19,10 +19,8 @@ if ! command -v starship >/dev/null 2>&1; then
     echo "Installing Starship..."
     if command -v brew >/dev/null 2>&1; then
         brew install starship
-    elif command -v cargo >/dev/null 2>&1; then
-        cargo install starship --locked
     else
-        # Use the official installer
+        # Use the official installer (preferred method)
         curl -sS https://starship.rs/install.sh | sh -s -- --yes
     fi
 fi

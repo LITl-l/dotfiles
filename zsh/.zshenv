@@ -16,3 +16,4 @@ export PATH="$HOME/.local/bin:$PATH"
 if [ -f "$ZDOTDIR/.zshenv" ]; then
     source "$ZDOTDIR/.zshenv"
 fi
+. "$HOME/.cargo/env"

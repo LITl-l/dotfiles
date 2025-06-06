@@ -11,11 +11,27 @@ if ! command -v eza >/dev/null 2>&1; then
     echo "Installing Eza..."
     if command -v brew >/dev/null 2>&1; then
         brew install eza
-    elif command -v cargo >/dev/null 2>&1; then
-        cargo install eza
     else
-        echo "Please install Homebrew or Rust first to install eza"
-        exit 1
+        # Try to install via cargo (direct command or proto)
+        if command -v cargo >/dev/null 2>&1; then
+            cargo install eza
+        elif command -v proto >/dev/null 2>&1 && proto run cargo -- --version >/dev/null 2>&1; then
+            proto run cargo -- install eza
+        else
+            # Try to source environments as fallback
+            if [ -f "$HOME/.cargo/env" ]; then
+                source "$HOME/.cargo/env"
+            fi
+            
+            if command -v cargo >/dev/null 2>&1; then
+                cargo install eza
+            else
+                echo "Error: Neither Homebrew nor Rust/Cargo found"
+                echo "Please ensure either Homebrew or Rust is installed first by running:"
+                echo "  ./homebrew/install.sh  OR  ./proto/install.sh"
+                exit 1
+            fi
+        fi
     fi
 else
     echo "Eza already installed"
