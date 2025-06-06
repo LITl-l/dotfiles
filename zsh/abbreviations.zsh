@@ -47,6 +47,11 @@ abbr "grs" "git reset"
 abbr "grsh" "git reset --hard"
 abbr "grss" "git reset --soft"
 
+# Lazygit abbreviations
+abbr "lg" "lazygit"
+abbr "lgs" "lazygit status"
+abbr "lgb" "lazygit log"
+
 # Docker abbreviations
 abbr "d" "docker"
 abbr "dc" "docker compose"

@@ -28,6 +28,7 @@ A comprehensive, XDG-compliant dotfiles repository with modular tool configurati
 - **[proto/](proto/)** - Multi-language toolchain manager
 - **[docker/](docker/)** - Containerization platform setup
 - **[git/](git/)** - Version control with delta for better diffs
+- **[lazygit/](lazygit/)** - Terminal UI for git commands
 
 ### CLI Utilities
 - **[eza/](eza/)** - Modern replacement for ls
@@ -86,7 +87,7 @@ dotfiles/
 ├── zsh/                    # Zsh configuration
 │   ├── .zshenv            # Zsh environment file (links to ~/.zshenv)
 │   ├── .zshrc             # Main Zsh configuration
-│   ├── aliases.zsh        # Shell aliases
+│   ├── abbreviations.zsh  # Shell abbreviations (via zsh-abbr)
 │   ├── functions.zsh      # Custom functions
 │   ├── env.zsh            # Environment variables
 │   └── install.sh         # Zsh installation script
@@ -96,6 +97,10 @@ dotfiles/
 │   ├── ignore             # Global gitignore
 │   ├── attributes         # Git attributes
 │   └── install.sh         # Git installation script
+│
+├── lazygit/                # Lazygit configuration
+│   ├── config.yml         # Lazygit configuration
+│   └── install.sh         # Lazygit installation script
 │
 ├── nvim/                   # Neovim configuration
 │   ├── init.lua           # Neovim configuration with mini.nvim
