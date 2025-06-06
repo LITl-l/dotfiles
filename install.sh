@@ -192,6 +192,13 @@ main() {
     
     log_info "Starting dotfiles installation..."
     
+    # Check for build tools (required for Rust packages)
+    if ! command -v cc >/dev/null 2>&1; then
+        log_warning "Build tools not detected. Some tools (sheldon, eza) require compilation."
+        log_info "Run './install-build-tools.sh' first if you encounter compilation errors."
+        echo ""
+    fi
+    
     # Create XDG directories
     create_xdg_dirs
     

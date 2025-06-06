@@ -8,13 +8,26 @@ echo "Setting up Proto..."
 
 # Check for build essentials (required for Rust compilation)
 if ! command -v cc >/dev/null 2>&1; then
-    echo "Warning: C compiler not found. Build tools are required for Rust packages."
-    echo "Please install build essentials first:"
-    echo "  Ubuntu/Debian: sudo apt-get install build-essential"
-    echo "  CentOS/RHEL: sudo yum groupinstall 'Development Tools'"
-    echo "  Arch: sudo pacman -S base-devel"
+    echo "Error: Build tools not found. C compiler is required for Rust package compilation."
     echo ""
-    echo "Continuing with proto installation..."
+    echo "Please install build essentials first:"
+    
+    if command -v apt-get >/dev/null 2>&1; then
+        echo "  sudo apt-get update && sudo apt-get install -y build-essential"
+    elif command -v yum >/dev/null 2>&1; then
+        echo "  sudo yum groupinstall -y 'Development Tools'"
+    elif command -v pacman >/dev/null 2>&1; then
+        echo "  sudo pacman -S base-devel"
+    else
+        echo "  Install build tools for your distribution"
+    fi
+    
+    echo ""
+    echo "Alternatively, run the build tools installer:"
+    echo "  ./install-build-tools.sh"
+    echo ""
+    echo "After installing build tools, re-run this script."
+    exit 1
 fi
 
 # Install proto if not present
