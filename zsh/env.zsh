@@ -41,7 +41,7 @@ fi
 
 # Add various paths
 path=(
-    "$XDG_BIN_HOME"
+    "$HOME/.local/bin"
     "$CARGO_HOME/bin"
     "$PROTO_HOME/shims"
     "$PROTO_HOME/bin"

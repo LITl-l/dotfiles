@@ -1,11 +1,12 @@
 # Dotfiles
 
-A comprehensive, XDG-compliant dotfiles repository for a modern Linux development environment.
+A comprehensive, XDG-compliant dotfiles repository with modular tool configurations for a modern Linux development environment.
 
 ## 🚀 Features
 
+- **Modular structure** - Each tool has its own directory with individual install scripts
 - **XDG Base Directory Specification compliant** - All configurations follow the XDG standard
-- **Automated installation** - Single script to set up everything
+- **Flexible installation** - Install all tools or pick specific ones
 - **Modern tool stack** - Using the latest and greatest CLI tools
 - **Vim-centric workflow** - Vi mode in shell and consistent keybindings
 - **Performance focused** - Fast shell prompt, efficient completions
@@ -13,30 +14,23 @@ A comprehensive, XDG-compliant dotfiles repository for a modern Linux developmen
 ## 📦 Included Tools
 
 ### Shell Environment
-- **Zsh** - Modern shell with vi mode enabled
-- **Sheldon** - Fast plugin manager for Zsh
-- **Starship** - Blazing fast, customizable prompt
-- **Zoxide** - Smarter cd command that learns your habits
+- **[zsh/](zsh/)** - Modern shell with vi mode enabled
+- **[sheldon/](sheldon/)** - Fast plugin manager for Zsh
+- **[starship/](starship/)** - Blazing fast, customizable prompt
 
 ### Terminal & Editor
-- **WezTerm** - GPU-accelerated terminal emulator
-- **Neovim** - Hyperextensible Vim-based text editor with mini.nvim
-- **Tmux** - Terminal multiplexer with custom theme
+- **[wezterm/](wezterm/)** - GPU-accelerated terminal emulator
+- **[nvim/](nvim/)** - Hyperextensible Vim-based text editor with mini.nvim
+- **[tmux/](tmux/)** - Terminal multiplexer with custom theme
 
 ### Development Tools
-- **Homebrew** - Package manager for Linux
-- **Proto** - Multi-language toolchain manager
-- **Docker** - Containerization platform
-- **Git** - Version control with delta for better diffs
-- **ghq** - Repository organizer
+- **[homebrew/](homebrew/)** - Package manager for Linux
+- **[proto/](proto/)** - Multi-language toolchain manager
+- **[docker/](docker/)** - Containerization platform setup
+- **[git/](git/)** - Version control with delta for better diffs
 
 ### CLI Utilities
-- **eza** - Modern replacement for ls
-- **fzf** - Fuzzy finder for everything
-- **ripgrep** - Fast grep alternative
-- **fd** - Fast find alternative
-- **bat** - Cat with syntax highlighting
-- **delta** - Better git diffs
+- **[eza/](eza/)** - Modern replacement for ls
 
 ## 🛠️ Installation
 
@@ -46,7 +40,7 @@ A comprehensive, XDG-compliant dotfiles repository for a modern Linux developmen
 - `curl` and `git` installed
 - `sudo` access (for Docker setup)
 
-### Quick Install
+### Quick Install (All Tools)
 
 ```bash
 git clone https://github.com/yourusername/dotfiles.git ~/dotfiles
@@ -54,69 +48,89 @@ cd ~/dotfiles
 ./install.sh
 ```
 
-The installation script will:
-1. Create XDG directory structure
-2. Install Homebrew (if not present)
-3. Install all tools and dependencies
-4. Create symbolic links for configurations
-5. Set Zsh as the default shell
-6. Configure Docker permissions
-
-### Manual Installation
-
-If you prefer to install components individually:
+### Install Specific Tools
 
 ```bash
-# Create XDG directories
-mkdir -p ~/.config ~/.local/share ~/.local/state ~/.cache ~/.local/bin
+# Install only specific tools
+./install.sh zsh git nvim tmux
 
-# Link individual configurations
-ln -sf ~/dotfiles/config/zsh ~/.config/zsh
-ln -sf ~/dotfiles/config/nvim ~/.config/nvim
-# ... repeat for other tools
+# List available tools
+./install.sh --list
 
-# Install tools manually
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install zsh starship eza tmux neovim
-cargo install sheldon zoxide
-# ... etc
+# Get help
+./install.sh --help
+```
+
+### Install Individual Tools
+
+Each tool can be installed independently:
+
+```bash
+# Install just Zsh configuration
+./zsh/install.sh
+
+# Install just Neovim configuration
+./nvim/install.sh
+
+# Install just Git configuration
+./git/install.sh
 ```
 
 ## 📁 Directory Structure
 
 ```
 dotfiles/
-├── .zshenv                    # Zsh environment (sourced first)
-├── config/                    # XDG_CONFIG_HOME
-│   ├── zsh/                   # Zsh configuration
-│   │   ├── .zshenv           # Environment variables
-│   │   ├── .zshrc            # Interactive shell config
-│   │   ├── aliases.zsh       # Shell aliases
-│   │   └── functions.zsh     # Shell functions
-│   ├── sheldon/              # Plugin manager
-│   │   └── plugins.toml      # Plugin definitions
-│   ├── starship/             # Prompt configuration
-│   │   └── starship.toml
-│   ├── wezterm/              # Terminal configuration
-│   │   └── wezterm.lua
-│   ├── nvim/                 # Neovim configuration
-│   │   └── init.lua
-│   ├── tmux/                 # Tmux configuration
-│   │   └── tmux.conf
-│   ├── git/                  # Git configuration
-│   │   ├── config
-│   │   ├── ignore
-│   │   └── attributes
-│   └── eza/                  # eza configuration
-├── local/                    # XDG_DATA_HOME
-│   ├── share/
-│   ├── state/
-│   └── bin/
-├── cache/                    # XDG_CACHE_HOME
-└── install.sh               # Installation script
+├── install.sh              # Main installation script
+├── README.md               # This file
+│
+├── zsh/                    # Zsh configuration
+│   ├── .zshenv            # Zsh environment file (links to ~/.zshenv)
+│   ├── .zshrc             # Main Zsh configuration
+│   ├── aliases.zsh        # Shell aliases
+│   ├── functions.zsh      # Custom functions
+│   ├── env.zsh            # Environment variables
+│   └── install.sh         # Zsh installation script
+│
+├── git/                    # Git configuration
+│   ├── config             # Git configuration
+│   ├── ignore             # Global gitignore
+│   ├── attributes         # Git attributes
+│   └── install.sh         # Git installation script
+│
+├── nvim/                   # Neovim configuration
+│   ├── init.lua           # Neovim configuration with mini.nvim
+│   └── install.sh         # Neovim installation script
+│
+├── tmux/                   # Tmux configuration
+│   ├── tmux.conf          # Tmux configuration
+│   └── install.sh         # Tmux installation script
+│
+├── wezterm/                # WezTerm configuration
+│   ├── wezterm.lua        # WezTerm configuration
+│   └── install.sh         # WezTerm installation script
+│
+├── starship/               # Starship configuration
+│   ├── starship.toml      # Starship prompt configuration
+│   └── install.sh         # Starship installation script
+│
+├── sheldon/                # Sheldon configuration
+│   ├── plugins.toml       # Zsh plugin definitions
+│   └── install.sh         # Sheldon installation script
+│
+├── homebrew/               # Homebrew setup
+│   └── install.sh         # Homebrew installation script
+│
+├── proto/                  # Proto toolchain manager
+│   └── install.sh         # Proto installation script
+│
+├── docker/                 # Docker setup
+│   └── install.sh         # Docker configuration script
+│
+└── eza/                    # Eza configuration
+    └── install.sh         # Eza installation script
 ```
 
-## ⚙️ Configuration
+## ⚙️ Configuration Details
 
 ### Environment Variables
 
@@ -207,11 +221,22 @@ Create `~/.config/zsh/.zshrc.local` for machine-specific settings.
 
 ### Additional Sheldon Plugins
 
-Edit `~/.config/sheldon/plugins.toml` to add more Zsh plugins.
+Edit the `sheldon/plugins.toml` file to add more Zsh plugins.
 
 ## 🐛 Troubleshooting
 
-### Zsh not set as default shell
+### Tool-specific Issues
+
+Each tool directory contains its own installation script. If a specific tool fails to install or configure:
+
+```bash
+# Re-run the specific tool installation
+./TOOL_NAME/install.sh
+```
+
+### Common Issues
+
+#### Zsh not set as default shell
 
 ```bash
 chsh -s $(which zsh)
@@ -219,7 +244,7 @@ chsh -s $(which zsh)
 
 Then log out and back in.
 
-### Docker permission denied
+#### Docker permission denied
 
 ```bash
 sudo usermod -aG docker $USER
@@ -227,7 +252,7 @@ sudo usermod -aG docker $USER
 
 Then log out and back in.
 
-### Fonts not displaying correctly
+#### Fonts not displaying correctly
 
 Install a Nerd Font:
 ```bash
@@ -235,10 +260,29 @@ brew tap homebrew/cask-fonts
 brew install --cask font-jetbrains-mono-nerd-font
 ```
 
-### Neovim plugins not installing
+#### Neovim plugins not installing
 
 ```vim
 :Lazy sync
+```
+
+## 📝 Adding New Tools
+
+To add a new tool to the dotfiles:
+
+1. Create a new directory for the tool
+2. Add configuration files
+3. Create an `install.sh` script that:
+   - Installs the tool if not present
+   - Links configuration files
+   - Sets up any required directories
+4. Add the tool to the `tools` array in the main `install.sh`
+
+Example structure:
+```
+new-tool/
+├── config-file
+└── install.sh
 ```
 
 ## 📝 License

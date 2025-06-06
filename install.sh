@@ -12,15 +12,15 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # XDG Base Directory Specification
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 export XDG_BIN_HOME="$HOME/.local/bin"
-
-# Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Logging functions
 log_info() {
@@ -50,256 +50,137 @@ create_xdg_dirs() {
     log_success "XDG directories created"
 }
 
-# Check if command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Install Homebrew for Linux
-install_homebrew() {
-    if command_exists brew; then
-        log_info "Homebrew already installed"
-        return
-    fi
+# Run individual tool installation scripts
+install_tool() {
+    local tool="$1"
+    local install_script="$SCRIPT_DIR/$tool/install.sh"
     
-    log_info "Installing Homebrew for Linux..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    
-    # Add Homebrew to PATH
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.profile"
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    
-    log_success "Homebrew installed"
-}
-
-# Install packages via Homebrew
-install_brew_packages() {
-    log_info "Installing packages via Homebrew..."
-    
-    local packages=(
-        "zsh"
-        "starship"
-        "eza"
-        "tmux"
-        "neovim"
-        "ghq"
-        "git"
-        "curl"
-        "wget"
-        "ripgrep"
-        "fd"
-        "fzf"
-        "bat"
-        "jq"
-        "yq"
-        "delta"
-    )
-    
-    for package in "${packages[@]}"; do
-        if brew list "$package" &>/dev/null; then
-            log_info "$package already installed"
+    if [ -f "$install_script" ]; then
+        log_info "Installing $tool..."
+        if bash "$install_script"; then
+            log_success "$tool installation completed"
         else
-            log_info "Installing $package..."
-            brew install "$package"
+            log_error "$tool installation failed"
+            return 1
         fi
-    done
-    
-    log_success "Brew packages installed"
-}
-
-# Install Rust and cargo packages
-install_rust_packages() {
-    if ! command_exists cargo; then
-        log_info "Installing Rust..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source "$HOME/.cargo/env"
-    fi
-    
-    log_info "Installing Rust packages..."
-    
-    local packages=(
-        "sheldon"
-        "zoxide"
-    )
-    
-    for package in "${packages[@]}"; do
-        if command_exists "$package"; then
-            log_info "$package already installed"
-        else
-            log_info "Installing $package..."
-            cargo install "$package"
-        fi
-    done
-    
-    log_success "Rust packages installed"
-}
-
-# Install WezTerm
-install_wezterm() {
-    if command_exists wezterm; then
-        log_info "WezTerm already installed"
-        return
-    fi
-    
-    log_info "Installing WezTerm..."
-    
-    # Get the latest release URL
-    local download_url=$(curl -s https://api.github.com/repos/wez/wezterm/releases/latest | \
-        grep "browser_download_url.*Linux.*AppImage" | \
-        cut -d '"' -f 4 | \
-        grep -v ".zsync")
-    
-    if [ -z "$download_url" ]; then
-        log_error "Failed to get WezTerm download URL"
-        return 1
-    fi
-    
-    # Download and install
-    wget -O "$XDG_BIN_HOME/wezterm" "$download_url"
-    chmod +x "$XDG_BIN_HOME/wezterm"
-    
-    log_success "WezTerm installed"
-}
-
-# Install Proto
-install_proto() {
-    if command_exists proto; then
-        log_info "Proto already installed"
-        return
-    fi
-    
-    log_info "Installing Proto..."
-    curl -fsSL https://moonrepo.dev/install/proto.sh | bash -s -- --yes
-    
-    log_success "Proto installed"
-}
-
-# Setup Docker
-setup_docker() {
-    log_info "Setting up Docker..."
-    
-    if ! command_exists docker; then
-        log_warning "Docker not installed. Please install Docker manually."
-        return
-    fi
-    
-    # Create docker group if it doesn't exist
-    if ! getent group docker >/dev/null 2>&1; then
-        log_info "Creating docker group..."
-        sudo groupadd docker
-    fi
-    
-    # Add current user to docker group
-    if ! groups "$USER" | grep -q docker; then
-        log_info "Adding $USER to docker group..."
-        sudo usermod -aG docker "$USER"
-        log_warning "You need to log out and back in for docker group changes to take effect"
-    fi
-    
-    log_success "Docker setup complete"
-}
-
-# Link configuration files
-link_configs() {
-    log_info "Linking configuration files..."
-    
-    # Create symlinks for each config
-    local configs=(
-        "zsh:$XDG_CONFIG_HOME/zsh"
-        "sheldon:$XDG_CONFIG_HOME/sheldon"
-        "starship:$XDG_CONFIG_HOME/starship"
-        "wezterm:$XDG_CONFIG_HOME/wezterm"
-        "nvim:$XDG_CONFIG_HOME/nvim"
-        "tmux:$XDG_CONFIG_HOME/tmux"
-        "git:$XDG_CONFIG_HOME/git"
-        "eza:$XDG_CONFIG_HOME/eza"
-    )
-    
-    for config in "${configs[@]}"; do
-        local src="${config%%:*}"
-        local dest="${config#*:}"
-        
-        if [ -e "$dest" ] && [ ! -L "$dest" ]; then
-            log_warning "$dest exists and is not a symlink. Backing up..."
-            mv "$dest" "$dest.backup.$(date +%Y%m%d%H%M%S)"
-        fi
-        
-        if [ ! -e "$dest" ]; then
-            ln -sf "$SCRIPT_DIR/config/$src" "$dest"
-            log_success "Linked $src config"
-        fi
-    done
-    
-    # Special case for .zshenv in home directory
-    if [ ! -e "$HOME/.zshenv" ]; then
-        ln -sf "$SCRIPT_DIR/.zshenv" "$HOME/.zshenv"
-        log_success "Linked .zshenv to home directory"
-    fi
-}
-
-# Setup Zsh as default shell
-setup_zsh() {
-    log_info "Setting up Zsh..."
-    
-    local zsh_path=$(command -v zsh)
-    
-    if [ -z "$zsh_path" ]; then
-        log_error "Zsh not found"
-        return 1
-    fi
-    
-    # Add zsh to /etc/shells if not already there
-    if ! grep -q "$zsh_path" /etc/shells; then
-        log_info "Adding $zsh_path to /etc/shells..."
-        echo "$zsh_path" | sudo tee -a /etc/shells
-    fi
-    
-    # Change default shell if not already zsh
-    if [ "$SHELL" != "$zsh_path" ]; then
-        log_info "Changing default shell to Zsh..."
-        chsh -s "$zsh_path"
-        log_success "Default shell changed to Zsh. Please log out and back in."
     else
-        log_info "Zsh is already the default shell"
+        log_warning "No installation script found for $tool"
     fi
 }
 
-# Install abbreviations via sheldon
-setup_abbreviations() {
-    log_info "Setting up abbreviations..."
+# Install all tools
+install_all_tools() {
+    local tools=(
+        "homebrew"
+        "zsh"
+        "git"
+        "starship"
+        "sheldon"
+        "nvim"
+        "tmux"
+        "wezterm"
+        "eza"
+        "proto"
+        "docker"
+    )
     
-    # This will be handled by sheldon plugins
-    log_success "Abbreviations will be configured via sheldon"
+    for tool in "${tools[@]}"; do
+        install_tool "$tool"
+    done
+}
+
+# Install specific tools
+install_specific_tools() {
+    for tool in "$@"; do
+        if [ -d "$SCRIPT_DIR/$tool" ]; then
+            install_tool "$tool"
+        else
+            log_error "Tool '$tool' not found"
+        fi
+    done
+}
+
+# List available tools
+list_tools() {
+    log_info "Available tools:"
+    for dir in "$SCRIPT_DIR"/*/; do
+        if [ -f "$dir/install.sh" ]; then
+            tool=$(basename "$dir")
+            echo "  - $tool"
+        fi
+    done
+}
+
+# Show usage information
+show_usage() {
+    echo "Usage: $0 [OPTIONS] [TOOLS...]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help     Show this help message"
+    echo "  -l, --list     List available tools"
+    echo "  -a, --all      Install all tools (default)"
+    echo ""
+    echo "Examples:"
+    echo "  $0                    # Install all tools"
+    echo "  $0 --all              # Install all tools"
+    echo "  $0 zsh git nvim       # Install specific tools"
+    echo "  $0 --list             # List available tools"
+    echo ""
+    echo "Available tools can be installed individually by running:"
+    echo "  ./TOOL_NAME/install.sh"
 }
 
 # Main installation function
 main() {
+    local install_all=true
+    local specific_tools=()
+    
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            -l|--list)
+                list_tools
+                exit 0
+                ;;
+            -a|--all)
+                install_all=true
+                shift
+                ;;
+            *)
+                install_all=false
+                specific_tools+=("$1")
+                shift
+                ;;
+        esac
+    done
+    
     log_info "Starting dotfiles installation..."
     
     # Create XDG directories
     create_xdg_dirs
     
     # Install tools
-    install_homebrew
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    install_brew_packages
-    install_rust_packages
-    install_wezterm
-    install_proto
-    setup_docker
-    
-    # Link configuration files
-    link_configs
-    
-    # Setup shell
-    setup_zsh
-    
-    # Setup abbreviations
-    setup_abbreviations
+    if [ "$install_all" = true ]; then
+        install_all_tools
+    else
+        install_specific_tools "${specific_tools[@]}"
+    fi
     
     log_success "Dotfiles installation complete!"
     log_info "Please restart your terminal or run 'exec zsh' to apply changes"
+    
+    # Additional setup notes
+    echo ""
+    echo "Additional setup notes:"
+    echo "- Create ~/.config/git/config.local with your git user information"
+    echo "- Start tmux and press Ctrl+a + I to install tmux plugins"
+    echo "- Run 'sheldon lock' to update zsh plugins"
+    echo "- If you installed Docker, log out and back in for group changes to take effect"
 }
 
-# Run main function
+# Run main function with all arguments
 main "$@"
