@@ -106,8 +106,8 @@ eval "$(starship init zsh)"
 # Load local configuration if exists
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
 
-# Source aliases
-[[ -f "$ZDOTDIR/aliases.zsh" ]] && source "$ZDOTDIR/aliases.zsh"
+# Source abbreviations
+[[ -f "$ZDOTDIR/abbreviations.zsh" ]] && source "$ZDOTDIR/abbreviations.zsh"
 
 # Source functions
 [[ -f "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"
