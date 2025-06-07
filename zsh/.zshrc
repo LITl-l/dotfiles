@@ -113,28 +113,13 @@ eval "$(starship init zsh)"
 # Source functions
 [[ -f "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"
 
-# Source abbreviations after plugin is loaded
-# Wait for abbr to be available before loading abbreviations
-() {
-    local max_attempts=10
-    local attempt=0
-    while (( attempt < max_attempts )) && ! command -v abbr >/dev/null 2>&1; do
-        sleep 0.1
-        (( attempt++ ))
-    done
-    
-    if command -v abbr >/dev/null 2>&1; then
-        # Only load abbreviations if they haven't been loaded yet
-        # Check if a common abbreviation exists
-        if ! abbr list | grep -q "^g="; then
-            [[ -f "$ZDOTDIR/abbreviations.zsh" ]] && source "$ZDOTDIR/abbreviations.zsh"
-        fi
-    else
-        # Fallback to aliases if abbr is not available
-        echo "Warning: zsh-abbr not loaded, using aliases instead"
-        [[ -f "$ZDOTDIR/aliases.zsh" ]] && source "$ZDOTDIR/aliases.zsh"
-    fi
-}
+# Initialize zsh-abbr with copied user abbreviations
+if command -v abbr >/dev/null 2>&1; then
+    # Load user abbreviations from the copied file
+    [[ -f "$ZDOTDIR/user-abbreviations" ]] && source "$ZDOTDIR/user-abbreviations"
+else
+    echo "Warning: zsh-abbr not available"
+fi
 # proto
 export PROTO_HOME="$XDG_DATA_HOME/proto";
 export PATH="$PROTO_HOME/shims:$PROTO_HOME/bin:$PATH";
