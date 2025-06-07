@@ -12,6 +12,16 @@ export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
 # Path additions
 export PATH="$HOME/.local/bin:$PATH"
 
+# Homebrew on Linux
+if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi
+
+# Proto toolchain manager
+if [ -d "$HOME/.local/share/proto/bin" ]; then
+    export PATH="$HOME/.local/share/proto/bin:$PATH"
+fi
+
 # Source the rest of zsh configuration from XDG config
 if [ -f "$ZDOTDIR/.zshenv" ]; then
     source "$ZDOTDIR/.zshenv"
