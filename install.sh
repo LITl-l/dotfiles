@@ -50,7 +50,10 @@ create_xdg_dirs() {
     log_success "XDG directories created"
 }
 
-# Run individual tool installation scripts
+# Global array to track failed installations
+FAILED_TOOLS=()
+
+# Run individual tool installation scripts (resilient version)
 install_tool() {
     local tool="$1"
     local install_script="$SCRIPT_DIR/$tool/install.sh"
@@ -67,20 +70,26 @@ install_tool() {
                     export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
                 fi
                 log_success "$tool installation completed"
+                return 0
             else
-                log_error "$tool installation failed"
+                log_error "$tool installation failed - continuing with other tools"
+                FAILED_TOOLS+=("$tool")
                 return 1
             fi
         else
             if bash "$install_script"; then
                 log_success "$tool installation completed"
+                return 0
             else
-                log_error "$tool installation failed"
+                log_error "$tool installation failed - continuing with other tools"
+                FAILED_TOOLS+=("$tool")
                 return 1
             fi
         fi
     else
         log_warning "No installation script found for $tool"
+        FAILED_TOOLS+=("$tool")
+        return 1
     fi
 }
 
@@ -98,11 +107,11 @@ install_all_tools() {
         "tmux"
         "wezterm"
         "eza"
-        "docker"
     )
     
     for tool in "${tools[@]}"; do
-        install_tool "$tool"
+        # Continue installation even if individual tools fail
+        install_tool "$tool" || true
         
         # After installing homebrew, ensure it's available for subsequent tools
         if [ "$tool" = "homebrew" ] && command -v brew >/dev/null 2>&1; then
@@ -130,11 +139,62 @@ install_all_tools() {
 install_specific_tools() {
     for tool in "$@"; do
         if [ -d "$SCRIPT_DIR/$tool" ]; then
-            install_tool "$tool"
+            # Continue installation even if individual tools fail
+            install_tool "$tool" || true
         else
             log_error "Tool '$tool' not found"
+            FAILED_TOOLS+=("$tool")
         fi
     done
+}
+
+# Report failed tool installations
+report_failed_tools() {
+    if [ ${#FAILED_TOOLS[@]} -eq 0 ]; then
+        return 0
+    fi
+    
+    echo ""
+    log_error "The following tools failed to install:"
+    echo ""
+    
+    for tool in "${FAILED_TOOLS[@]}"; do
+        case "$tool" in
+            "homebrew")
+                echo "❌ $tool - Install manually:"
+                echo "   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash"
+                echo ""
+                ;;
+            "proto")
+                echo "❌ $tool - Install manually:"
+                echo "   curl -fsSL https://moonrepo.dev/install/proto.sh | bash"
+                echo "   Then: proto install rust"
+                echo ""
+                ;;
+            "docker")
+                echo "❌ $tool - Install manually:"
+                echo "   Run: ./docker/install.sh"
+                echo "   Or visit: https://docs.docker.com/engine/install/"
+                echo ""
+                ;;
+            "zsh"|"git"|"lazygit"|"starship"|"sheldon"|"nvim"|"tmux"|"wezterm"|"eza")
+                echo "❌ $tool - Re-run installation:"
+                echo "   ./$tool/install.sh"
+                echo ""
+                ;;
+            *)
+                echo "❌ $tool - Check tool directory or installation script"
+                echo ""
+                ;;
+        esac
+    done
+    
+    echo "After resolving the issues above, you can re-run the installation:"
+    echo "  ./install.sh"
+    echo ""
+    echo "Or install specific tools:"
+    echo "  ./install.sh ${FAILED_TOOLS[*]}"
+    echo ""
 }
 
 # List available tools
@@ -214,7 +274,15 @@ main() {
         install_specific_tools "${specific_tools[@]}"
     fi
     
-    log_success "Dotfiles installation complete!"
+    # Report any failed installations
+    report_failed_tools
+    
+    # Final status message
+    if [ ${#FAILED_TOOLS[@]} -eq 0 ]; then
+        log_success "Dotfiles installation complete!"
+    else
+        log_warning "Dotfiles installation completed with ${#FAILED_TOOLS[@]} failed tool(s)"
+    fi
     log_info "Please restart your terminal or run 'exec zsh' to apply changes"
     
     # Additional setup notes
