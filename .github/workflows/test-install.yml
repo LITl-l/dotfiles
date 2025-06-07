@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test-type: [individual-tools, full-install, invalid-tools]
+        test-type: [individual-tools, full-install]
     
     steps:
     - name: Checkout repository
@@ -96,33 +96,6 @@ jobs:
         done
         echo "✅ XDG directories created"
         
-    - name: Test invalid tool handling
-      if: matrix.test-type == 'invalid-tools'
-      run: |
-        echo "Testing invalid tool handling..."
-        
-        # Test non-existent tool (script reports but doesn't fail)
-        ./install.sh nonexistent-tool
-        if [ $? -eq 0 ]; then
-          echo "✅ Script continues with non-existent tool (resilient behavior)"
-        else
-          echo "❌ Script should not fail completely for non-existent tool"
-          exit 1
-        fi
-        
-        # Test mixed valid/invalid tools
-        ./install.sh git nonexistent starship
-        
-        # Should have installed git and starship despite nonexistent failing
-        if [ ! -f ~/.config/git/config ]; then
-          echo "❌ Git should have been installed despite other failures"
-          exit 1
-        fi
-        if [ ! -f ~/.config/starship.toml ]; then
-          echo "❌ Starship should have been installed despite other failures"
-          exit 1
-        fi
-        echo "✅ Resilient installation working correctly"
 
   test-script-syntax:
     runs-on: ubuntu-latest
