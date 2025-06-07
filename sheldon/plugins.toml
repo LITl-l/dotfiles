@@ -1,5 +1,11 @@
 # Sheldon plugin configuration
 
+# Global settings
+shell = "zsh"
+
+# Default apply setting for plugins without explicit apply
+apply = ["source"]
+
 # Shell completions
 [plugins.zsh-completions]
 github = "zsh-users/zsh-completions"
