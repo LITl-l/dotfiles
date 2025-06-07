@@ -35,10 +35,18 @@ if ! command -v proto >/dev/null 2>&1; then
     echo "Installing Proto..."
     curl -fsSL https://moonrepo.dev/install/proto.sh | bash -s -- --yes
     
-    # Source proto environment
-    if [ -f "$HOME/.proto/env" ]; then
-        source "$HOME/.proto/env"
+    # Proto is installed to a specific location
+    PROTO_BIN="$HOME/.local/share/proto/bin/proto"
+    
+    # Check if proto was installed successfully
+    if [ ! -f "$PROTO_BIN" ]; then
+        echo "Error: Proto installation failed. Expected binary not found at $PROTO_BIN"
+        exit 1
     fi
+    
+    # Add proto to PATH for this session
+    export PATH="$HOME/.local/share/proto/bin:$PATH"
+    echo "Proto installed successfully"
 else
     echo "Proto already installed"
 fi
