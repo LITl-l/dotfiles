@@ -1,4 +1,4 @@
-abbr -g "git git"="git git"
+# zsh-abbr user abbreviations
 abbr ".."="cd .."
 abbr "..."="cd ../.."
 abbr "...."="cd ../../.."

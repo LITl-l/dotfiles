@@ -49,6 +49,7 @@ dsh() {
 }
 
 # Git branch fuzzy finder
+unalias gb 2>/dev/null || true
 gb() {
     local branches branch
     branches=$(git branch --all | grep -v HEAD) &&
