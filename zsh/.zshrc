@@ -113,13 +113,6 @@ eval "$(starship init zsh)"
 # Source functions
 [[ -f "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"
 
-# Initialize zsh-abbr with copied user abbreviations
-if command -v abbr >/dev/null 2>&1; then
-    # Load user abbreviations from the copied file
-    [[ -f "$ZDOTDIR/user-abbreviations" ]] && source "$ZDOTDIR/user-abbreviations"
-else
-    echo "Warning: zsh-abbr not available"
-fi
 # proto
 export PROTO_HOME="$XDG_DATA_HOME/proto";
 export PATH="$PROTO_HOME/shims:$PROTO_HOME/bin:$PATH";

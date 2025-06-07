@@ -19,7 +19,6 @@ rm -rf "$HOME/.config/zsh/zsh" "$HOME/.config/zsh/.zshenv"
 # Link zsh configuration files individually
 ln -sf "$SCRIPT_DIR/.zshenv" "$HOME/.zshenv"
 ln -sf "$SCRIPT_DIR/.zshrc" "$HOME/.config/zsh/.zshrc"
-ln -sf "$SCRIPT_DIR/user-abbreviations" "$HOME/.config/zsh/user-abbreviations"
 ln -sf "$SCRIPT_DIR/env.zsh" "$HOME/.config/zsh/env.zsh"
 ln -sf "$SCRIPT_DIR/functions.zsh" "$HOME/.config/zsh/functions.zsh"
 
