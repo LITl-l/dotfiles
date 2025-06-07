@@ -14,7 +14,7 @@ mkdir -p "$HOME/.local/state/zsh"
 mkdir -p "$HOME/.cache/zsh"
 
 # Clean up any conflicting symlinks first
-rm -f "$HOME/.config/zsh/zsh" "$HOME/.config/zsh/.zshenv"
+rm -rf "$HOME/.config/zsh/zsh" "$HOME/.config/zsh/.zshenv"
 
 # Link zsh configuration files individually
 ln -sf "$SCRIPT_DIR/.zshenv" "$HOME/.zshenv"

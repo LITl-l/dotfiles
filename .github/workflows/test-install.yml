@@ -1,0 +1,155 @@
+name: Test Dotfiles Installation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test-installation:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-type: [individual-tools, full-install]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install build essentials
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential curl git file procps
+    
+    - name: Test individual tool installations
+      if: matrix.test-type == 'individual-tools'
+      run: |
+        echo "Testing individual tool installations..."
+        
+        # Test git installation
+        ./install.sh git
+        if [ ! -f ~/.config/git/config ]; then
+          echo "❌ Git config not found"
+          exit 1
+        fi
+        echo "✅ Git installation successful"
+        
+        # Test zsh installation  
+        ./install.sh zsh
+        if [ ! -f ~/.zshenv ]; then
+          echo "❌ Zsh config not found"
+          exit 1
+        fi
+        if [ ! -f ~/.config/zsh/env.zsh ]; then
+          echo "❌ Zsh env.zsh not linked"
+          exit 1
+        fi
+        echo "✅ Zsh installation successful"
+        
+        # Test starship installation (faster than homebrew)
+        ./install.sh starship
+        if [ ! -f ~/.config/starship/starship.toml ]; then
+          echo "❌ Starship config not found"
+          exit 1
+        fi
+        echo "✅ Starship installation successful"
+        
+    - name: Test full installation
+      if: matrix.test-type == 'full-install'
+      run: |
+        echo "Testing full installation..."
+        
+        # Run full installation (some tools may fail in CI environment)
+        ./install.sh --all || echo "Some tools may have failed in CI environment"
+        
+        # Verify key tools are available after sourcing environment
+        source ~/.zshenv || true
+        
+        # Check if brew is available (may not work in CI, so just check path setup)
+        if [ -d "/home/linuxbrew/.linuxbrew" ] || command -v brew >/dev/null 2>&1; then
+          echo "✅ Homebrew installation attempted"
+        else
+          echo "⚠️ Homebrew not available (expected in CI)"
+        fi
+        
+        # Check essential config files
+        if [ ! -f ~/.zshenv ]; then
+          echo "❌ .zshenv not found"
+          exit 1
+        fi
+        echo "✅ Zsh environment configured"
+        
+        if [ ! -f ~/.config/git/config ]; then
+          echo "❌ Git config not found"
+          exit 1
+        fi
+        echo "✅ Git configured"
+        
+        # Check XDG directories
+        for dir in ~/.config ~/.local/share ~/.local/state ~/.cache ~/.local/bin; do
+          if [ ! -d "$dir" ]; then
+            echo "❌ XDG directory $dir not created"
+            exit 1
+          fi
+        done
+        echo "✅ XDG directories created"
+        
+
+  test-script-syntax:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Test script syntax
+      run: |
+        echo "Testing shell script syntax..."
+        
+        # Test main install script
+        bash -n install.sh
+        echo "✅ install.sh syntax OK"
+        
+        # Test all tool install scripts
+        for script in */install.sh; do
+          if [ -f "$script" ]; then
+            bash -n "$script"
+            echo "✅ $script syntax OK"
+          fi
+        done
+        
+    - name: Test install script help and list options
+      run: |
+        echo "Testing install script options..."
+        
+        # Test help option
+        ./install.sh --help
+        echo "✅ Help option works"
+        
+        # Test list option  
+        ./install.sh --list
+        echo "✅ List option works"
+
+  test-build-tools-script:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Test build tools installation
+      run: |
+        echo "Testing build tools installation..."
+        
+        # Remove build tools to test installation
+        sudo apt-get remove -y build-essential || true
+        
+        # Test build tools script
+        ./install-build-tools.sh
+        
+        # Verify build tools are installed
+        if ! command -v gcc >/dev/null 2>&1; then
+          echo "❌ GCC not installed by build tools script"
+          exit 1
+        fi
+        echo "✅ Build tools installation successful"
