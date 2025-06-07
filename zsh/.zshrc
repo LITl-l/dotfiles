@@ -124,7 +124,11 @@ eval "$(starship init zsh)"
     done
     
     if command -v abbr >/dev/null 2>&1; then
-        [[ -f "$ZDOTDIR/abbreviations.zsh" ]] && source "$ZDOTDIR/abbreviations.zsh"
+        # Only load abbreviations if they haven't been loaded yet
+        # Check if a common abbreviation exists
+        if ! abbr list | grep -q "^g="; then
+            [[ -f "$ZDOTDIR/abbreviations.zsh" ]] && source "$ZDOTDIR/abbreviations.zsh"
+        fi
     else
         # Fallback to aliases if abbr is not available
         echo "Warning: zsh-abbr not loaded, using aliases instead"
