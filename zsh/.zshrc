@@ -9,6 +9,10 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
+# Initialize completion system before loading plugins
+autoload -Uz compinit
+compinit
+
 # Sheldon plugin manager
 eval "$(sheldon source)"
 
@@ -106,8 +110,27 @@ eval "$(starship init zsh)"
 # Load local configuration if exists
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
 
-# Source abbreviations
-[[ -f "$ZDOTDIR/abbreviations.zsh" ]] && source "$ZDOTDIR/abbreviations.zsh"
-
 # Source functions
 [[ -f "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"
+
+# Source abbreviations after plugin is loaded
+# Wait for abbr to be available before loading abbreviations
+() {
+    local max_attempts=10
+    local attempt=0
+    while (( attempt < max_attempts )) && ! command -v abbr >/dev/null 2>&1; do
+        sleep 0.1
+        (( attempt++ ))
+    done
+    
+    if command -v abbr >/dev/null 2>&1; then
+        [[ -f "$ZDOTDIR/abbreviations.zsh" ]] && source "$ZDOTDIR/abbreviations.zsh"
+    else
+        # Fallback to aliases if abbr is not available
+        echo "Warning: zsh-abbr not loaded, using aliases instead"
+        [[ -f "$ZDOTDIR/aliases.zsh" ]] && source "$ZDOTDIR/aliases.zsh"
+    fi
+}
+# proto
+export PROTO_HOME="$XDG_DATA_HOME/proto";
+export PATH="$PROTO_HOME/shims:$PROTO_HOME/bin:$PATH";
