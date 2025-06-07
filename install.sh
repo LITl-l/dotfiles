@@ -111,6 +111,11 @@ install_all_tools() {
         
         # After installing proto, ensure it and rust are available for subsequent tools
         if [ "$tool" = "proto" ]; then
+            # Add proto to PATH if it was just installed
+            if [ -d "$HOME/.local/share/proto/bin" ]; then
+                export PATH="$HOME/.local/share/proto/bin:$PATH"
+            fi
+            
             if command -v proto >/dev/null 2>&1; then
                 log_info "Proto toolchain manager is now available for subsequent installations"
                 if proto run cargo -- --version >/dev/null 2>&1; then
