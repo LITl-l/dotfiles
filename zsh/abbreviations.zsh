@@ -1,5 +1,5 @@
 # Shell aliases and shortcuts
-# Using aliases instead of zsh-abbr for better compatibility
+# Using aliases for reliable functionality
 
 # Navigation shortcuts
 alias ..='cd ..'
