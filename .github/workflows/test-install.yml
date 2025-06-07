@@ -42,6 +42,10 @@ jobs:
           echo "❌ Zsh config not found"
           exit 1
         fi
+        if [ ! -f ~/.config/zsh/.zshrc ]; then
+          echo "❌ Zsh .zshrc not linked"
+          exit 1
+        fi
         if [ ! -f ~/.config/zsh/env.zsh ]; then
           echo "❌ Zsh env.zsh not linked"
           exit 1
