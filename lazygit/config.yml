@@ -27,9 +27,8 @@ gui:
       - '#f38ba8' # Catppuccin red
     defaultFgColor:
       - '#cdd6f4' # Catppuccin text
-
   # Window settings
-  windowSize: 'normal' # one of 'normal' | 'half' | 'full'
+  screenMode: 'normal' # one of 'normal' | 'half' | 'full'
   scrollHeight: 2
   scrollPastBottom: true
   scrollOffMargin: 2
@@ -41,7 +40,6 @@ gui:
   language: 'auto' # one of 'auto' | 'en' | 'zh' | 'pl' | 'nl' | 'ja' | 'ko'
   timeFormat: '02 Jan 06 15:04 MST'
   shortTimeFormat: '15:04'
-  
   # Display settings
   showListFooter: true
   showFileTree: true
@@ -52,27 +50,21 @@ gui:
   showIcons: true
   commandLogSize: 8
   splitDiff: 'auto' # one of 'auto' | 'always'
-  skipUnstageLineWarning: false
+  skipDiscardChangeWarning: false
   skipStashWarning: false
   skipNoStagedFilesWarning: false
   skipRewordInEditorWarning: false
-  
   # Commit message length
   commitLength:
     show: true
-  
   # Mouse support
   mouseEvents: true
-  
   # File editing
   skipHookPrefix: WIP
-  
   # Border style
   border: 'single' # one of 'single' | 'double' | 'rounded' | 'hidden'
-  
   # Animations
   animateExplosion: true
-
 git:
   # Paging
   paging:
@@ -80,47 +72,40 @@ git:
     pager: delta --dark --paging=never
     useConfig: false
     externalDiffCommand: ''
-
   # Commit settings
   commit:
     signOff: false
     verbose: 'default' # one of 'default' | 'always' | 'never'
-    
   # Merging
   merging:
     manualCommit: false
     args: ''
-    
   # Logging
   log:
     order: 'topo-order' # one of 'date-order' | 'author-date-order' | 'topo-order' | 'default'
     showGraph: 'when-maximised' # one of 'always' | 'never' | 'when-maximised'
     showWholeGraph: false
-    
   # Skipping
   skipHookPrefix: WIP
   autoFetch: true
   autoRefresh: true
   fetchAll: true # Pass --all flag when running git fetch
   branchLogCmd: 'git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --'
-  allBranchesLogCmd: 'git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium'
   overrideGpg: false # prevents lazygit from spawning a separate process when using GPG
   disableForcePushing: false
   parseEmoji: false
   diffContextSize: 3 # how many lines of context are shown around a change in diffs
-  
   # Checkout behavior
   truncateCopiedCommitHashesTo: 12
-
+  allBranchesLogCmds:
+    - git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium
 # Update checking
 update:
   method: prompt # can be: prompt | background | never
   days: 14 # how often an update is checked for
-
 # Confirmation for actions
 confirmOnQuit: false
 quitOnTopLevelReturn: false
-
 # Keybindings (using vim-style where possible)
 keybinding:
   universal:
@@ -162,7 +147,7 @@ keybinding:
     scrollDownMain-alt1: 'J' # main panel scroll down
     scrollUpMain-alt2: '<c-u>' # main panel scroll up
     scrollDownMain-alt2: '<c-d>' # main panel scroll down
-    executeCustomCommand: ':'
+    executeShellCommand: ':'
     createRebaseOptionsMenu: 'm'
     pushFiles: 'P'
     pullFiles: 'p'
@@ -184,11 +169,9 @@ keybinding:
     toggleWhitespaceInDiffView: '<c-w>'
     increaseContextInDiffView: '}'
     decreaseContextInDiffView: '{'
-    
   status:
     checkForUpdate: 'u'
     recentRepos: '<enter>'
-    
   files:
     commitChanges: 'c'
     commitChangesWithoutHook: 'w' # commit changes without pre-commit hook
@@ -204,7 +187,6 @@ keybinding:
     toggleTreeView: '`'
     openMergeTool: 'M'
     openStatusFilter: '<c-b>'
-    
   branches:
     createPullRequest: 'o'
     viewPullRequestOptions: 'O'
@@ -219,7 +201,6 @@ keybinding:
     pushTag: 'P'
     setUpstream: 'u' # set as upstream of checked-out branch
     fetchRemote: 'f'
-    
   commits:
     squashDown: 's'
     renameCommit: 'r'
@@ -242,25 +223,20 @@ keybinding:
     copyCommitMessageToClipboard: '<c-y>'
     openLogMenu: '<c-l>'
     viewBisectOptions: 'b'
-    
   stash:
     popStash: 'g'
     renameStash: 'r'
-    
   commitFiles:
     checkoutCommitFile: 'c'
-    
   main:
     toggleDragSelect: 'v'
     toggleDragSelect-alt: 'V'
     toggleSelectHunk: 'a'
     pickBothHunks: 'b'
-    
   submodules:
     init: 'i'
     update: 'u'
     bulkMenu: 'b'
-
 # OS specific configs
 os:
   editPreset: 'nvim' # see 'Configuring File Editing' section
@@ -269,7 +245,6 @@ os:
   editAtLineAndWait: 'nvim +{{line}} {{filename}}'
   open: 'xdg-open {{filename}}'
   openLink: 'xdg-open {{link}}'
-
 # Custom commands
 customCommands:
   - key: 'C'
@@ -277,7 +252,7 @@ customCommands:
     description: 'commit with commitizen'
     context: 'files'
     loadingText: 'opening commitizen commit tool'
-    subprocess: true
+    output: terminal
   - key: 'T'
     command: 'git tag -a {{.Form.TagName}} -m "{{.Form.Message}}"'
     description: 'Create annotated tag'
@@ -293,13 +268,11 @@ customCommands:
     command: 'git todo'
     description: 'Add TODO comment'
     context: 'files'
-    subprocess: true
-
+    output: terminal
 # Services (for creating PRs, issues, etc.)
 services:
   'github.com': 'github.com'
   'gitlab.com': 'gitlab.com'
-
 # Notifications
 notARepository: 'prompt' # one of: 'prompt' | 'create' | 'skip'
 promptToReturnFromSubprocess: true
