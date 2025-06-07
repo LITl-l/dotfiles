@@ -50,7 +50,7 @@ jobs:
         
         # Test starship installation (faster than homebrew)
         ./install.sh starship
-        if [ ! -f ~/.config/starship.toml ]; then
+        if [ ! -f ~/.config/starship/starship.toml ]; then
           echo "❌ Starship config not found"
           exit 1
         fi
