@@ -197,6 +197,63 @@ report_failed_tools() {
     echo ""
 }
 
+# Setup shell environment after installation
+setup_environment() {
+    log_info "Setting up shell environment..."
+    
+    # Ensure all PATH additions are available in current session
+    
+    # Add homebrew to PATH if installed
+    if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+    fi
+    
+    # Add proto to PATH if installed
+    if [ -d "$HOME/.local/share/proto/bin" ]; then
+        export PATH="$HOME/.local/share/proto/bin:$PATH"
+    fi
+    
+    # Add local bin to PATH
+    if [ -d "$HOME/.local/bin" ]; then
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+    
+    # Source zsh environment if .zshenv exists
+    if [ -f "$HOME/.zshenv" ]; then
+        export ZDOTDIR="$HOME/.config/zsh"
+        # Create a temporary file with environment setup
+        cat > "/tmp/zsh_env_setup.zsh" << 'EOF'
+#!/usr/bin/env zsh
+# Temporary environment setup for post-installation
+
+# Source the zshenv to get proper PATH
+source ~/.zshenv
+
+# Print current PATH and available commands
+echo "Environment setup complete!"
+echo "PATH includes:"
+echo "$PATH" | tr ':' '\n' | grep -E "(homebrew|proto|local)" | head -5
+
+echo ""
+echo "Available commands:"
+for cmd in brew proto cargo zsh git starship sheldon eza wezterm; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  ✓ $cmd: $(command -v "$cmd")"
+    else
+        echo "  ✗ $cmd: not found"
+    fi
+done
+EOF
+    fi
+    
+    echo ""
+    log_info "To activate the new environment:"
+    echo "  exec zsh"
+    echo ""
+    echo "Or start a new terminal session"
+}
+
 # List available tools
 list_tools() {
     log_info "Available tools:"
@@ -277,13 +334,15 @@ main() {
     # Report any failed installations
     report_failed_tools
     
+    # Setup environment for current session
+    setup_environment
+    
     # Final status message
     if [ ${#FAILED_TOOLS[@]} -eq 0 ]; then
         log_success "Dotfiles installation complete!"
     else
         log_warning "Dotfiles installation completed with ${#FAILED_TOOLS[@]} failed tool(s)"
     fi
-    log_info "Please restart your terminal or run 'exec zsh' to apply changes"
     
     # Additional setup notes
     echo ""
