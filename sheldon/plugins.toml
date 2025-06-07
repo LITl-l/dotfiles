@@ -25,6 +25,10 @@ use = ["{{ name }}.zsh"]
 github = "zsh-users/zsh-history-substring-search"
 use = ["{{ name }}.zsh"]
 
+# Abbreviations support (like fish shell)
+[plugins.zsh-abbr]
+github = "olets/zsh-abbr"
+use = ["*.plugin.zsh", "*.zsh"]
 
 # FZF tab completion
 [plugins.fzf-tab]
