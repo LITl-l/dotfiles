@@ -126,6 +126,7 @@ test_individual_tools() {
     run_test "Zsh configuration" "
         ./install.sh zsh >/dev/null 2>&1 && 
         [ -f ~/.zshenv ] && 
+        [ -f ~/.config/zsh/.zshrc ] &&
         [ -f ~/.config/zsh/env.zsh ]
     "
 }
