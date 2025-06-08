@@ -21,13 +21,13 @@ ln -sf "$SCRIPT_DIR/.zshenv" "$HOME/.zshenv"
 ln -sf "$SCRIPT_DIR/.zshrc" "$HOME/.config/zsh/.zshrc"
 ln -sf "$SCRIPT_DIR/env.zsh" "$HOME/.config/zsh/env.zsh"
 ln -sf "$SCRIPT_DIR/functions.zsh" "$HOME/.config/zsh/functions.zsh"
+ln -sf "$SCRIPT_DIR/abbr-init.zsh" "$HOME/.config/zsh/abbr-init.zsh"
 
 # Copy user-abbreviations to zsh-abbr config directory
-if command -v abbr >/dev/null 2>&1 || [[ -d "$HOME/.config/zsh-abbr" ]]; then
-    mkdir -p "$HOME/.config/zsh-abbr"
-    cp "$SCRIPT_DIR/user-abbreviations" "$HOME/.config/zsh-abbr/user-abbreviations"
-    echo "Copied user-abbreviations to zsh-abbr config directory"
-fi
+# Always copy the file, regardless of whether abbr is installed yet
+mkdir -p "$HOME/.config/zsh-abbr"
+cp "$SCRIPT_DIR/user-abbreviations" "$HOME/.config/zsh-abbr/user-abbreviations"
+echo "Copied user-abbreviations to zsh-abbr config directory"
 
 # Install zsh if not present
 if ! command -v zsh >/dev/null 2>&1; then
