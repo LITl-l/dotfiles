@@ -1,5 +1,8 @@
 # Zsh configuration file
 
+# Source environment variables first (needed for HISTFILE)
+[[ -f "$ZDOTDIR/env.zsh" ]] && source "$ZDOTDIR/env.zsh"
+
 # Create necessary directories
 mkdir -p "$XDG_STATE_HOME/zsh"
 mkdir -p "$XDG_CACHE_HOME/zsh"
@@ -27,6 +30,13 @@ setopt HIST_SAVE_NO_DUPS         # Do not write a duplicate event to the history
 setopt HIST_VERIFY               # Do not execute immediately upon history expansion
 setopt INC_APPEND_HISTORY        # Write to the history file immediately, not when the shell exits
 setopt SHARE_HISTORY             # Share history between all sessions
+setopt HIST_FCNTL_LOCK          # Use system's fcntl call for file locking
+
+# Additional history safety measures
+[[ -f "$HISTFILE" ]] || touch "$HISTFILE"
+
+# Ensure history is written on shell exit
+trap 'fc -W' EXIT
 
 # Directory options
 setopt AUTO_CD                   # Auto cd to directory when typing directory name
@@ -109,9 +119,6 @@ eval "$(starship init zsh)"
 
 # Load local configuration if exists
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
-
-# Source environment variables
-[[ -f "$ZDOTDIR/env.zsh" ]] && source "$ZDOTDIR/env.zsh"
 
 # Source functions
 [[ -f "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"

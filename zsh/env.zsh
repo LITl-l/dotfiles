@@ -19,8 +19,15 @@ export RUSTUP_HOME="$XDG_DATA_HOME/rustup"
 
 # Zsh history settings
 export HISTFILE="$XDG_STATE_HOME/zsh/history"
-export HISTSIZE=50000
-export SAVEHIST=50000
+export HISTSIZE=100000
+export SAVEHIST=100000
+
+# Ensure history file exists and has proper permissions
+if [[ ! -f "$HISTFILE" ]]; then
+    mkdir -p "$(dirname "$HISTFILE")"
+    touch "$HISTFILE"
+    chmod 600 "$HISTFILE"
+fi
 
 # Default applications
 export EDITOR="nvim"
