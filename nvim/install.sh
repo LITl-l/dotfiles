@@ -13,6 +13,7 @@ mkdir -p "$HOME/.config/nvim"
 
 # Link nvim configuration
 ln -sf "$SCRIPT_DIR/init.lua" "$HOME/.config/nvim/init.lua"
+ln -sf "$SCRIPT_DIR/lua" "$HOME/.config/nvim/lua"
 
 # Install neovim if not present
 if ! command -v nvim >/dev/null 2>&1; then
