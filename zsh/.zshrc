@@ -120,14 +120,19 @@ eval "$(starship init zsh)"
 # Load local configuration if exists
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
 
-# Source environment variables
-[[ -f "$ZDOTDIR/env.zsh" ]] && source "$ZDOTDIR/env.zsh"
-
 # Source functions
 [[ -f "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"
 
 # Initialize abbreviations (after sheldon loads plugins)
 [[ -f "$ZDOTDIR/abbr-init.zsh" ]] && source "$ZDOTDIR/abbr-init.zsh"
+
+# Fix zsh-abbr keybindings for vi mode
+if (( ${+functions[abbr]} )); then
+    # Bind space to trigger abbreviation expansion in both modes
+    bindkey " " abbr-expand-and-space
+    bindkey -M viins " " abbr-expand-and-space
+    bindkey -M vicmd " " abbr-expand-and-space
+fi
 
 # proto
 export PROTO_HOME="$XDG_DATA_HOME/proto";
