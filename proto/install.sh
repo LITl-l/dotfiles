@@ -30,10 +30,31 @@ if ! command -v cc >/dev/null 2>&1; then
     exit 1
 fi
 
+# Check if zsh is installed
+if ! command -v zsh >/dev/null 2>&1; then
+    echo "Error: zsh is required to install Proto."
+    echo ""
+    echo "Please install zsh first:"
+    
+    if command -v apt-get >/dev/null 2>&1; then
+        echo "  sudo apt-get update && sudo apt-get install -y zsh"
+    elif command -v yum >/dev/null 2>&1; then
+        echo "  sudo yum install -y zsh"
+    elif command -v pacman >/dev/null 2>&1; then
+        echo "  sudo pacman -S zsh"
+    else
+        echo "  Install zsh for your distribution"
+    fi
+    
+    echo ""
+    echo "After installing zsh, re-run this script."
+    exit 1
+fi
+
 # Install proto if not present
 if ! command -v proto >/dev/null 2>&1; then
     echo "Installing Proto..."
-    curl -fsSL https://moonrepo.dev/install/proto.sh | bash -s -- --yes
+    zsh <(curl -fsSL https://moonrepo.dev/install/proto.sh)
     
     # Proto is installed to a specific location
     PROTO_BIN="$HOME/.local/share/proto/bin/proto"
