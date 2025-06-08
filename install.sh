@@ -132,6 +132,11 @@ install_all_tools() {
                 fi
             fi
         fi
+        
+        # After installing zsh, check and change default shell
+        if [ "$tool" = "zsh" ]; then
+            check_and_change_shell
+        fi
     done
 }
 
@@ -141,6 +146,11 @@ install_specific_tools() {
         if [ -d "$SCRIPT_DIR/$tool" ]; then
             # Continue installation even if individual tools fail
             install_tool "$tool" || true
+            
+            # After installing zsh, check and change default shell
+            if [ "$tool" = "zsh" ]; then
+                check_and_change_shell
+            fi
         else
             log_error "Tool '$tool' not found"
             FAILED_TOOLS+=("$tool")
@@ -392,9 +402,6 @@ main() {
     
     # Setup environment for current session
     setup_environment
-    
-    # Check and change shell to zsh if needed
-    check_and_change_shell
     
     # Final status message
     if [ ${#FAILED_TOOLS[@]} -eq 0 ]; then
