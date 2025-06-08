@@ -20,7 +20,20 @@ Run the installation script:
 
 ### Requirements
 
-**Build essentials** are required for compiling Rust packages:
+1. **zsh** is required for the Proto installation script:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install -y zsh
+
+# RHEL/CentOS/Fedora
+sudo yum install -y zsh
+
+# Arch Linux
+sudo pacman -S zsh
+```
+
+2. **Build essentials** are required for compiling Rust packages:
 
 ```bash
 # Ubuntu/Debian
@@ -32,8 +45,9 @@ sudo apt-get update && sudo apt-get install -y build-essential
 
 ### What the script does
 
+- **Checks for zsh** and provides installation instructions if missing
 - **Checks for build tools** and provides installation instructions
-- **Installs Proto** from the official installer script
+- **Installs Proto** using the official zsh-based installer
 - **Installs Rust** via Proto for package compilation
 - **Sets up environment** for current and future sessions
 
