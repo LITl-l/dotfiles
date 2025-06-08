@@ -28,7 +28,7 @@ use = ["{{ name }}.zsh"]
 # Abbreviations support (like fish shell)
 [plugins.zsh-abbr]
 github = "olets/zsh-abbr"
-use = ["*.plugin.zsh", "*.zsh"]
+use = ["zsh-abbr.plugin.zsh"]
 
 # FZF tab completion
 [plugins.fzf-tab]

@@ -1,4 +1,10 @@
+#!/usr/bin/env zsh
 # zsh-abbr user abbreviations
+
+# Exit if abbr function is not available
+if ! command -v abbr &> /dev/null; then
+    return 0 2>/dev/null || exit 0
+fi
 abbr ".."="cd .."
 abbr "..."="cd ../.."
 abbr "...."="cd ../../.."
