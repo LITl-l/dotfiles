@@ -129,9 +129,9 @@ eval "$(starship init zsh)"
 # Fix zsh-abbr keybindings for vi mode
 if (( ${+functions[abbr]} )); then
     # Bind space to trigger abbreviation expansion in both modes
-    bindkey " " abbr-expand-and-space
-    bindkey -M viins " " abbr-expand-and-space
-    bindkey -M vicmd " " abbr-expand-and-space
+    bindkey " " abbr-expand-and-insert
+    bindkey -M viins " " abbr-expand-and-insert
+    bindkey -M vicmd " " abbr-expand-and-insert
 fi
 
 # proto
