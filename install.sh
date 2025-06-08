@@ -197,6 +197,62 @@ report_failed_tools() {
     echo ""
 }
 
+# Check and change default shell to zsh
+check_and_change_shell() {
+    log_info "Checking default shell..."
+    
+    # Get current shell
+    local current_shell=$(basename "$SHELL")
+    local zsh_path=""
+    
+    # Find zsh path
+    if command -v zsh >/dev/null 2>&1; then
+        zsh_path=$(command -v zsh)
+    else
+        log_warning "zsh not found. It will be installed during the setup."
+        return 0
+    fi
+    
+    # Check if current shell is already zsh
+    if [ "$current_shell" = "zsh" ]; then
+        log_success "Default shell is already zsh"
+        return 0
+    fi
+    
+    log_info "Current default shell is: $current_shell"
+    log_info "Changing default shell to zsh..."
+    
+    # Check if zsh is in /etc/shells
+    if ! grep -q "^${zsh_path}$" /etc/shells; then
+        log_warning "zsh path not found in /etc/shells. You may need to add it manually."
+        echo "To add zsh to /etc/shells, run:"
+        echo "  echo '$zsh_path' | sudo tee -a /etc/shells"
+        return 1
+    fi
+    
+    # Change shell
+    if command -v chsh >/dev/null 2>&1; then
+        echo "Changing default shell to zsh..."
+        echo "You may be prompted for your password."
+        if chsh -s "$zsh_path"; then
+            log_success "Default shell changed to zsh"
+            log_warning "You need to log out and back in for the change to take effect"
+        else
+            log_error "Failed to change default shell"
+            echo "You can manually change your shell by running:"
+            echo "  chsh -s $zsh_path"
+            return 1
+        fi
+    else
+        log_warning "chsh command not found"
+        echo "To change your default shell manually, run:"
+        echo "  sudo usermod -s $zsh_path $USER"
+        return 1
+    fi
+    
+    return 0
+}
+
 # Setup shell environment after installation
 setup_environment() {
     log_info "Setting up shell environment..."
@@ -336,6 +392,9 @@ main() {
     
     # Setup environment for current session
     setup_environment
+    
+    # Check and change shell to zsh if needed
+    check_and_change_shell
     
     # Final status message
     if [ ${#FAILED_TOOLS[@]} -eq 0 ]; then
