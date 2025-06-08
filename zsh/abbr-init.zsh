@@ -24,5 +24,6 @@ if [[ ! -f "$user_abbr_file" ]]; then
     return 0
 fi
 
-# Source the user abbreviations file
-source "$user_abbr_file"
+# Note: Don't source the user abbreviations file here
+# The zsh-abbr plugin will automatically load from ~/.config/zsh-abbr/user-abbreviations
+# Sourcing it here would cause duplicate abbreviation warnings
