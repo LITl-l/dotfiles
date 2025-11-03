@@ -11,12 +11,6 @@
     ./modules/common.nix
   ];
 
-  # Enable Nix flakes
-  nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
-    warn-dirty = false;
-  };
-
   # Let Home Manager manage itself
   programs.home-manager.enable = true;
 
