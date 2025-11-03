@@ -7,7 +7,6 @@
     historyLimit = 50000;
     baseIndex = 1;
     keyMode = "vi";
-    customPaneNavigationAndResize = true;
     escapeTime = 0;
     mouse = true;
     shell = "${pkgs.fish}/bin/fish";
