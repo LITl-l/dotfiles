@@ -17,7 +17,7 @@
       nodePackages.typescript-language-server
       nodePackages.vscode-langservers-extracted # HTML, CSS, JSON, ESLint
       nodePackages.yaml-language-server
-      python311Packages.python-lsp-server
+      python3Packages.python-lsp-server
       rust-analyzer
       gopls
 

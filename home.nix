@@ -12,12 +12,9 @@
   ];
 
   # Enable Nix flakes
-  nix = {
-    package = pkgs.nix;
-    settings = {
-      experimental-features = [ "nix-command" "flakes" ];
-      warn-dirty = false;
-    };
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    warn-dirty = false;
   };
 
   # Let Home Manager manage itself
@@ -150,7 +147,6 @@
     bat = {
       enable = true;
       config = {
-        theme = "Catppuccin Mocha";
         style = "numbers,changes,header";
       };
     };
