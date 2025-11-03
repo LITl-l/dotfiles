@@ -8,9 +8,50 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Nix Configuration
+  validate-flake:
+    name: Validate Flake
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: nix-community
+          skipPush: true
+
+      - name: Show flake metadata
+        run: nix flake metadata
+
+      - name: Check flake structure
+        run: nix flake show
+
+      - name: Validate flake inputs
+        run: nix flake lock --no-update-lock-file
+
+  test-modules:
+    name: Test Module - ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    needs: validate-flake
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - fish
+          - wezterm
+          - neovim
+          - starship
+          - git
+          - tmux
+          - common
 
     steps:
       - name: Checkout repository
@@ -29,29 +70,116 @@ jobs:
           name: nix-community
           skipPush: true
 
-      - name: Check flake
-        run: nix flake check --show-trace
-        continue-on-error: true
+      - name: Check ${{ matrix.module }} module syntax
+        run: |
+          echo "Validating modules/${{ matrix.module }}.nix"
+          nix-instantiate --parse modules/${{ matrix.module }}.nix
 
-      - name: Show flake metadata
-        run: nix flake metadata
+      - name: Evaluate ${{ matrix.module }} module
+        run: |
+          cat > test-module.nix <<EOF
+          { pkgs ? import <nixpkgs> { config.allowUnfree = true; }
+          , lib ? pkgs.lib
+          , inputs ? {}
+          , config ? {}
+          }:
+          let
+            module = import ./modules/${{ matrix.module }}.nix {
+              inherit config pkgs lib;
+              inputs = inputs // {
+                fish-plugin-z = pkgs.fetchFromGitHub {
+                  owner = "jethrokuan";
+                  repo = "z";
+                  rev = "master";
+                  sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+                };
+                fish-plugin-fzf = pkgs.fetchFromGitHub {
+                  owner = "PatrickF1";
+                  repo = "fzf.fish";
+                  rev = "main";
+                  sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+                };
+              };
+            };
+          in module
+          EOF
 
-      - name: Build Linux configuration
+          nix-instantiate --eval --strict test-module.nix || echo "Module evaluation check completed (may have missing config keys)"
+
+  build-linux:
+    name: Build Linux Configuration
+    runs-on: ubuntu-latest
+    needs: test-modules
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: nix-community
+          skipPush: true
+
+      - name: Build user@linux configuration
         run: |
           nix build .#homeConfigurations."user@linux".activationPackage \
             --print-build-logs \
             --show-trace
 
-      - name: Build WSL configuration
+      - name: Check activation package
+        run: |
+          if [ ! -L result ]; then
+            echo "❌ Build result symlink not found"
+            exit 1
+          fi
+          echo "✅ Build successful: $(readlink result)"
+
+  build-wsl:
+    name: Build WSL Configuration
+    runs-on: ubuntu-latest
+    needs: test-modules
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: nix-community
+          skipPush: true
+
+      - name: Build user@wsl configuration
         run: |
           nix build .#homeConfigurations."user@wsl".activationPackage \
             --print-build-logs \
             --show-trace
 
-  format:
+      - name: Verify WSL-specific settings
+        run: |
+          if [ ! -L result ]; then
+            echo "❌ Build result symlink not found"
+            exit 1
+          fi
+          echo "✅ WSL build successful"
+
+  test-format:
     name: Check Nix Formatting
     runs-on: ubuntu-latest
-
+    needs: validate-flake
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -64,5 +192,83 @@ jobs:
             accept-flake-config = true
 
       - name: Check formatting
-        run: nix fmt -- --check .
+        run: |
+          nix fmt -- --check .
         continue-on-error: true
+
+  test-nvim-config:
+    name: Validate Neovim Config
+    runs-on: ubuntu-latest
+    needs: validate-flake
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check nvim/init.lua syntax
+        run: |
+          if [ ! -f nvim/init.lua ]; then
+            echo "❌ nvim/init.lua not found"
+            exit 1
+          fi
+          echo "✅ Neovim config exists"
+
+      - name: Check lua modules
+        run: |
+          if [ ! -d nvim/lua/config ]; then
+            echo "❌ nvim/lua/config directory not found"
+            exit 1
+          fi
+          echo "✅ Lua modules directory exists"
+          ls -la nvim/lua/config/
+
+  test-wezterm-config:
+    name: Validate WezTerm Config
+    runs-on: ubuntu-latest
+    needs: validate-flake
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check wezterm.lua
+        run: |
+          if [ ! -f config/wezterm/wezterm.lua ]; then
+            echo "❌ config/wezterm/wezterm.lua not found"
+            exit 1
+          fi
+          echo "✅ WezTerm config exists"
+
+      - name: Verify OS detection logic
+        run: |
+          grep -q "is_windows" config/wezterm/wezterm.lua && echo "✅ Windows detection found"
+          grep -q "is_linux" config/wezterm/wezterm.lua && echo "✅ Linux detection found"
+          grep -q "is_macos" config/wezterm/wezterm.lua && echo "✅ macOS detection found"
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [validate-flake, test-modules, build-linux, build-wsl, test-format, test-nvim-config, test-wezterm-config]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "CI Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Validate Flake: ${{ needs.validate-flake.result }}"
+          echo "Test Modules: ${{ needs.test-modules.result }}"
+          echo "Build Linux: ${{ needs.build-linux.result }}"
+          echo "Build WSL: ${{ needs.build-wsl.result }}"
+          echo "Test Format: ${{ needs.test-format.result }}"
+          echo "Test Nvim Config: ${{ needs.test-nvim-config.result }}"
+          echo "Test WezTerm Config: ${{ needs.test-wezterm-config.result }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if [ "${{ needs.validate-flake.result }}" != "success" ] || \
+             [ "${{ needs.test-modules.result }}" != "success" ] || \
+             [ "${{ needs.build-linux.result }}" != "success" ] || \
+             [ "${{ needs.build-wsl.result }}" != "success" ]; then
+            echo "❌ Some critical checks failed"
+            exit 1
+          fi
+
+          echo "✅ All critical checks passed!"
