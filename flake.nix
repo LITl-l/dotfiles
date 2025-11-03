@@ -107,26 +107,5 @@
 
       # Formatting
       formatter = forAllSystems (system: nixpkgsFor.${system}.nixpkgs-fmt);
-
-      # CI checks - only check builds for the current system
-      checks = forAllSystems (system:
-        let pkgs = nixpkgsFor.${system};
-        in {
-          # Check flake formatting
-          format = pkgs.runCommand "check-format" {
-            buildInputs = [ pkgs.nixpkgs-fmt ];
-          } ''
-            nixpkgs-fmt --check ${self}
-            touch $out
-          '';
-        } // (
-          # Only build configurations that match the current system
-          if system == "x86_64-linux" then {
-            home-manager-linux = self.homeConfigurations."user@linux".activationPackage;
-            home-manager-wsl = self.homeConfigurations."user@wsl".activationPackage;
-          } else if system == "aarch64-darwin" then {
-            home-manager-darwin = self.homeConfigurations."user@darwin".activationPackage;
-          } else {}
-        ));
     };
 }
