@@ -3,7 +3,6 @@
 {
   programs.git = {
     enable = true;
-    package = pkgs.git;
 
     # Delta for better diffs
     delta = {
@@ -12,7 +11,6 @@
         navigate = true;
         line-numbers = true;
         side-by-side = false;
-        syntax-theme = "Catppuccin-mocha";
       };
     };
 
