@@ -17,12 +17,16 @@
   # SSH client configuration
   programs.ssh = {
     enable = true;
-    compression = true;
-    serverAliveInterval = 60;
-    serverAliveCountMax = 3;
     extraConfig = ''
       AddKeysToAgent yes
     '';
+    matchBlocks = {
+      "*" = {
+        compression = true;
+        serverAliveInterval = 60;
+        serverAliveCountMax = 3;
+      };
+    };
   };
 
   # GPG
@@ -33,6 +37,6 @@
   services.gpg-agent = lib.mkIf pkgs.stdenv.isLinux {
     enable = true;
     enableSshSupport = true;
-    pinentryPackage = pkgs.pinentry-curses;
+    pinentry.package = pkgs.pinentry-curses;
   };
 }

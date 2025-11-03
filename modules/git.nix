@@ -4,18 +4,8 @@
   programs.git = {
     enable = true;
 
-    # Delta for better diffs
-    delta = {
-      enable = true;
-      options = {
-        navigate = true;
-        line-numbers = true;
-        side-by-side = false;
-      };
-    };
-
-    # Lazygit
-    extraConfig = {
+    # Git settings (replaces extraConfig)
+    settings = {
       core = {
         editor = "nvim";
         excludesfile = "~/.config/git/ignore";
@@ -64,10 +54,6 @@
         colorMoved = "default";
       };
 
-      interactive = {
-        diffFilter = "delta --color-only";
-      };
-
       ghq = {
         root = "~/src";
       };
@@ -86,67 +72,67 @@
       include = {
         path = "~/.config/git/config.local";
       };
-    };
 
-    # Git aliases
-    aliases = {
-      # Status
-      s = "status -s";
-      st = "status";
+      # Git aliases (replaces aliases)
+      alias = {
+        # Status
+        s = "status -s";
+        st = "status";
 
-      # Branch
-      br = "branch";
-      co = "checkout";
-      cob = "checkout -b";
+        # Branch
+        br = "branch";
+        co = "checkout";
+        cob = "checkout -b";
 
-      # Commit
-      c = "commit";
-      cm = "commit -m";
-      ca = "commit --amend";
-      can = "commit --amend --no-edit";
+        # Commit
+        c = "commit";
+        cm = "commit -m";
+        ca = "commit --amend";
+        can = "commit --amend --no-edit";
 
-      # Diff
-      d = "diff";
-      dc = "diff --cached";
-      ds = "diff --staged";
+        # Diff
+        d = "diff";
+        dc = "diff --cached";
+        ds = "diff --staged";
 
-      # Add
-      a = "add";
-      aa = "add --all";
-      ap = "add --patch";
+        # Add
+        a = "add";
+        aa = "add --all";
+        ap = "add --patch";
 
-      # Log
-      l = "log --oneline --graph --decorate";
-      lg = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
-      ll = "log --pretty=format:'%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]' --decorate --numstat";
+        # Log
+        l = "log --oneline --graph --decorate";
+        lg = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
+        ll = "log --pretty=format:'%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]' --decorate --numstat";
 
-      # Remote
-      f = "fetch";
-      pl = "pull";
-      ps = "push";
-      psu = "push -u origin HEAD";
+        # Remote
+        f = "fetch";
+        pl = "pull";
+        ps = "push";
+        psu = "push -u origin HEAD";
 
-      # Stash
-      ss = "stash save";
-      sl = "stash list";
-      sp = "stash pop";
-      sa = "stash apply";
+        # Stash
+        ss = "stash save";
+        sl = "stash list";
+        sp = "stash pop";
+        sa = "stash apply";
 
-      # Reset
-      unstage = "reset HEAD --";
-      undo = "reset --soft HEAD^";
+        # Reset
+        unstage = "reset HEAD --";
+        undo = "reset --soft HEAD^";
 
-      # Show
-      last = "log -1 HEAD";
+        # Show
+        last = "log -1 HEAD";
 
-      # Utilities
-      aliases = "config --get-regexp alias";
-      branches = "branch -a";
-      remotes = "remote -v";
-      contributors = "shortlog --summary --numbered";
+        # Utilities
+        aliases = "config --get-regexp alias";
+        branches = "branch -a";
+        remotes = "remote -v";
+        contributors = "shortlog --summary --numbered";
 
-      # Cleanup
-      cleanup = "!git branch --merged | grep -v '\\*\\|main\\|master\\|develop' | xargs -n 1 git branch -d";
+        # Cleanup
+        cleanup = "!git branch --merged | grep -v '\\*\\|main\\|master\\|develop' | xargs -n 1 git branch -d";
+      };
     };
 
     # Git ignore patterns
@@ -255,6 +241,16 @@
       # Proto trace dumps
       "dump-*.json"
     ];
+  };
+
+  # Delta for better diffs (separate from git)
+  programs.delta = {
+    enable = true;
+    options = {
+      navigate = true;
+      line-numbers = true;
+      side-by-side = false;
+    };
   };
 
   # Lazygit
