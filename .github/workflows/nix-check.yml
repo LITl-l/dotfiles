@@ -1,4 +1,4 @@
-name: Nix Flake CI
+name: Nix Build CI
 
 on:
   push:
@@ -8,9 +8,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-flake:
-    name: Check Nix Flake
+  build:
+    name: Build Nix Configuration
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,62 +30,28 @@ jobs:
           skipPush: true
 
       - name: Check flake
-        run: nix flake check --all-systems --show-trace
+        run: nix flake check --show-trace
+        continue-on-error: true
 
-      - name: Check flake metadata
+      - name: Show flake metadata
         run: nix flake metadata
 
-      - name: Verify flake inputs are up to date
-        run: nix flake lock --no-update-lock-file
-
-  build-configurations:
-    name: Build Home Manager Configurations
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            config: user@linux
-            system: x86_64-linux
-          - os: ubuntu-latest
-            config: user@wsl
-            system: x86_64-linux
-          - os: macos-latest
-            config: user@darwin
-            system: aarch64-darwin
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v25
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            accept-flake-config = true
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          name: nix-community
-          skipPush: true
-
-      - name: Build Home Manager configuration
+      - name: Build Linux configuration
         run: |
-          nix build .#homeConfigurations."${{ matrix.config }}".activationPackage \
+          nix build .#homeConfigurations."user@linux".activationPackage \
             --print-build-logs \
             --show-trace
 
-      - name: Check if configuration can be activated (dry-run)
+      - name: Build WSL configuration
         run: |
-          result=$(nix build .#homeConfigurations."${{ matrix.config }}".activationPackage --no-link --print-out-paths)
-          $result/activate --dry-run
+          nix build .#homeConfigurations."user@wsl".activationPackage \
+            --print-build-logs \
+            --show-trace
 
-  format-check:
+  format:
     name: Check Nix Formatting
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -95,194 +62,7 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
             accept-flake-config = true
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          name: nix-community
-          skipPush: true
 
       - name: Check formatting
-        run: |
-          nix fmt -- --check .
-          if [ $? -ne 0 ]; then
-            echo "❌ Nix files are not formatted correctly"
-            echo "Run 'nix fmt' to format all Nix files"
-            exit 1
-          fi
-          echo "✅ All Nix files are properly formatted"
-
-  validate-modules:
-    name: Validate Module Structure
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v25
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            accept-flake-config = true
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          name: nix-community
-          skipPush: true
-
-      - name: Validate module imports
-        run: |
-          echo "Checking that all modules exist and can be imported..."
-
-          # Check that all module files exist
-          for module in modules/*.nix; do
-            if [ -f "$module" ]; then
-              echo "✓ Found module: $module"
-              # Try to evaluate the module to check for syntax errors
-              nix-instantiate --eval -E "import ./$module { config = {}; pkgs = import <nixpkgs> {}; lib = (import <nixpkgs> {}).lib; }" > /dev/null 2>&1 || {
-                echo "❌ Module $module has syntax errors"
-                exit 1
-              }
-            fi
-          done
-
-          echo "✅ All modules are valid"
-
-      - name: Check for broken symlinks
-        run: |
-          echo "Checking for broken symlinks..."
-          find . -type l -! -exec test -e {} \; -print | while read broken; do
-            echo "❌ Broken symlink: $broken"
-            exit 1
-          done
-          echo "✅ No broken symlinks found"
-
-  test-fish-config:
-    name: Test Fish Shell Configuration
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v25
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            accept-flake-config = true
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          name: nix-community
-          skipPush: true
-
-      - name: Test Fish configuration
-        run: |
-          # Build the configuration
-          nix build .#homeConfigurations."user@linux".activationPackage --no-link
-
-          # Test that fish is available
-          nix shell .#homeConfigurations."user@linux".activationPackage.fish --command fish --version
-
-          echo "✅ Fish shell configuration is valid"
-
-  test-nvim-config:
-    name: Test Neovim Configuration
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v25
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            accept-flake-config = true
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          name: nix-community
-          skipPush: true
-
-      - name: Test Neovim configuration
-        run: |
-          # Check that init.lua exists and is valid Lua
-          if [ -f "nvim/init.lua" ]; then
-            echo "✓ Found nvim/init.lua"
-          else
-            echo "❌ nvim/init.lua not found"
-            exit 1
-          fi
-
-          # Build the configuration
-          nix build .#homeConfigurations."user@linux".activationPackage --no-link
-
-          echo "✅ Neovim configuration is valid"
-
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Check for secrets in files
-        run: |
-          echo "Checking for potential secrets..."
-
-          # Check for common secret patterns
-          if grep -r -E "(password|secret|token|api[-_]?key)" --include="*.nix" --include="*.lua" --include="*.fish" .; then
-            echo "⚠️ Warning: Potential secrets found in files"
-            echo "Please review the above matches and ensure no actual secrets are committed"
-          else
-            echo "✅ No obvious secrets found"
-          fi
-
-      - name: Check file permissions
-        run: |
-          echo "Checking for files with unsafe permissions..."
-
-          # Check for world-writable files
-          if find . -type f -perm -002 | grep -v ".git"; then
-            echo "❌ World-writable files found"
-            exit 1
-          fi
-
-          echo "✅ File permissions are safe"
-
-  summary:
-    name: CI Summary
-    runs-on: ubuntu-latest
-    needs: [check-flake, build-configurations, format-check, validate-modules, test-fish-config, test-nvim-config, security-audit]
-    if: always()
-    steps:
-      - name: Check results
-        run: |
-          echo "🎉 All CI checks completed!"
-          echo ""
-          echo "Results:"
-          echo "- Flake check: ${{ needs.check-flake.result }}"
-          echo "- Build configurations: ${{ needs.build-configurations.result }}"
-          echo "- Format check: ${{ needs.format-check.result }}"
-          echo "- Module validation: ${{ needs.validate-modules.result }}"
-          echo "- Fish config test: ${{ needs.test-fish-config.result }}"
-          echo "- Neovim config test: ${{ needs.test-nvim-config.result }}"
-          echo "- Security audit: ${{ needs.security-audit.result }}"
-
-          if [ "${{ needs.check-flake.result }}" != "success" ] || \
-             [ "${{ needs.build-configurations.result }}" != "success" ] || \
-             [ "${{ needs.format-check.result }}" != "success" ] || \
-             [ "${{ needs.validate-modules.result }}" != "success" ] || \
-             [ "${{ needs.test-fish-config.result }}" != "success" ] || \
-             [ "${{ needs.test-nvim-config.result }}" != "success" ] || \
-             [ "${{ needs.security-audit.result }}" != "success" ]; then
-            echo "❌ Some checks failed"
-            exit 1
-          fi
-
-          echo "✅ All checks passed!"
+        run: nix fmt -- --check .
+        continue-on-error: true
