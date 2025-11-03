@@ -81,32 +81,32 @@
 
       # Status bar configuration (Catppuccin Mocha)
       set -g status-position top
-      set -g status-style 'bg=#1e1e2e fg=#cdd6f4'
+      set -g status-style "bg=#1e1e2e fg=#cdd6f4"
       set -g status-left-length 60
       set -g status-right-length 60
 
       # Status left
-      set -g status-left '#[fg=#1e1e2e,bg=#89b4fa,bold] #S #[fg=#89b4fa,bg=#1e1e2e,nobold]'
+      set -g status-left "#[fg=#1e1e2e,bg=#89b4fa,bold] #S #[fg=#89b4fa,bg=#1e1e2e,nobold]"
 
       # Status right
-      set -g status-right '#[fg=#45475a,bg=#1e1e2e]#[fg=#cdd6f4,bg=#45475a] %Y-%m-%d #[fg=#585b70,bg=#45475a]#[fg=#cdd6f4,bg=#585b70] %H:%M #[fg=#89b4fa,bg=#585b70]#[fg=#1e1e2e,bg=#89b4fa,bold] #h '
+      set -g status-right "#[fg=#45475a,bg=#1e1e2e]#[fg=#cdd6f4,bg=#45475a] %Y-%m-%d #[fg=#585b70,bg=#45475a]#[fg=#cdd6f4,bg=#585b70] %H:%M #[fg=#89b4fa,bg=#585b70]#[fg=#1e1e2e,bg=#89b4fa,bold] #h "
 
       # Window status
-      set -g window-status-format '#[fg=#1e1e2e,bg=#45475a] #I #[fg=#cdd6f4,bg=#313244] #W '
-      set -g window-status-current-format '#[fg=#1e1e2e,bg=#89b4fa,bold] #I #[fg=#1e1e2e,bg=#a6adc8,bold] #W#{?window_zoomed_flag, 󰊓,} '
-      set -g window-status-separator ''
+      set -g window-status-format "#[fg=#1e1e2e,bg=#45475a] #I #[fg=#cdd6f4,bg=#313244] #W "
+      set -g window-status-current-format "#[fg=#1e1e2e,bg=#89b4fa,bold] #I #[fg=#1e1e2e,bg=#a6adc8,bold] #W#{?window_zoomed_flag, 󰊓,} "
+      set -g window-status-separator ""
 
       # Pane borders
-      set -g pane-border-style 'fg=#45475a'
-      set -g pane-active-border-style 'fg=#89b4fa'
+      set -g pane-border-style "fg=#45475a"
+      set -g pane-active-border-style "fg=#89b4fa"
 
       # Message style
-      set -g message-style 'fg=#cdd6f4 bg=#313244 bold'
+      set -g message-style "fg=#cdd6f4 bg=#313244 bold"
 
       # Plugin settings
-      set -g @resurrect-capture-pane-contents 'on'
-      set -g @continuum-restore 'on'
-      set -g @continuum-save-interval '10'
+      set -g @resurrect-capture-pane-contents "on"
+      set -g @continuum-restore "on"
+      set -g @continuum-save-interval "10"
     '';
   };
 }
