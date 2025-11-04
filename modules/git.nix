@@ -246,6 +246,7 @@
   # Delta for better diffs (separate from git)
   programs.delta = {
     enable = true;
+    enableGitIntegration = true;
     options = {
       navigate = true;
       line-numbers = true;
