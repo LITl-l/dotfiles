@@ -2,7 +2,7 @@
 
 {
   programs.wezterm = {
-    enable = true;
+    enable = lib.mkDefault true;
     enableBashIntegration = false;
     enableZshIntegration = false;
   };
