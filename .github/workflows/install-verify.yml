@@ -35,16 +35,17 @@ jobs:
       - name: Make install.sh executable
         run: chmod +x install.sh
 
-      - name: Run install.sh with dry-run simulation
+      - name: Run install.sh in build-only mode
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "Testing install.sh on ${{ matrix.os }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           # Run the install script and capture all output (stdout and stderr)
+          # We use --build-only to verify build without activation (which requires matching usernames)
           # We use --no-shell-change to avoid trying to change the shell in CI
           set -o pipefail
-          ./install.sh --no-shell-change 2>&1 | tee install.log
+          ./install.sh --build-only --no-shell-change 2>&1 | tee install.log
 
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -106,13 +107,15 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           tail -50 install.log
 
-          # Check if installation succeeded
+          # Check if build succeeded
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          if grep -aq "Installation complete!" install.log; then
+          if grep -aq "Build verification complete!" install.log; then
+            echo "✅ Build verification completed successfully"
+          elif grep -aq "Installation complete!" install.log; then
             echo "✅ Installation completed successfully"
           else
-            echo "❌ Installation did not complete successfully"
+            echo "❌ Build/Installation did not complete successfully"
             echo ""
             echo "Checking for failure indicators:"
             if grep -aq "Failed to build" install.log; then
