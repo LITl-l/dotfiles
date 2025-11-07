@@ -1,0 +1,217 @@
+name: Install Script Verification
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'install.sh'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'modules/**'
+      - '.github/workflows/install-verify.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'install.sh'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'modules/**'
+      - '.github/workflows/install-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify-install-script:
+    name: Verify Install Script on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make install.sh executable
+        run: chmod +x install.sh
+
+      - name: Run install.sh with dry-run simulation
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Testing install.sh on ${{ matrix.os }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # Run the install script and capture all output (stdout and stderr)
+          # We use --no-shell-change to avoid trying to change the shell in CI
+          set -o pipefail
+          ./install.sh --no-shell-change 2>&1 | tee install.log
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Install script completed"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: Analyze warnings and errors
+        if: always()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Analyzing installation output"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if [ ! -f install.log ]; then
+            echo "❌ Install log not found"
+            exit 1
+          fi
+
+          # Count warnings
+          WARNING_COUNT=$(grep -c "warning:" install.log || true)
+          echo "⚠️  Warnings found: $WARNING_COUNT"
+
+          if [ $WARNING_COUNT -gt 0 ]; then
+            echo ""
+            echo "Warnings detected:"
+            grep "warning:" install.log || true
+          fi
+
+          # Check for specific known warnings
+          echo ""
+          echo "Checking for known issues:"
+
+          if grep -q "programs.ssh.*default values will be removed" install.log; then
+            echo "🔍 Found: SSH default values deprecation warning"
+            echo "   Location: programs.ssh configuration"
+            echo "   Fix: Set programs.ssh.enableDefaultConfig = false"
+          fi
+
+          if grep -q 'creating lock file.*".*"' install.log; then
+            echo "🔍 Found: Quoted path in lock file creation"
+            echo "   This may indicate a path handling issue"
+          fi
+
+          # Count errors
+          ERROR_COUNT=$(grep -ci "error" install.log || true)
+          echo ""
+          echo "❌ Errors found: $ERROR_COUNT"
+
+          if [ $ERROR_COUNT -gt 0 ]; then
+            echo ""
+            echo "Errors detected:"
+            grep -i "error" install.log || true
+          fi
+
+          # Check if installation succeeded
+          if grep -q "Installation complete!" install.log; then
+            echo ""
+            echo "✅ Installation completed successfully"
+          else
+            echo ""
+            echo "❌ Installation did not complete successfully"
+            exit 1
+          fi
+
+      - name: Verify Nix installation
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Verifying Nix installation"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # Source Nix environment
+          if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+            . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          elif [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+            . "$HOME/.nix-profile/etc/profile.d/nix.sh"
+          fi
+
+          # Check Nix version
+          if command -v nix >/dev/null 2>&1; then
+            echo "✅ Nix is installed"
+            nix --version
+          else
+            echo "❌ Nix is not installed"
+            exit 1
+          fi
+
+          # Check if flakes are enabled
+          if nix flake metadata . >/dev/null 2>&1; then
+            echo "✅ Nix flakes are working"
+          else
+            echo "❌ Nix flakes are not working"
+            exit 1
+          fi
+
+      - name: Check flake.lock creation
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Checking flake.lock"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if [ -f flake.lock ]; then
+            echo "✅ flake.lock exists"
+            echo "Lock file path: $(pwd)/flake.lock"
+            ls -la flake.lock
+          else
+            echo "⚠️  flake.lock not found in repository root"
+          fi
+
+          # Check for lock files in unusual locations
+          find ~ -name "flake.lock" -type f 2>/dev/null | while read -r lockfile; do
+            echo "Found flake.lock at: $lockfile"
+          done
+
+      - name: Verify Home Manager activation
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Verifying Home Manager activation"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if [ -L result ]; then
+            echo "✅ Activation package built successfully"
+            echo "Result symlink: $(readlink -f result)"
+
+            # Check if activate script exists
+            if [ -f result/activate ]; then
+              echo "✅ Activation script exists"
+            else
+              echo "❌ Activation script not found"
+              exit 1
+            fi
+          else
+            echo "❌ Build result symlink not found"
+            exit 1
+          fi
+
+      - name: Upload install log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-log-${{ matrix.os }}
+          path: install.log
+          retention-days: 30
+
+  summary:
+    name: Installation Verification Summary
+    runs-on: ubuntu-latest
+    needs: [verify-install-script]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Installation Verification Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Install Script Verification: ${{ needs.verify-install-script.result }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if [ "${{ needs.verify-install-script.result }}" != "success" ]; then
+            echo "❌ Installation verification failed"
+            echo ""
+            echo "Please check the job logs and artifacts for details."
+            exit 1
+          fi
+
+          echo "✅ Installation verification passed on all platforms!"
+          echo ""
+          echo "📋 Next steps:"
+          echo "  1. Review the uploaded install logs for any warnings"
+          echo "  2. Address any deprecation warnings found"
+          echo "  3. Investigate any unusual path handling issues"
