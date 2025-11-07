@@ -1,218 +1,148 @@
 # Dotfiles
 
-A comprehensive, XDG-compliant dotfiles repository with modular tool configurations for a modern Linux development environment.
+A declarative, reproducible dotfiles configuration using Nix and Home Manager. Works on Linux, macOS, and WSL2.
 
 ## 🚀 Features
 
-- **Modular structure** - Each tool has its own directory with individual install scripts
-- **XDG Base Directory Specification compliant** - All configurations follow the XDG standard
-- **Flexible installation** - Install all tools or pick specific ones
-- **Modern tool stack** - Using the latest and greatest CLI tools
-- **Vim-centric workflow** - Vi mode in shell and consistent keybindings
-- **Performance focused** - Fast shell prompt, efficient completions
+- **Declarative Configuration** - Everything defined in Nix for reproducibility
+- **Cross-Platform** - Works on Linux, macOS, and WSL2
+- **Home Manager** - Manages user environment with Nix
+- **Modern Tool Stack** - Latest CLI tools and applications
+- **Vi Mode Everything** - Consistent vi keybindings across all tools
+- **GPU-Accelerated Terminal** - WezTerm with cross-platform support
+- **Automated CI** - GitHub Actions validates all configurations
 
 ## 📦 Included Tools
 
 ### Shell Environment
-- **[zsh/](zsh/)** - Modern shell with vi mode enabled
-- **[sheldon/](sheldon/)** - Fast plugin manager for Zsh
-- **[starship/](starship/)** - Blazing fast, customizable prompt
+- **Fish** - Modern shell with vi mode and excellent autosuggestions
+- **Starship** - Fast, customizable prompt with git integration
+- **Zoxide** - Smart directory jumper (better than cd)
 
 ### Terminal & Editor
-- **[wezterm/](wezterm/)** - GPU-accelerated terminal emulator
-- **[nvim/](nvim/)** - Hyperextensible Vim-based text editor with mini.nvim
-- **[tmux/](tmux/)** - Terminal multiplexer with custom theme
+- **WezTerm** - GPU-accelerated terminal (Linux/macOS, uses Windows WezTerm for WSL2)
+- **Neovim** - Extensible editor with mini.nvim for minimal, powerful setup
+- **Tmux** - Terminal multiplexer with Catppuccin theme
 
 ### Development Tools
-- **[homebrew/](homebrew/)** - Package manager for Linux
-- **[proto/](proto/)** - Multi-language toolchain manager
-- **[docker/](docker/)** - Containerization platform setup
-- **[git/](git/)** - Version control with delta for better diffs
-- **[lazygit/](lazygit/)** - Terminal UI for git commands
+- **Git** - Version control with delta for beautiful diffs
+- **Lazygit** - Terminal UI for git operations
+- **GitHub CLI** - Manage GitHub from the command line
 
-### CLI Utilities
-- **[eza/](eza/)** - Modern replacement for ls
+### Modern CLI Utilities
+- **eza** - Modern ls replacement with icons
+- **fd** - Modern find replacement
+- **ripgrep** - Modern grep replacement
+- **bat** - cat with syntax highlighting
+- **fzf** - Fuzzy finder for files, history, and more
+- **delta** - Beautiful git diffs
 
 ## 🛠️ Installation
 
 ### Prerequisites
 
-- Linux-based operating system (tested on Ubuntu 22.04+, Debian 11+)
-- `curl` and `git` installed
-- `sudo` access (for Docker setup)
+- **Git** - For cloning this repository
+- **Curl** - For installing Nix
+- **Linux, macOS, or WSL2** - Tested on Ubuntu 22.04+, macOS 13+, WSL2
 
-### Quick Install (All Tools)
+### Quick Install
 
 ```bash
+# Clone the repository
 git clone https://github.com/yourusername/dotfiles.git ~/dotfiles
 cd ~/dotfiles
+
+# Run the installer
 ./install.sh
 ```
 
-### Install Specific Tools
+The installer will:
+1. Install Nix with flakes enabled
+2. Install Home Manager
+3. Build and activate your configuration
+4. Set Fish as your default shell
+5. Set up all tools and configurations
+
+### Manual Installation
+
+If you prefer more control:
 
 ```bash
-# Install only specific tools
-./install.sh zsh git nvim tmux
+# 1. Install Nix (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
-# List available tools
-./install.sh --list
+# 2. Enable flakes (if not already enabled)
+mkdir -p ~/.config/nix
+echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 
-# Get help
-./install.sh --help
+# 3. Clone dotfiles
+git clone https://github.com/yourusername/dotfiles.git ~/dotfiles
+cd ~/dotfiles
+
+# 4. Build and activate (choose your platform)
+# For Linux:
+nix build .#homeConfigurations."user@linux".activationPackage
+./result/activate
+
+# For WSL2:
+nix build .#homeConfigurations."user@wsl".activationPackage
+./result/activate
+
+# For macOS:
+nix build .#homeConfigurations."user@darwin".activationPackage
+./result/activate
 ```
 
-### Install Individual Tools
-
-Each tool can be installed independently:
-
-```bash
-# Install just Zsh configuration
-./zsh/install.sh
-
-# Install just Neovim configuration
-./nvim/install.sh
-
-# Install just Git configuration
-./git/install.sh
-```
-
-## 📁 Directory Structure
+## 📁 Project Structure
 
 ```
 dotfiles/
-├── install.sh              # Main installation script
-├── README.md               # This file
+├── flake.nix                   # Nix flake entry point
+├── flake.lock                  # Locked dependencies
+├── home.nix                    # Main Home Manager configuration
+├── install.sh                  # Installation script
+├── README.md                   # This file
 │
-├── zsh/                    # Zsh configuration
-│   ├── .zshenv            # Zsh environment file (links to ~/.zshenv)
-│   ├── .zshrc             # Main Zsh configuration
-│   ├── abbreviations.zsh  # Shell abbreviations (via zsh-abbr)
-│   ├── functions.zsh      # Custom functions
-│   ├── env.zsh            # Environment variables
-│   └── install.sh         # Zsh installation script
+├── modules/                    # Nix modules for each tool
+│   ├── common.nix             # Common settings
+│   ├── fish.nix               # Fish shell configuration
+│   ├── wezterm.nix            # WezTerm terminal
+│   ├── neovim.nix             # Neovim editor
+│   ├── starship.nix           # Starship prompt
+│   ├── git.nix                # Git configuration
+│   └── tmux.nix               # Tmux multiplexer
 │
-├── git/                    # Git configuration
-│   ├── config             # Git configuration
-│   ├── ignore             # Global gitignore
-│   ├── attributes         # Git attributes
-│   └── install.sh         # Git installation script
+├── config/                     # Application configs
+│   └── wezterm/
+│       └── wezterm.lua        # WezTerm config with OS detection
 │
-├── lazygit/                # Lazygit configuration
-│   ├── config.yml         # Lazygit configuration
-│   └── install.sh         # Lazygit installation script
+├── nvim/                       # Neovim configuration
+│   ├── init.lua               # Main config
+│   └── lua/                   # Lua modules
+│       └── config/
+│           ├── options.lua    # Editor options
+│           ├── keymaps.lua    # Key mappings
+│           ├── autocmds.lua   # Auto commands
+│           └── plugins.lua    # Plugin configuration
 │
-├── nvim/                   # Neovim configuration
-│   ├── init.lua           # Neovim configuration with mini.nvim
-│   └── install.sh         # Neovim installation script
-│
-├── tmux/                   # Tmux configuration
-│   ├── tmux.conf          # Tmux configuration
-│   └── install.sh         # Tmux installation script
-│
-├── wezterm/                # WezTerm configuration
-│   ├── wezterm.lua        # WezTerm configuration
-│   └── install.sh         # WezTerm installation script
-│
-├── starship/               # Starship configuration
-│   ├── starship.toml      # Starship prompt configuration
-│   └── install.sh         # Starship installation script
-│
-├── sheldon/                # Sheldon configuration
-│   ├── plugins.toml       # Zsh plugin definitions
-│   └── install.sh         # Sheldon installation script
-│
-├── homebrew/               # Homebrew setup
-│   └── install.sh         # Homebrew installation script
-│
-├── proto/                  # Proto toolchain manager
-│   └── install.sh         # Proto installation script
-│
-├── docker/                 # Docker setup
-│   └── install.sh         # Docker configuration script
-│
-└── eza/                    # Eza configuration
-    └── install.sh         # Eza installation script
+└── .github/
+    └── workflows/
+        └── nix-check.yml      # CI workflow
 ```
 
-## ⚙️ Configuration Details
+## ⚙️ Configuration
 
-### Environment Variables
+### Platform-Specific Setup
 
-The following XDG environment variables are set:
+The configuration automatically detects your platform and applies the correct settings:
 
-```bash
-XDG_CONFIG_HOME="$HOME/.config"
-XDG_DATA_HOME="$HOME/.local/share"
-XDG_STATE_HOME="$HOME/.local/state"
-XDG_CACHE_HOME="$HOME/.cache"
-```
+- **Linux**: Full configuration with WezTerm
+- **WSL2**: Configuration without WezTerm (uses Windows WezTerm)
+- **macOS**: Full configuration with WezTerm
 
-### Zsh
+### Git Identity
 
-- Vi mode enabled with visual mode indicators
-- Fast syntax highlighting and autosuggestions
-- Abbreviation support (like fish shell)
-- Smart completions with fzf integration
-- Custom aliases and functions
-
-Key bindings:
-- `Ctrl+R` - Fuzzy search command history
-- `Ctrl+T` - Fuzzy find files
-- `Alt+C` - Fuzzy cd to directory
-- `v` (in normal mode) - Edit command in Neovim
-
-### Neovim
-
-Configured with mini.nvim for a minimal yet powerful setup:
-- File explorer with preview
-- Fuzzy finder for files, buffers, and grep
-- Git integration
-- LSP support ready
-- Treesitter for syntax highlighting
-- Catppuccin color scheme
-
-Key bindings:
-- `<Space>` - Leader key
-- `<Space>e` - File explorer
-- `<Space>ff` - Find files
-- `<Space>fg` - Live grep
-- `<Space>w` - Save file
-
-### Tmux
-
-- Custom Catppuccin-inspired theme
-- Vi mode for copy/paste
-- Smart pane switching
-- Session persistence
-- Mouse support
-
-Key bindings:
-- `Ctrl+a` - Prefix key
-- `Prefix |` - Split vertically
-- `Prefix -` - Split horizontally
-- `Prefix h/j/k/l` - Navigate panes
-- `Prefix H/J/K/L` - Resize panes
-
-### Git
-
-- Delta for better diffs
-- Useful aliases
-- Global gitignore
-- Auto-setup remote tracking
-
-### WezTerm
-
-- GPU accelerated rendering
-- Catppuccin color scheme
-- Custom key bindings
-- Multiplexing support
-
-## 🔧 Customization
-
-### Adding Your Git Identity
-
-Create `~/.config/git/config.local`:
+Create `~/.config/git/config.local` to set your Git identity:
 
 ```ini
 [user]
@@ -220,86 +150,197 @@ Create `~/.config/git/config.local`:
     email = your.email@example.com
 ```
 
-### Local Zsh Configuration
+### Customization
 
-Create `~/.config/zsh/.zshrc.local` for machine-specific settings.
+All configuration is in Nix files. To customize:
 
-### Additional Sheldon Plugins
+1. Edit the relevant module in `modules/`
+2. Rebuild with `nix-rebuild` or `./install.sh --rebuild`
 
-Edit the `sheldon/plugins.toml` file to add more Zsh plugins.
+## 🔄 Updating
+
+### Update All Packages
+
+```bash
+cd ~/dotfiles
+./install.sh --update
+```
+
+Or use the convenience alias:
+
+```bash
+nix-update
+```
+
+### Rebuild Without Updating
+
+```bash
+cd ~/dotfiles
+./install.sh --rebuild
+```
+
+Or:
+
+```bash
+nix-rebuild
+```
+
+### Rollback Changes
+
+Nix allows you to rollback to previous configurations:
+
+```bash
+# List generations
+home-manager generations
+
+# Rollback to previous generation
+home-manager generations | head -2 | tail -1 | awk '{print $7}' | xargs -I {} {}/activate
+```
+
+## 🎨 Theme
+
+All tools use the **Catppuccin Mocha** color scheme for a consistent look:
+- Dark, comfortable colors
+- Excellent contrast
+- Beautiful syntax highlighting
+
+## ⌨️ Key Bindings
+
+### Fish Shell
+
+- `Ctrl+R` - Search command history with fzf
+- `Ctrl+F` - Accept autosuggestion
+- `Alt+F` - Accept one word from autosuggestion
+- Vi mode enabled - press `Esc` for normal mode
+
+### Neovim
+
+- `<Space>` - Leader key
+- `<Space>e` - File explorer
+- `<Space>ff` - Find files
+- `<Space>fg` - Live grep
+- `<Space>fb` - Find buffers
+- `<Space>w` - Save file
+
+### Tmux
+
+- `Ctrl+a` - Prefix key
+- `Prefix |` - Split vertically
+- `Prefix -` - Split horizontally
+- `Prefix h/j/k/l` - Navigate panes
+- `Prefix H/J/K/L` - Resize panes
+
+### WezTerm
+
+- `Ctrl+Shift+D` - Split horizontal
+- `Ctrl+D` - Split vertical
+- `Ctrl+Shift+H/J/K/L` - Navigate panes
+- `Ctrl+Alt+H/J/K/L` - Resize panes
+- `Ctrl+Shift+T` - New tab
+- `Ctrl+Shift+W` - Close pane
+
+## 🧪 CI/CD
+
+GitHub Actions automatically:
+- Validates Nix flake syntax
+- Builds all platform configurations
+- Checks code formatting
+- Validates module structure
+- Tests Fish and Neovim configs
+- Runs security audits
 
 ## 🐛 Troubleshooting
 
-### Tool-specific Issues
+### Nix installation fails
 
-Each tool directory contains its own installation script. If a specific tool fails to install or configure:
-
-```bash
-# Re-run the specific tool installation
-./TOOL_NAME/install.sh
-```
-
-### Common Issues
-
-#### Zsh not set as default shell
+If the Determinate installer fails, try the official installer:
 
 ```bash
-chsh -s $(which zsh)
+sh <(curl -L https://nixos.org/nix/install) --daemon
 ```
 
-Then log out and back in.
-
-#### Docker permission denied
+### Fish shell not default after installation
 
 ```bash
-sudo usermod -aG docker $USER
+# Find fish path
+which fish
+
+# Add to /etc/shells if needed
+echo $(which fish) | sudo tee -a /etc/shells
+
+# Change shell
+chsh -s $(which fish)
+
+# Log out and back in
 ```
 
-Then log out and back in.
+### Configuration build fails
 
-#### Fonts not displaying correctly
-
-Install a Nerd Font:
 ```bash
-brew tap homebrew/cask-fonts
-brew install --cask font-jetbrains-mono-nerd-font
+# Check flake for errors
+nix flake check
+
+# Try building with more verbose output
+nix build .#homeConfigurations."user@linux".activationPackage --print-build-logs --show-trace
 ```
 
-#### Neovim plugins not installing
+### WezTerm config not loading
 
-```vim
-:Lazy sync
+```bash
+# Check if config is linked correctly
+ls -la ~/.config/wezterm/
+
+# Manually link if needed
+ln -sf ~/dotfiles/config/wezterm/wezterm.lua ~/.config/wezterm/wezterm.lua
 ```
 
-## 📝 Adding New Tools
+### Fonts not displaying correctly
 
-To add a new tool to the dotfiles:
+Install a Nerd Font. With Nix:
 
-1. Create a new directory for the tool
-2. Add configuration files
-3. Create an `install.sh` script that:
-   - Installs the tool if not present
-   - Links configuration files
-   - Sets up any required directories
-4. Add the tool to the `tools` array in the main `install.sh`
-
-Example structure:
+```bash
+# Add to home.nix packages:
+pkgs.nerdfonts
 ```
-new-tool/
-├── config-file
-└── install.sh
-```
+
+Or manually install JetBrains Mono Nerd Font from [Nerd Fonts](https://www.nerdfonts.com/).
+
+## 📚 Learning Resources
+
+### Nix & Home Manager
+- [Nix Pills](https://nixos.org/guides/nix-pills/) - Learn Nix fundamentals
+- [Home Manager Manual](https://nix-community.github.io/home-manager/) - Official documentation
+- [NixOS Wiki](https://nixos.wiki/) - Community knowledge base
+
+### Tools
+- [Fish Shell Documentation](https://fishshell.com/docs/current/)
+- [Neovim Documentation](https://neovim.io/doc/)
+- [WezTerm Documentation](https://wezfurlong.org/wezterm/)
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+- Open issues for bugs or feature requests
+- Submit pull requests with improvements
+- Share your customizations
 
 ## 📝 License
 
 This project is licensed under the MIT License.
 
-## 🤝 Contributing
-
-Feel free to submit issues and pull requests!
-
 ## 🙏 Acknowledgments
 
-- [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)
-- [Catppuccin](https://github.com/catppuccin/catppuccin) for the color scheme
-- All the amazing open source tool maintainers
+- [NixOS](https://nixos.org/) - For the amazing package manager
+- [Home Manager](https://github.com/nix-community/home-manager) - For user environment management
+- [Catppuccin](https://github.com/catppuccin/catppuccin) - For the beautiful color scheme
+- [mini.nvim](https://github.com/echasnovski/mini.nvim) - For the modular Neovim plugins
+- All the open source tool maintainers
+
+## 🔗 Related Projects
+
+- [NixOS Dotfiles](https://github.com/topics/nixos-dotfiles) - Other Nix-based dotfiles
+- [Awesome Nix](https://github.com/nix-community/awesome-nix) - Curated Nix resources
+
+---
+
+**Note**: This configuration replaces the previous bash-script-based setup with a fully declarative Nix-based approach for better reproducibility and cross-platform support.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Dotfiles Installation Script
-# This script installs and configures all tools with XDG compliance
+# NixOS-based Dotfiles Installation Script
+# This script installs Nix and Home Manager, then activates the dotfiles configuration
 
 set -euo pipefail
 
@@ -14,13 +14,6 @@ NC='\033[0m' # No Color
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# XDG Base Directory Specification
-export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
-export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
-export XDG_BIN_HOME="$HOME/.local/bin"
 
 # Logging functions
 log_info() {
@@ -39,385 +32,373 @@ log_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-# Create XDG directories
-create_xdg_dirs() {
-    log_info "Creating XDG Base Directory structure..."
-    mkdir -p "$XDG_CONFIG_HOME"
-    mkdir -p "$XDG_DATA_HOME"
-    mkdir -p "$XDG_STATE_HOME"
-    mkdir -p "$XDG_CACHE_HOME"
-    mkdir -p "$XDG_BIN_HOME"
-    log_success "XDG directories created"
+# Detect OS
+detect_os() {
+    if [ -f /proc/version ] && grep -qi microsoft /proc/version; then
+        echo "wsl"
+    elif [ "$(uname)" = "Darwin" ]; then
+        echo "darwin"
+    elif [ "$(uname)" = "Linux" ]; then
+        echo "linux"
+    else
+        echo "unknown"
+    fi
 }
 
-# Global array to track failed installations
-FAILED_TOOLS=()
+# Detect system architecture
+detect_arch() {
+    local arch=$(uname -m)
+    case "$arch" in
+        x86_64)
+            echo "x86_64"
+            ;;
+        aarch64|arm64)
+            echo "aarch64"
+            ;;
+        *)
+            echo "unknown"
+            ;;
+    esac
+}
 
-# Run individual tool installation scripts (resilient version)
-install_tool() {
-    local tool="$1"
-    local install_script="$SCRIPT_DIR/$tool/install.sh"
-    
-    if [ -f "$install_script" ]; then
-        log_info "Installing $tool..."
-        
-        # Special handling for homebrew to ensure environment is loaded
-        if [ "$tool" = "homebrew" ]; then
-            if bash "$install_script"; then
-                # Load homebrew environment after installation
-                if [ -d "/home/linuxbrew/.linuxbrew" ]; then
-                    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-                    export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-                fi
-                log_success "$tool installation completed"
-                return 0
-            else
-                log_error "$tool installation failed - continuing with other tools"
-                FAILED_TOOLS+=("$tool")
-                return 1
-            fi
-        else
-            if bash "$install_script"; then
-                log_success "$tool installation completed"
-                return 0
-            else
-                log_error "$tool installation failed - continuing with other tools"
-                FAILED_TOOLS+=("$tool")
-                return 1
-            fi
-        fi
+# Check if Nix is installed
+check_nix() {
+    if command -v nix >/dev/null 2>&1; then
+        log_success "Nix is already installed"
+        nix --version
+        return 0
     else
-        log_warning "No installation script found for $tool"
-        FAILED_TOOLS+=("$tool")
+        log_warning "Nix is not installed"
         return 1
     fi
 }
 
-# Install all tools
-install_all_tools() {
-    local tools=(
-        "homebrew"
-        "proto"
-        "zsh"
-        "git"
-        "lazygit"
-        "starship"
-        "sheldon"
-        "nvim"
-        "tmux"
-        "wezterm"
-        "eza"
-    )
-    
-    for tool in "${tools[@]}"; do
-        # Continue installation even if individual tools fail
-        install_tool "$tool" || true
-        
-        # After installing homebrew, ensure it's available for subsequent tools
-        if [ "$tool" = "homebrew" ] && command -v brew >/dev/null 2>&1; then
-            log_info "Homebrew is now available for subsequent installations"
-        fi
-        
-        # After installing proto, ensure it and rust are available for subsequent tools
-        if [ "$tool" = "proto" ]; then
-            # Add proto to PATH if it was just installed
-            if [ -d "$HOME/.local/share/proto/bin" ]; then
-                export PATH="$HOME/.local/share/proto/bin:$PATH"
-            fi
-            
-            if command -v proto >/dev/null 2>&1; then
-                log_info "Proto toolchain manager is now available for subsequent installations"
-                if proto run cargo -- --version >/dev/null 2>&1; then
-                    log_info "Rust/Cargo is now available via proto for subsequent installations"
-                fi
-            fi
-        fi
-        
-        # After installing zsh, check and change default shell
-        if [ "$tool" = "zsh" ]; then
-            check_and_change_shell
-        fi
-    done
-}
+# Install Nix
+install_nix() {
+    log_info "Installing Nix..."
 
-# Install specific tools
-install_specific_tools() {
-    for tool in "$@"; do
-        if [ -d "$SCRIPT_DIR/$tool" ]; then
-            # Continue installation even if individual tools fail
-            install_tool "$tool" || true
-            
-            # After installing zsh, check and change default shell
-            if [ "$tool" = "zsh" ]; then
-                check_and_change_shell
-            fi
-        else
-            log_error "Tool '$tool' not found"
-            FAILED_TOOLS+=("$tool")
-        fi
-    done
-}
-
-# Report failed tool installations
-report_failed_tools() {
-    if [ ${#FAILED_TOOLS[@]} -eq 0 ]; then
+    if check_nix; then
         return 0
     fi
-    
-    echo ""
-    log_error "The following tools failed to install:"
-    echo ""
-    
-    for tool in "${FAILED_TOOLS[@]}"; do
-        case "$tool" in
-            "homebrew")
-                echo "❌ $tool - Install manually:"
-                echo "   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash"
-                echo ""
-                ;;
-            "proto")
-                echo "❌ $tool - Install manually:"
-                echo "   curl -fsSL https://moonrepo.dev/install/proto.sh | bash"
-                echo "   Then: proto install rust"
-                echo ""
-                ;;
-            "docker")
-                echo "❌ $tool - Install manually:"
-                echo "   Run: ./docker/install.sh"
-                echo "   Or visit: https://docs.docker.com/engine/install/"
-                echo ""
-                ;;
-            "zsh"|"git"|"lazygit"|"starship"|"sheldon"|"nvim"|"tmux"|"wezterm"|"eza")
-                echo "❌ $tool - Re-run installation:"
-                echo "   ./$tool/install.sh"
-                echo ""
-                ;;
-            *)
-                echo "❌ $tool - Check tool directory or installation script"
-                echo ""
-                ;;
-        esac
-    done
-    
-    echo "After resolving the issues above, you can re-run the installation:"
-    echo "  ./install.sh"
-    echo ""
-    echo "Or install specific tools:"
-    echo "  ./install.sh ${FAILED_TOOLS[*]}"
-    echo ""
+
+    # Install Nix with the Determinate Nix Installer (recommended)
+    if command -v curl >/dev/null 2>&1; then
+        log_info "Using Determinate Nix Installer for better experience..."
+        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
+    else
+        log_error "curl is required but not installed. Please install curl first."
+        exit 1
+    fi
+
+    # Source Nix
+    if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+        . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+    elif [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+        . "$HOME/.nix-profile/etc/profile.d/nix.sh"
+    fi
+
+    # Verify installation
+    if check_nix; then
+        log_success "Nix installed successfully!"
+    else
+        log_error "Nix installation failed"
+        exit 1
+    fi
 }
 
-# Check and change default shell to zsh
-check_and_change_shell() {
-    log_info "Checking default shell..."
-    
-    # Get current shell
-    local current_shell=$(basename "$SHELL")
-    local zsh_path=""
-    
-    # Find zsh path
-    if command -v zsh >/dev/null 2>&1; then
-        zsh_path=$(command -v zsh)
-    else
-        log_warning "zsh not found. It will be installed during the setup."
-        return 0
-    fi
-    
-    # Check if current shell is already zsh
-    if [ "$current_shell" = "zsh" ]; then
-        log_success "Default shell is already zsh"
-        return 0
-    fi
-    
-    log_info "Current default shell is: $current_shell"
-    log_info "Changing default shell to zsh..."
-    
-    # Check if zsh is in /etc/shells
-    if ! grep -q "^${zsh_path}$" /etc/shells; then
-        log_warning "zsh path not found in /etc/shells. You may need to add it manually."
-        echo "To add zsh to /etc/shells, run:"
-        echo "  echo '$zsh_path' | sudo tee -a /etc/shells"
-        return 1
-    fi
-    
-    # Change shell
-    if command -v chsh >/dev/null 2>&1; then
-        echo "Changing default shell to zsh..."
-        echo "You may be prompted for your password."
-        if chsh -s "$zsh_path"; then
-            log_success "Default shell changed to zsh"
-            log_warning "You need to log out and back in for the change to take effect"
-        else
-            log_error "Failed to change default shell"
-            echo "You can manually change your shell by running:"
-            echo "  chsh -s $zsh_path"
-            return 1
-        fi
-    else
-        log_warning "chsh command not found"
-        echo "To change your default shell manually, run:"
-        echo "  sudo usermod -s $zsh_path $USER"
-        return 1
-    fi
-    
-    return 0
-}
+# Configure Nix
+configure_nix() {
+    log_info "Configuring Nix..."
 
-# Setup shell environment after installation
-setup_environment() {
-    log_info "Setting up shell environment..."
-    
-    # Ensure all PATH additions are available in current session
-    
-    # Add homebrew to PATH if installed
-    if [ -d "/home/linuxbrew/.linuxbrew" ]; then
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-        export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-    fi
-    
-    # Add proto to PATH if installed
-    if [ -d "$HOME/.local/share/proto/bin" ]; then
-        export PATH="$HOME/.local/share/proto/bin:$PATH"
-    fi
-    
-    # Add local bin to PATH
-    if [ -d "$HOME/.local/bin" ]; then
-        export PATH="$HOME/.local/bin:$PATH"
-    fi
-    
-    # Source zsh environment if .zshenv exists
-    if [ -f "$HOME/.zshenv" ]; then
-        export ZDOTDIR="$HOME/.config/zsh"
-        # Create a temporary file with environment setup
-        cat > "/tmp/zsh_env_setup.zsh" << 'EOF'
-#!/usr/bin/env zsh
-# Temporary environment setup for post-installation
+    # Ensure Nix config directory exists
+    mkdir -p ~/.config/nix
 
-# Source the zshenv to get proper PATH
-source ~/.zshenv
-
-# Print current PATH and available commands
-echo "Environment setup complete!"
-echo "PATH includes:"
-echo "$PATH" | tr ':' '\n' | grep -E "(homebrew|proto|local)" | head -5
-
-echo ""
-echo "Available commands:"
-for cmd in brew proto cargo zsh git starship sheldon eza wezterm; do
-    if command -v "$cmd" >/dev/null 2>&1; then
-        echo "  ✓ $cmd: $(command -v "$cmd")"
-    else
-        echo "  ✗ $cmd: not found"
-    fi
-done
+    # Enable flakes and nix-command if not already enabled
+    if [ ! -f ~/.config/nix/nix.conf ] || ! grep -q "experimental-features" ~/.config/nix/nix.conf; then
+        log_info "Enabling Nix flakes and nix-command..."
+        cat > ~/.config/nix/nix.conf <<EOF
+experimental-features = nix-command flakes
+warn-dirty = false
+accept-flake-config = true
 EOF
+        log_success "Nix configuration updated"
+    else
+        log_info "Nix flakes already enabled"
     fi
-    
-    echo ""
-    log_info "To activate the new environment:"
-    echo "  exec zsh"
-    echo ""
-    echo "Or start a new terminal session"
 }
 
-# List available tools
-list_tools() {
-    log_info "Available tools:"
-    for dir in "$SCRIPT_DIR"/*/; do
-        if [ -f "$dir/install.sh" ]; then
-            tool=$(basename "$dir")
-            echo "  - $tool"
+# Install Home Manager
+install_home_manager() {
+    log_info "Home Manager will be installed via the flake..."
+    log_success "Home Manager setup complete"
+}
+
+# Build and activate Home Manager configuration
+activate_configuration() {
+    local os_type=$(detect_os)
+    local arch=$(detect_arch)
+    local config=""
+
+    # Determine which configuration to use
+    case "$os_type" in
+        wsl)
+            config="user@wsl"
+            log_info "Detected WSL2 environment"
+            ;;
+        darwin)
+            config="user@darwin"
+            log_info "Detected macOS environment"
+            ;;
+        linux)
+            config="user@linux"
+            log_info "Detected Linux environment"
+            ;;
+        *)
+            log_error "Unsupported operating system"
+            exit 1
+            ;;
+    esac
+
+    log_info "Building Home Manager configuration: $config"
+    log_info "This may take a while on first run..."
+
+    cd "$SCRIPT_DIR"
+
+    # Build the configuration
+    log_info "Building configuration..."
+    if ! nix build ".#homeConfigurations.\"$config\".activationPackage" --print-build-logs; then
+        log_error "Failed to build Home Manager configuration"
+        log_info "You can try manually with: nix build \".#homeConfigurations.\\\"$config\\\".activationPackage\""
+        exit 1
+    fi
+
+    # Activate the configuration
+    log_info "Activating configuration..."
+    if ! ./result/activate; then
+        log_error "Failed to activate Home Manager configuration"
+        exit 1
+    fi
+
+    log_success "Configuration activated successfully!"
+}
+
+# Update flake inputs
+update_flake() {
+    log_info "Updating flake inputs..."
+    cd "$SCRIPT_DIR"
+    nix flake update
+    log_success "Flake inputs updated"
+}
+
+# Switch to updated configuration
+rebuild_configuration() {
+    local os_type=$(detect_os)
+    local config=""
+
+    case "$os_type" in
+        wsl) config="user@wsl" ;;
+        darwin) config="user@darwin" ;;
+        linux) config="user@linux" ;;
+    esac
+
+    log_info "Rebuilding configuration: $config"
+    cd "$SCRIPT_DIR"
+
+    nix build ".#homeConfigurations.\"$config\".activationPackage" --print-build-logs
+    ./result/activate
+
+    log_success "Configuration rebuilt and activated!"
+}
+
+# Setup Fish as default shell
+setup_fish_shell() {
+    log_info "Setting up Fish shell..."
+
+    local fish_path=$(command -v fish 2>/dev/null || echo "")
+
+    if [ -z "$fish_path" ]; then
+        log_warning "Fish shell not found in PATH yet. It will be available after reloading your shell."
+        return 0
+    fi
+
+    # Check if fish is already the default shell
+    if [ "$SHELL" = "$fish_path" ]; then
+        log_success "Fish is already your default shell"
+        return 0
+    fi
+
+    # Add fish to /etc/shells if not present
+    if ! grep -q "^$fish_path$" /etc/shells 2>/dev/null; then
+        log_info "Adding Fish to /etc/shells (requires sudo)..."
+        if command -v sudo >/dev/null 2>&1; then
+            echo "$fish_path" | sudo tee -a /etc/shells >/dev/null
+        else
+            log_warning "sudo not available. Please manually add $fish_path to /etc/shells"
+            return 0
         fi
-    done
+    fi
+
+    # Change default shell
+    log_info "Changing default shell to Fish (requires password)..."
+    if ! chsh -s "$fish_path"; then
+        log_warning "Failed to change default shell. You can do this manually with: chsh -s $fish_path"
+    else
+        log_success "Default shell changed to Fish"
+        log_warning "Please log out and back in for the shell change to take effect"
+    fi
 }
 
-# Show usage information
+# Show post-installation instructions
+show_post_install() {
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log_success "Installation complete!"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "📝 Next steps:"
+    echo ""
+    echo "1. Reload your shell to use the new configuration:"
+    echo "   ${GREEN}exec \$SHELL${NC}"
+    echo ""
+    echo "2. (Optional) Configure your Git identity:"
+    echo "   Create ~/.config/git/config.local with:"
+    echo "   ${BLUE}[user]${NC}"
+    echo "   ${BLUE}    name = Your Name${NC}"
+    echo "   ${BLUE}    email = your.email@example.com${NC}"
+    echo ""
+    echo "3. Update your configuration anytime with:"
+    echo "   ${GREEN}cd ~/dotfiles && nix flake update && rebuild${NC}"
+    echo ""
+    echo "4. Or use the convenience alias:"
+    echo "   ${GREEN}nix-rebuild${NC}"
+    echo ""
+    echo "🔧 Installed tools:"
+    echo "  - Fish shell with vi mode"
+    echo "  - Starship prompt"
+    echo "  - Neovim with mini.nvim"
+    echo "  - Tmux with plugins"
+    echo "  - WezTerm (Linux/macOS)"
+    echo "  - Git with delta"
+    echo "  - Lazygit"
+    echo "  - Modern CLI tools (eza, fd, ripgrep, bat, fzf, etc.)"
+    echo ""
+    echo "📚 For more information, see the README.md file"
+    echo ""
+}
+
+# Show usage
 show_usage() {
-    echo "Usage: $0 [OPTIONS] [TOOLS...]"
-    echo ""
-    echo "Options:"
-    echo "  -h, --help     Show this help message"
-    echo "  -l, --list     List available tools"
-    echo "  -a, --all      Install all tools (default)"
-    echo ""
-    echo "Examples:"
-    echo "  $0                    # Install all tools"
-    echo "  $0 --all              # Install all tools"
-    echo "  $0 zsh git nvim       # Install specific tools"
-    echo "  $0 --list             # List available tools"
-    echo ""
-    echo "Available tools can be installed individually by running:"
-    echo "  ./TOOL_NAME/install.sh"
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+NixOS-based dotfiles installer
+
+Options:
+    -h, --help          Show this help message
+    -u, --update        Update flake inputs and rebuild
+    -r, --rebuild       Rebuild configuration without updating
+    --no-shell-change   Skip changing default shell to Fish
+
+Examples:
+    $0                  # Full installation
+    $0 --update         # Update and rebuild configuration
+    $0 --rebuild        # Rebuild without updating
+
+After installation, use these commands:
+    nix-rebuild        # Rebuild configuration
+    nix-update         # Update flake inputs
+    nix-clean          # Clean old generations
+
+EOF
 }
 
 # Main installation function
 main() {
-    local install_all=true
-    local specific_tools=()
-    
-    # Parse command line arguments
+    local update_only=false
+    local rebuild_only=false
+    local change_shell=true
+
+    # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
                 show_usage
                 exit 0
                 ;;
-            -l|--list)
-                list_tools
-                exit 0
+            -u|--update)
+                update_only=true
+                shift
                 ;;
-            -a|--all)
-                install_all=true
+            -r|--rebuild)
+                rebuild_only=true
+                shift
+                ;;
+            --no-shell-change)
+                change_shell=false
                 shift
                 ;;
             *)
-                install_all=false
-                specific_tools+=("$1")
-                shift
+                log_error "Unknown option: $1"
+                show_usage
+                exit 1
                 ;;
         esac
     done
-    
-    log_info "Starting dotfiles installation..."
-    
-    # Check for build tools (required for Rust packages)
-    if ! command -v cc >/dev/null 2>&1; then
-        log_warning "Build tools not detected. Some tools (sheldon, eza) require compilation."
-        log_info "Run './install-build-tools.sh' first if you encounter compilation errors."
-        echo ""
+
+    # Handle update/rebuild modes
+    if [ "$update_only" = true ]; then
+        update_flake
+        rebuild_configuration
+        log_success "Update complete!"
+        exit 0
     fi
-    
-    # Create XDG directories
-    create_xdg_dirs
-    
-    # Install tools
-    if [ "$install_all" = true ]; then
-        install_all_tools
-    else
-        install_specific_tools "${specific_tools[@]}"
+
+    if [ "$rebuild_only" = true ]; then
+        rebuild_configuration
+        log_success "Rebuild complete!"
+        exit 0
     fi
-    
-    # Report any failed installations
-    report_failed_tools
-    
-    # Setup environment for current session
-    setup_environment
-    
-    # Final status message
-    if [ ${#FAILED_TOOLS[@]} -eq 0 ]; then
-        log_success "Dotfiles installation complete!"
-    else
-        log_warning "Dotfiles installation completed with ${#FAILED_TOOLS[@]} failed tool(s)"
-    fi
-    
-    # Additional setup notes
+
+    # Full installation
+    log_info "Starting NixOS-based dotfiles installation..."
     echo ""
-    echo "Additional setup notes:"
-    echo "- Create ~/.config/git/config.local with your git user information"
-    echo "- Start tmux and press Ctrl+a + I to install tmux plugins"
-    echo "- Run 'sheldon lock' to update zsh plugins"
-    echo "- If you installed Docker, log out and back in for group changes to take effect"
+
+    # Check prerequisites
+    if ! command -v curl >/dev/null 2>&1; then
+        log_error "curl is required but not installed"
+        exit 1
+    fi
+
+    if ! command -v git >/dev/null 2>&1; then
+        log_error "git is required but not installed"
+        exit 1
+    fi
+
+    # Install and configure Nix
+    install_nix
+    configure_nix
+
+    # Source Nix environment
+    if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+        . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+    elif [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+        . "$HOME/.nix-profile/etc/profile.d/nix.sh"
+    fi
+
+    # Install Home Manager (via flake)
+    install_home_manager
+
+    # Build and activate configuration
+    activate_configuration
+
+    # Setup Fish shell
+    if [ "$change_shell" = true ]; then
+        setup_fish_shell
+    fi
+
+    # Show post-installation instructions
+    show_post_install
 }
 
-# Run main function with all arguments
+# Run main function
 main "$@"
