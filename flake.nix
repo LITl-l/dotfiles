@@ -110,6 +110,20 @@
         };
       };
 
+      # Expose activation packages for nix build
+      packages = {
+        x86_64-linux = {
+          "homeConfigurations/user@linux" = self.homeConfigurations."user@linux".activationPackage;
+          "homeConfigurations/user@wsl" = self.homeConfigurations."user@wsl".activationPackage;
+          "homeConfigurations/nixos@wsl" = self.homeConfigurations."nixos@wsl".activationPackage;
+        };
+        aarch64-linux = { };
+        x86_64-darwin = { };
+        aarch64-darwin = {
+          "homeConfigurations/user@darwin" = self.homeConfigurations."user@darwin".activationPackage;
+        };
+      };
+
       # Development shell for testing
       devShells = forAllSystems (system:
         let pkgs = nixpkgsFor.${system};
@@ -128,3 +142,4 @@
       formatter = forAllSystems (system: nixpkgsFor.${system}.nixpkgs-fmt);
     };
 }
+
