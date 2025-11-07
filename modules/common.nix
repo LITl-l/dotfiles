@@ -17,6 +17,7 @@
   # SSH client configuration
   programs.ssh = {
     enable = true;
+    enableDefaultConfig = false;
     extraConfig = ''
       AddKeysToAgent yes
     '';

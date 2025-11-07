@@ -135,15 +135,23 @@ install_home_manager() {
 
 # Build and activate Home Manager configuration
 activate_configuration() {
+    local skip_activation="${1:-false}"
     local os_type=$(detect_os)
     local arch=$(detect_arch)
+    local username=$(whoami)
     local config=""
 
     # Determine which configuration to use
     case "$os_type" in
         wsl)
-            config="user@wsl"
-            log_info "Detected WSL2 environment"
+            # Use username-specific config if available (nixos@wsl or user@wsl)
+            if [ "$username" = "nixos" ]; then
+                config="nixos@wsl"
+                log_info "Detected WSL2 environment (NixOS user)"
+            else
+                config="user@wsl"
+                log_info "Detected WSL2 environment"
+            fi
             ;;
         darwin)
             config="user@darwin"
@@ -172,7 +180,13 @@ activate_configuration() {
         exit 1
     fi
 
-    # Activate the configuration
+    # Activate the configuration (skip if build-only mode)
+    if [ "$skip_activation" = "true" ]; then
+        log_success "Configuration built successfully (activation skipped)"
+        log_info "Build result: $(readlink -f result)"
+        return 0
+    fi
+
     log_info "Activating configuration..."
     if ! ./result/activate; then
         log_error "Failed to activate Home Manager configuration"
@@ -193,10 +207,17 @@ update_flake() {
 # Switch to updated configuration
 rebuild_configuration() {
     local os_type=$(detect_os)
+    local username=$(whoami)
     local config=""
 
     case "$os_type" in
-        wsl) config="user@wsl" ;;
+        wsl)
+            if [ "$username" = "nixos" ]; then
+                config="nixos@wsl"
+            else
+                config="user@wsl"
+            fi
+            ;;
         darwin) config="user@darwin" ;;
         linux) config="user@linux" ;;
     esac
@@ -298,6 +319,7 @@ Options:
     -u, --update        Update flake inputs and rebuild
     -r, --rebuild       Rebuild configuration without updating
     --no-shell-change   Skip changing default shell to Fish
+    --build-only        Build configuration without activating (for CI/testing)
 
 Examples:
     $0                  # Full installation
@@ -317,6 +339,7 @@ main() {
     local update_only=false
     local rebuild_only=false
     local change_shell=true
+    local build_only=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -335,6 +358,10 @@ main() {
                 ;;
             --no-shell-change)
                 change_shell=false
+                shift
+                ;;
+            --build-only)
+                build_only=true
                 shift
                 ;;
             *)
@@ -389,7 +416,13 @@ main() {
     install_home_manager
 
     # Build and activate configuration
-    activate_configuration
+    activate_configuration "$build_only"
+
+    # If build-only mode, exit early
+    if [ "$build_only" = true ]; then
+        log_success "Build verification complete!"
+        exit 0
+    fi
 
     # Setup Fish shell
     if [ "$change_shell" = true ]; then
