@@ -176,6 +176,41 @@ jobs:
           fi
           echo "✅ WSL build successful"
 
+  build-nixos-wsl:
+    name: Build NixOS WSL Configuration
+    runs-on: ubuntu-latest
+    needs: test-modules
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: nix-community
+          skipPush: true
+
+      - name: Build nixos@wsl configuration
+        run: |
+          nix build .#homeConfigurations."nixos@wsl".activationPackage \
+            --print-build-logs \
+            --show-trace
+
+      - name: Verify NixOS WSL-specific settings
+        run: |
+          if [ ! -L result ]; then
+            echo "❌ Build result symlink not found"
+            exit 1
+          fi
+          echo "✅ NixOS WSL build successful"
+
   test-format:
     name: Check Nix Formatting
     runs-on: ubuntu-latest
@@ -246,7 +281,7 @@ jobs:
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [validate-flake, test-modules, build-linux, build-wsl, test-format, test-nvim-config, test-wezterm-config]
+    needs: [validate-flake, test-modules, build-linux, build-wsl, build-nixos-wsl, test-format, test-nvim-config, test-wezterm-config]
     if: always()
     steps:
       - name: Check results
@@ -258,6 +293,7 @@ jobs:
           echo "Test Modules: ${{ needs.test-modules.result }}"
           echo "Build Linux: ${{ needs.build-linux.result }}"
           echo "Build WSL: ${{ needs.build-wsl.result }}"
+          echo "Build NixOS WSL: ${{ needs.build-nixos-wsl.result }}"
           echo "Test Format: ${{ needs.test-format.result }}"
           echo "Test Nvim Config: ${{ needs.test-nvim-config.result }}"
           echo "Test WezTerm Config: ${{ needs.test-wezterm-config.result }}"
@@ -266,7 +302,8 @@ jobs:
           if [ "${{ needs.validate-flake.result }}" != "success" ] || \
              [ "${{ needs.test-modules.result }}" != "success" ] || \
              [ "${{ needs.build-linux.result }}" != "success" ] || \
-             [ "${{ needs.build-wsl.result }}" != "success" ]; then
+             [ "${{ needs.build-wsl.result }}" != "success" ] || \
+             [ "${{ needs.build-nixos-wsl.result }}" != "success" ]; then
             echo "❌ Some critical checks failed"
             exit 1
           fi

@@ -74,6 +74,25 @@
           extraSpecialArgs = { inherit inputs; };
         };
 
+        # NixOS on WSL2 configuration
+        "nixos@wsl" = home-manager.lib.homeManagerConfiguration {
+          pkgs = nixpkgsFor.x86_64-linux;
+          modules = [
+            ./home.nix
+            {
+              home = {
+                username = "nixos";
+                homeDirectory = "/home/nixos";
+                stateVersion = "24.05";
+              };
+              targets.genericLinux.enable = true;
+              # WSL-specific settings
+              programs.wezterm.enable = false; # Use Windows WezTerm
+            }
+          ];
+          extraSpecialArgs = { inherit inputs; };
+        };
+
         # macOS configuration
         "user@darwin" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgsFor.aarch64-darwin;

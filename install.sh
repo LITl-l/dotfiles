@@ -137,13 +137,20 @@ install_home_manager() {
 activate_configuration() {
     local os_type=$(detect_os)
     local arch=$(detect_arch)
+    local username=$(whoami)
     local config=""
 
     # Determine which configuration to use
     case "$os_type" in
         wsl)
-            config="user@wsl"
-            log_info "Detected WSL2 environment"
+            # Use username-specific config if available (nixos@wsl or user@wsl)
+            if [ "$username" = "nixos" ]; then
+                config="nixos@wsl"
+                log_info "Detected WSL2 environment (NixOS user)"
+            else
+                config="user@wsl"
+                log_info "Detected WSL2 environment"
+            fi
             ;;
         darwin)
             config="user@darwin"
@@ -193,10 +200,17 @@ update_flake() {
 # Switch to updated configuration
 rebuild_configuration() {
     local os_type=$(detect_os)
+    local username=$(whoami)
     local config=""
 
     case "$os_type" in
-        wsl) config="user@wsl" ;;
+        wsl)
+            if [ "$username" = "nixos" ]; then
+                config="nixos@wsl"
+            else
+                config="user@wsl"
+            fi
+            ;;
         darwin) config="user@darwin" ;;
         linux) config="user@linux" ;;
     esac
