@@ -63,49 +63,67 @@ jobs:
             exit 1
           fi
 
-          # Count warnings
-          WARNING_COUNT=$(grep -c "warning:" install.log || true)
+          # Count warnings (use -a to treat as text)
+          WARNING_COUNT=$(grep -ac "warning:" install.log || true)
           echo "⚠️  Warnings found: $WARNING_COUNT"
 
           if [ $WARNING_COUNT -gt 0 ]; then
             echo ""
             echo "Warnings detected:"
-            grep "warning:" install.log || true
+            grep -a "warning:" install.log || true
           fi
 
           # Check for specific known warnings
           echo ""
           echo "Checking for known issues:"
 
-          if grep -q "programs.ssh.*default values will be removed" install.log; then
+          if grep -aq "programs.ssh.*default values will be removed" install.log; then
             echo "🔍 Found: SSH default values deprecation warning"
             echo "   Location: programs.ssh configuration"
             echo "   Fix: Set programs.ssh.enableDefaultConfig = false"
           fi
 
-          if grep -q 'creating lock file.*".*"' install.log; then
+          if grep -aq 'creating lock file.*".*"' install.log; then
             echo "🔍 Found: Quoted path in lock file creation"
             echo "   This may indicate a path handling issue"
           fi
 
-          # Count errors
-          ERROR_COUNT=$(grep -ci "error" install.log || true)
+          # Count actual errors (exclude false positives like libgpg-error, error-1)
+          ERROR_COUNT=$(grep -ai "error" install.log | grep -v "libgpg-error" | grep -v "error-[0-9]" | grep -v "copying path" | wc -l || true)
           echo ""
-          echo "❌ Errors found: $ERROR_COUNT"
+          echo "❌ Potential errors found: $ERROR_COUNT"
 
           if [ $ERROR_COUNT -gt 0 ]; then
             echo ""
             echo "Errors detected:"
-            grep -i "error" install.log || true
+            grep -ai "error" install.log | grep -v "libgpg-error" | grep -v "error-[0-9]" | grep -v "copying path" || true
           fi
 
+          # Show last 50 lines of log for context
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Last 50 lines of installation log:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          tail -50 install.log
+
           # Check if installation succeeded
-          if grep -q "Installation complete!" install.log; then
-            echo ""
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          if grep -aq "Installation complete!" install.log; then
             echo "✅ Installation completed successfully"
           else
-            echo ""
             echo "❌ Installation did not complete successfully"
+            echo ""
+            echo "Checking for failure indicators:"
+            if grep -aq "Failed to build" install.log; then
+              echo "  - Build failure detected"
+            fi
+            if grep -aq "Failed to activate" install.log; then
+              echo "  - Activation failure detected"
+            fi
+            if grep -aq "exit code 1" install.log; then
+              echo "  - Script exited with error code 1"
+            fi
             exit 1
           fi
 
