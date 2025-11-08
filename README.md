@@ -205,6 +205,48 @@ This configuration:
 - Disables WezTerm (uses Windows terminal)
 - Enables all other tools and configurations
 
+#### WSL2 WezTerm Configuration
+
+When using WSL2, WezTerm runs on the Windows side but needs to access configuration from WSL. Set up a symbolic link to bridge the Windows and WSL filesystems:
+
+**Windows Side (PowerShell as Administrator):**
+
+```powershell
+# Create a symbolic link from Windows .config to WSL
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config\windows" -Target "\\wsl$\Ubuntu\home\<username>\.config\windows"
+```
+
+**WSL Side:**
+
+```bash
+# Create the Windows config directory in WSL
+mkdir -p ~/.config/windows
+
+# Place WezTerm config in the dotfiles directory
+# The config should be at: ~/.config/dotfiles/wezterm/wezterm.lua
+```
+
+**Directory Structure:**
+```
+Windows:
+  %USERPROFILE%\.config\windows\     → (symlink to WSL ~/.config/windows/)
+    └── dotfiles/
+        └── wezterm/
+            └── wezterm.lua
+
+WSL:
+  ~/.config/
+    ├── windows/                     → (accessible from Windows via symlink)
+    │   └── dotfiles/
+    │       └── wezterm/
+    │           └── wezterm.lua
+    └── dotfiles/                    → (or link to ~/dotfiles/config/)
+        └── wezterm/
+            └── wezterm.lua
+```
+
+WezTerm on Windows will read the configuration from `%USERPROFILE%\.config\windows\dotfiles\wezterm\wezterm.lua`, which resolves to the file in your WSL home directory at `~/.config/windows/dotfiles/wezterm/wezterm.lua`.
+
 ### Git Identity
 
 Create `~/.config/git/config.local` to set your Git identity:
