@@ -2,6 +2,8 @@
 
 Modern Neovim configuration using mini.nvim with LSP, completion, and Git integration.
 
+> **Managed by Nix**: This configuration is automatically managed by the main Nix flakes setup. See [modules/neovim.nix](../modules/neovim.nix) for the Nix configuration. No manual installation required when using the main dotfiles setup.
+
 ## What it includes
 
 - **Mini.nvim ecosystem** for lightweight, fast plugins
@@ -10,10 +12,24 @@ Modern Neovim configuration using mini.nvim with LSP, completion, and Git integr
 - **Fuzzy finding** for files, text, and commands
 - **Catppuccin theme** for consistent aesthetics
 - **Treesitter** for advanced syntax highlighting
+- **Vi mode everywhere** consistent with Fish and Tmux
 
 ## Installation
 
-Run the installation script:
+### Via Nix (Recommended)
+
+Neovim is automatically installed and configured when you use the main dotfiles setup:
+
+```bash
+# See main README for full installation
+home-manager switch --flake ~/dotfiles
+```
+
+The configuration files in this directory are automatically symlinked by the Nix module.
+
+### Standalone (Legacy)
+
+If you need just neovim configuration without the full Nix setup:
 
 ```bash
 ./nvim/install.sh

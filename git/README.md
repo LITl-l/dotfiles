@@ -2,17 +2,33 @@
 
 Comprehensive Git configuration with aliases, Delta pager, and optimized settings.
 
+> **Managed by Nix**: This configuration is automatically managed by the main Nix flakes setup. See [modules/git.nix](../modules/git.nix) for the Nix configuration. No manual installation required when using the main dotfiles setup.
+
 ## What it includes
 
 - **Modern Git aliases** for common operations
-- **Delta pager** for beautiful diffs
-- **Catppuccin-mocha theme** integration
+- **Delta pager** for beautiful diffs with syntax highlighting
+- **Lazygit** Terminal UI with Catppuccin theme
 - **LFS support** for large files
 - **Smart defaults** and optimizations
+- **Global gitignore** for common patterns
 
 ## Installation
 
-Run the installation script:
+### Via Nix (Recommended)
+
+Git configuration is automatically set up when you use the main dotfiles setup:
+
+```bash
+# See main README for full installation
+home-manager switch --flake ~/dotfiles
+```
+
+The Nix configuration includes git, delta, and lazygit all configured to work together.
+
+### Standalone (Legacy)
+
+If you need just git configuration without the full Nix setup:
 
 ```bash
 ./git/install.sh

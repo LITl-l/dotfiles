@@ -2,6 +2,8 @@
 
 Terminal-based Git UI with Catppuccin theme and vim-style keybindings.
 
+> **Managed by Nix**: This configuration is automatically managed by the main Nix flakes setup. See [modules/git.nix](../modules/git.nix) for the Nix configuration (lazygit config is included there). No manual installation required when using the main dotfiles setup.
+
 ## What it does
 
 Lazygit provides a beautiful, interactive Git interface featuring:
@@ -9,11 +11,23 @@ Lazygit provides a beautiful, interactive Git interface featuring:
 - **Vim-style navigation** and keybindings
 - **Catppuccin theme** for consistent aesthetics
 - **Delta integration** for enhanced diffs
-- **Custom commands** for extended functionality
+- **Neovim integration** for editing
+- **File tree view** for better organization
 
 ## Installation
 
-Run the installation script:
+### Via Nix (Recommended)
+
+Lazygit is automatically installed and configured when you use the main dotfiles setup:
+
+```bash
+# See main README for full installation
+home-manager switch --flake ~/dotfiles
+```
+
+### Standalone (Legacy)
+
+If you need just lazygit configuration without the full Nix setup:
 
 ```bash
 ./lazygit/install.sh
@@ -43,19 +57,13 @@ Run the installation script:
 - **Stash**: Save, apply, pop stashes
 - **Cherry-pick**: Copy commits between branches
 
-### Custom commands included
-
-**Commitizen integration:**
-- **Key**: `C` (in files context)
-- **Command**: `git cz` for conventional commits
-
-**Annotated tags:**
-- **Key**: `T` (in commits context)
-- **Prompts**: Tag name and message
-
-**TODO comments:**
-- **Key**: `Ctrl+t` (in files context)
-- **Command**: `git todo` for adding TODO markers
+### Basic operations
+- **Stage/unstage**: `space` for individual files, `a` for all
+- **Commit**: `c` for commit, `C` for amend
+- **Push/pull**: `P` for push, `p` for pull
+- **Branch management**: Create, checkout, delete branches
+- **Stash**: Save and restore working changes
+- **Merge/rebase**: Interactive git operations
 
 ## Configuration highlights
 

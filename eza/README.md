@@ -1,5 +1,13 @@
 # Eza
 
+> ⚠️ **DEPRECATED**: This standalone installation script is no longer the recommended approach. The dotfiles repository now manages **eza** via **Nix/Home Manager**.
+>
+> **Recommended**: Use the main Nix-based configuration which includes eza as a package. See the main [README.md](../README.md) for installation instructions.
+>
+> This documentation is preserved for reference.
+
+---
+
 Modern replacement for `ls` with colors, icons, and git integration.
 
 ## What it does

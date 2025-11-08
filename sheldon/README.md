@@ -1,5 +1,13 @@
 # Sheldon
 
+> ⚠️ **DEPRECATED**: This Sheldon configuration is no longer used. The dotfiles repository has migrated to **Fish shell** with native plugin management via **Nix/Home Manager**.
+>
+> **Recommended**: Use the main Nix-based configuration which manages Fish plugins declaratively. See the main [README.md](../README.md) for installation instructions.
+>
+> This documentation is preserved for reference.
+
+---
+
 Fast Zsh plugin manager written in Rust.
 
 ## What it does

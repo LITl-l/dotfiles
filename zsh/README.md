@@ -1,5 +1,13 @@
 # Zsh Configuration
 
+> ⚠️ **DEPRECATED**: This Zsh configuration is no longer actively maintained. The dotfiles repository has migrated to **Fish shell** with **Nix/Home Manager** for declarative configuration management.
+>
+> **Recommended**: Use the main Nix-based configuration which includes Fish shell. See the main [README.md](../README.md) for installation instructions.
+>
+> This documentation is preserved for reference and for users who may still want a bash-based Zsh setup.
+
+---
+
 Modern Zsh setup with plugins, completions, and development tools integration.
 
 ## What it includes

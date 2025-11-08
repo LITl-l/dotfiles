@@ -1,5 +1,13 @@
 # Homebrew
 
+> ⚠️ **DEPRECATED**: This standalone Homebrew installation is no longer the recommended approach for this dotfiles repository. The repository now uses **Nix** as the primary package manager for cross-platform reproducibility.
+>
+> **Recommended**: Use the main Nix-based configuration which provides all development tools through Nix packages. See the main [README.md](../README.md) for installation instructions.
+>
+> **Note**: Homebrew is still a great tool, but for this dotfiles setup, Nix provides better reproducibility and cross-platform consistency. This documentation is preserved for users who prefer Homebrew.
+
+---
+
 Package manager for Linux that provides easy installation of development tools.
 
 ## What it does
