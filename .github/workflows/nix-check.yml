@@ -264,19 +264,45 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check wezterm.lua
+      - name: Check main wezterm.lua
         run: |
           if [ ! -f config/wezterm/wezterm.lua ]; then
             echo "❌ config/wezterm/wezterm.lua not found"
             exit 1
           fi
-          echo "✅ WezTerm config exists"
+          echo "✅ WezTerm main config exists"
 
-      - name: Verify OS detection logic
+      - name: Check modular config files
         run: |
-          grep -q "is_windows" config/wezterm/wezterm.lua && echo "✅ Windows detection found"
-          grep -q "is_linux" config/wezterm/wezterm.lua && echo "✅ Linux detection found"
-          grep -q "is_macos" config/wezterm/wezterm.lua && echo "✅ macOS detection found"
+          modules=(platform theme fonts appearance keybindings mouse domains performance)
+          for module in "${modules[@]}"; do
+            if [ ! -f "config/wezterm/${module}.lua" ]; then
+              echo "❌ config/wezterm/${module}.lua not found"
+              exit 1
+            fi
+            echo "✅ ${module}.lua exists"
+          done
+
+      - name: Verify main config loads modules
+        run: |
+          grep -q "require('theme')" config/wezterm/wezterm.lua || grep -q 'require("theme")' config/wezterm/wezterm.lua && echo "✅ Theme module loaded"
+          grep -q "require('fonts')" config/wezterm/wezterm.lua || grep -q 'require("fonts")' config/wezterm/wezterm.lua && echo "✅ Fonts module loaded"
+          grep -q "require('appearance')" config/wezterm/wezterm.lua || grep -q 'require("appearance")' config/wezterm/wezterm.lua && echo "✅ Appearance module loaded"
+          grep -q "require('keybindings')" config/wezterm/wezterm.lua || grep -q 'require("keybindings")' config/wezterm/wezterm.lua && echo "✅ Keybindings module loaded"
+          grep -q "require('mouse')" config/wezterm/wezterm.lua || grep -q 'require("mouse")' config/wezterm/wezterm.lua && echo "✅ Mouse module loaded"
+          grep -q "require('domains')" config/wezterm/wezterm.lua || grep -q 'require("domains")' config/wezterm/wezterm.lua && echo "✅ Domains module loaded"
+          grep -q "require('performance')" config/wezterm/wezterm.lua || grep -q 'require("performance")' config/wezterm/wezterm.lua && echo "✅ Performance module loaded"
+
+      - name: Verify OS detection in platform module
+        run: |
+          grep -q "is_windows" config/wezterm/platform.lua && echo "✅ Windows detection found"
+          grep -q "is_linux" config/wezterm/platform.lua && echo "✅ Linux detection found"
+          grep -q "is_macos" config/wezterm/platform.lua && echo "✅ macOS detection found"
+
+      - name: Verify WSL domain config
+        run: |
+          grep -q "wsl.exe" config/wezterm/domains.lua && echo "✅ WSL domain configured"
+          grep -q "\-\-cd" config/wezterm/domains.lua && echo "✅ WSL home directory flag found"
 
   summary:
     name: CI Summary
