@@ -5,7 +5,7 @@
     enable = true;
     enableFishIntegration = true;
     enableBashIntegration = true;
-    enableZshIntegration = false; # We're using Fish now
+    enableZshIntegration = true;
 
     # Starship configuration
     settings = {

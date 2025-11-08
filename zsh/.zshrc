@@ -113,10 +113,6 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 zstyle ':completion:*' menu select
 
-# Initialize tools
-eval "$(zoxide init zsh)"
-eval "$(starship init zsh)"
-
 # Load local configuration if exists
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
 
