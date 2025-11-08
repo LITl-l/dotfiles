@@ -213,44 +213,122 @@ When using WSL2, WezTerm runs on the Windows side but needs to access configurat
 
 ```powershell
 # Create a symbolic link from Windows .config to WSL
+# Replace <username> with your actual WSL username
 New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config" -Target "\\wsl$\Ubuntu\home\<username>\.config\windows"
 ```
 
 **WSL Side:**
 
 ```bash
-# Create the Windows config directory in WSL
+# IMPORTANT: Use absolute paths for symlinks to avoid blank/broken files
+
+# 1. Create the Windows config directory structure in WSL
 mkdir -p ~/.config/windows/wezterm
 
-# Link or copy your WezTerm config from dotfiles to the windows directory
-# Option 1: Create a symlink (recommended - changes auto-sync)
-ln -sf ~/dotfiles/config/wezterm/wezterm.lua ~/.config/windows/wezterm/wezterm.lua
+# 2. Create symlink for the entire wezterm directory (recommended)
+# This syncs all config modules automatically
+ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
 
-# Option 2: Copy the file (requires manual updates)
-# cp ~/dotfiles/config/wezterm/wezterm.lua ~/.config/windows/wezterm/wezterm.lua
+# Alternative: Link only the main config file
+# ln -sf "$HOME/dotfiles/config/wezterm/wezterm.lua" "$HOME/.config/windows/wezterm/wezterm.lua"
+
+# 3. Verify the symlink is working
+ls -la ~/.config/windows/wezterm/
+# Should show: wezterm -> /home/<username>/dotfiles/config/wezterm
+
+# 4. Test the symlink target is readable
+cat ~/.config/windows/wezterm/wezterm.lua
+# Should display the WezTerm configuration content
 ```
 
 **Directory Structure:**
 ```
 Windows:
   %USERPROFILE%\.config\            → (symlink to WSL ~/.config/windows/)
-    └── wezterm/
-        └── wezterm.lua              → WezTerm reads from here
+    └── wezterm/                     → (symlink to dotfiles/config/wezterm/)
+        ├── wezterm.lua              → Main entry point
+        ├── platform.lua             → OS detection
+        ├── theme.lua                → Colors and visual settings
+        ├── fonts.lua                → Font configuration
+        ├── appearance.lua           → Window appearance
+        ├── keybindings.lua          → Keyboard shortcuts
+        ├── mouse.lua                → Mouse bindings
+        ├── domains.lua              → Domain configs (WSL, SSH, local)
+        └── performance.lua          → Performance settings
 
 WSL:
-  ~/.config/
-    └── windows/                     → (accessible from Windows via symlink)
-        └── wezterm/
-            └── wezterm.lua          → Actual config file location
+  ~/dotfiles/config/wezterm/         → Source of truth
+    └── (all config files)
+  ~/.config/windows/wezterm/         → Symlink to above
 ```
 
 **How it works:**
-1. Your dotfiles configuration is at `~/dotfiles/config/wezterm/wezterm.lua` in WSL
-2. You create a symlink from `~/.config/windows/wezterm/wezterm.lua` → `~/dotfiles/config/wezterm/wezterm.lua`
+1. Your dotfiles configuration is at `~/dotfiles/config/wezterm/` in WSL
+2. You create a symlink from `~/.config/windows/wezterm/` → `~/dotfiles/config/wezterm/`
 3. Windows `%USERPROFILE%\.config` is a symbolic link to WSL `~/.config/windows`
 4. Windows WezTerm looks for config at `%USERPROFILE%\.config\wezterm\wezterm.lua`
-5. This resolves to `~/.config/windows/wezterm/wezterm.lua` → `~/dotfiles/config/wezterm/wezterm.lua`
-6. Result: You can edit your WezTerm config in the dotfiles repo and Windows WezTerm automatically uses it
+5. This resolves through the symlink chain to your dotfiles repo
+6. Result: All config changes in dotfiles auto-sync to Windows WezTerm
+
+**Modular Configuration:**
+
+The WezTerm config is now organized into modules:
+- `theme.lua` - Color schemes and visual effects
+- `fonts.lua` - Font family and sizing (platform-specific)
+- `appearance.lua` - Window decorations, opacity, padding, tabs
+- `keybindings.lua` - All keyboard shortcuts
+- `mouse.lua` - Mouse button and wheel bindings
+- `domains.lua` - WSL, SSH, and local shell configuration
+- `performance.lua` - Rendering and FPS settings
+- `platform.lua` - OS detection utilities
+
+Edit any module and WezTerm will pick up changes on reload (`Ctrl+Shift+Alt+R` or `Cmd+Shift+R`).
+
+**Troubleshooting:**
+
+If the symlink appears blank or broken:
+
+1. **Check if you used absolute paths:**
+   ```bash
+   # Wrong (creates broken symlink):
+   ln -sf ~/dotfiles/config/wezterm ~/.config/windows/wezterm
+
+   # Correct (use $HOME instead):
+   ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
+   ```
+
+2. **Verify the source exists:**
+   ```bash
+   ls -la ~/dotfiles/config/wezterm/
+   # Should show wezterm.lua and all module files
+   ```
+
+3. **Check symlink target:**
+   ```bash
+   readlink ~/.config/windows/wezterm
+   # Should output: /home/<username>/dotfiles/config/wezterm
+   ```
+
+4. **Remove and recreate broken symlink:**
+   ```bash
+   rm ~/.config/windows/wezterm
+   ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
+   ```
+
+5. **Verify from Windows side:**
+   ```powershell
+   # In PowerShell
+   Get-Item "$env:USERPROFILE\.config\wezterm" | Select-Object Target
+   # Should show the WSL path
+   ```
+
+6. **Check WSL distribution name:**
+   ```bash
+   # If your WSL distro isn't "Ubuntu", update the Windows symlink target
+   # List your distros:
+   wsl -l -v
+   # Update Windows symlink target to match (e.g., \\wsl$\Debian\home\...)
+   ```
 
 ### Git Identity
 
