@@ -213,39 +213,38 @@ When using WSL2, WezTerm runs on the Windows side but needs to access configurat
 
 ```powershell
 # Create a symbolic link from Windows .config to WSL
-New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config\windows" -Target "\\wsl$\Ubuntu\home\<username>\.config\windows"
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config" -Target "\\wsl$\Ubuntu\home\<username>\.config\windows"
 ```
 
 **WSL Side:**
 
 ```bash
 # Create the Windows config directory in WSL
-mkdir -p ~/.config/windows
+mkdir -p ~/.config/windows/wezterm
 
-# Place WezTerm config in the dotfiles directory
-# The config should be at: ~/.config/dotfiles/wezterm/wezterm.lua
+# Place WezTerm config files here
+# The config should be at: ~/.config/windows/wezterm/wezterm.lua
 ```
 
 **Directory Structure:**
 ```
 Windows:
-  %USERPROFILE%\.config\windows\     → (symlink to WSL ~/.config/windows/)
-    └── dotfiles/
-        └── wezterm/
-            └── wezterm.lua
+  %USERPROFILE%\.config\            → (symlink to WSL ~/.config/windows/)
+    └── wezterm/
+        └── wezterm.lua              → WezTerm reads from here
 
 WSL:
   ~/.config/
-    ├── windows/                     → (accessible from Windows via symlink)
-    │   └── dotfiles/
-    │       └── wezterm/
-    │           └── wezterm.lua
-    └── dotfiles/                    → (or link to ~/dotfiles/config/)
+    └── windows/                     → (accessible from Windows via symlink)
         └── wezterm/
-            └── wezterm.lua
+            └── wezterm.lua          → Actual config file location
 ```
 
-WezTerm on Windows will read the configuration from `%USERPROFILE%\.config\windows\dotfiles\wezterm\wezterm.lua`, which resolves to the file in your WSL home directory at `~/.config/windows/dotfiles/wezterm/wezterm.lua`.
+**How it works:**
+- Windows WezTerm looks for config at `%USERPROFILE%\.config\wezterm\wezterm.lua`
+- `%USERPROFILE%\.config` is a symbolic link to `~/.config/windows` in WSL
+- Therefore, WezTerm reads from `~/.config/windows/wezterm/wezterm.lua` on the WSL side
+- You can manage your WezTerm configuration directly from WSL while using Windows WezTerm
 
 ### Git Identity
 
