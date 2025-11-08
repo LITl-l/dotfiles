@@ -209,13 +209,30 @@ This configuration:
 
 When using WSL2, WezTerm runs on the Windows side but needs to access configuration from WSL. Set up a symbolic link to bridge the Windows and WSL filesystems:
 
-**Windows Side (PowerShell as Administrator):**
+**Quick Setup (Recommended):**
 
-```powershell
-# Create a symbolic link from Windows .config to WSL
-# Replace <username> with your actual WSL username
-New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config" -Target "\\wsl$\Ubuntu\home\<username>\.config\windows"
+Use the automated setup script:
+
+```bash
+cd ~/dotfiles
+./setup-wsl-wezterm.sh
 ```
+
+The script will:
+- Verify you're in a WSL environment
+- Check that the wezterm config exists in dotfiles
+- Handle existing configurations (backup or remove)
+- Create the correct symlink structure
+- Verify the setup is working
+
+Options:
+- `--force` - Remove existing configuration without prompting
+- `--dry-run` - Show what would be done without making changes
+- `--help` - Show detailed help message
+
+**Manual Setup:**
+
+If you prefer to set up manually:
 
 **WSL Side:**
 
@@ -223,7 +240,7 @@ New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config" -Target "\\wsl$
 # IMPORTANT: Use absolute paths for symlinks to avoid blank/broken files
 
 # 1. Create the Windows config directory structure in WSL
-mkdir -p ~/.config/windows/wezterm
+mkdir -p ~/.config/windows
 
 # 2. Create symlink for the entire wezterm directory (recommended)
 # This syncs all config modules automatically
@@ -239,6 +256,14 @@ ls -la ~/.config/windows/wezterm/
 # 4. Test the symlink target is readable
 cat ~/.config/windows/wezterm/wezterm.lua
 # Should display the WezTerm configuration content
+```
+
+**Windows Side (PowerShell as Administrator):**
+
+```powershell
+# Create a symbolic link from Windows .config to WSL
+# Replace <username> with your actual WSL username
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config" -Target "\\wsl$\Ubuntu\home\<username>\.config\windows"
 ```
 
 **Directory Structure:**
@@ -288,7 +313,27 @@ Edit any module and WezTerm will pick up changes on reload (`Ctrl+Shift+Alt+R` o
 
 If the symlink appears blank or broken:
 
-1. **Check if you used absolute paths:**
+1. **Common Mistake - Nested Directory Structure:**
+   ```bash
+   # WRONG - Creates nested structure (wezterm/wezterm/):
+   mkdir -p ~/.config/windows/wezterm
+   ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
+   # This creates: ~/.config/windows/wezterm/wezterm -> dotfiles/config/wezterm
+   # Result: Config at wezterm/wezterm/wezterm.lua (broken!)
+
+   # CORRECT - Parent directory only:
+   mkdir -p ~/.config/windows
+   ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
+   # This creates: ~/.config/windows/wezterm -> dotfiles/config/wezterm
+   # Result: Config at wezterm/wezterm.lua ✓
+
+   # Fix if you made this mistake:
+   rm -rf ~/.config/windows/wezterm
+   mkdir -p ~/.config/windows
+   ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
+   ```
+
+2. **Check if you used absolute paths:**
    ```bash
    # Wrong (creates broken symlink):
    ln -sf ~/dotfiles/config/wezterm ~/.config/windows/wezterm
@@ -297,38 +342,55 @@ If the symlink appears blank or broken:
    ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
    ```
 
-2. **Verify the source exists:**
+3. **Verify the source exists:**
    ```bash
    ls -la ~/dotfiles/config/wezterm/
    # Should show wezterm.lua and all module files
    ```
 
-3. **Check symlink target:**
+4. **Check symlink target:**
    ```bash
    readlink ~/.config/windows/wezterm
    # Should output: /home/<username>/dotfiles/config/wezterm
+
+   # Verify files are accessible:
+   ls -la ~/.config/windows/wezterm/
+   # Should list: wezterm.lua, theme.lua, fonts.lua, etc.
    ```
 
-4. **Remove and recreate broken symlink:**
+5. **Remove and recreate broken symlink:**
    ```bash
-   rm ~/.config/windows/wezterm
+   rm -rf ~/.config/windows/wezterm
    ln -sf "$HOME/dotfiles/config/wezterm" "$HOME/.config/windows/wezterm"
    ```
 
-5. **Verify from Windows side:**
+6. **Verify from Windows side:**
    ```powershell
    # In PowerShell
    Get-Item "$env:USERPROFILE\.config\wezterm" | Select-Object Target
    # Should show the WSL path
+
+   # Test reading the config:
+   Get-Content "$env:USERPROFILE\.config\wezterm\wezterm.lua" -Head 5
+   # Should show first 5 lines of config
    ```
 
-6. **Check WSL distribution name:**
+7. **Check WSL distribution name:**
    ```bash
    # If your WSL distro isn't "Ubuntu", update the Windows symlink target
    # List your distros:
    wsl -l -v
    # Update Windows symlink target to match (e.g., \\wsl$\Debian\home\...)
    ```
+
+**Using the Automated Setup Script:**
+
+If troubleshooting manually is challenging, use the provided script:
+
+```bash
+cd ~/dotfiles
+./setup-wsl-wezterm.sh --force  # Remove and recreate configuration
+```
 
 ### Git Identity
 
