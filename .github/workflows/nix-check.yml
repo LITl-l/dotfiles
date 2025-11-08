@@ -309,7 +309,8 @@ jobs:
         run: |
           grep -q "require.*shell" wezterm/domains.lua && echo "✅ Shell module loaded in domains.lua"
           grep -q "shell\.fish_path" wezterm/domains.lua && echo "✅ Shell fish_path used in domains.lua"
-          grep -q "shell\.lua.*text.*fish_path" modules/wezterm.nix && echo "✅ Shell.lua generated with fish_path in wezterm.nix"
+          grep -q 'wezterm/shell\.lua.*text' modules/wezterm.nix && echo "✅ Shell.lua configuration found in wezterm.nix"
+          grep -q 'fish_path.*pkgs\.fish' modules/wezterm.nix && echo "✅ Fish path from Nix pkgs configured"
 
   summary:
     name: CI Summary
