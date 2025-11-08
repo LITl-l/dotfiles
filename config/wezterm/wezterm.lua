@@ -61,11 +61,28 @@ if is_windows then
   -- On Windows, prefer WSL2 if available
   config.default_prog = { 'wsl.exe', '~' }
 elseif is_linux then
-  -- On Linux, use fish shell
-  config.default_prog = { 'fish' }
+  -- On Linux/NixOS, use fish shell from home-manager or system profile
+  local fish_paths = {
+    os.getenv('HOME') .. '/.nix-profile/bin/fish',  -- home-manager
+    '/run/current-system/sw/bin/fish',              -- NixOS system-wide
+    '/usr/bin/fish',                                -- fallback
+  }
+
+  -- Find the first valid fish binary
+  local fish_bin = 'fish'  -- default fallback
+  for _, path in ipairs(fish_paths) do
+    local f = io.open(path, 'r')
+    if f ~= nil then
+      f:close()
+      fish_bin = path
+      break
+    end
+  end
+
+  config.default_prog = { fish_bin, '-l' }
 elseif is_macos then
   -- On macOS, use fish shell
-  config.default_prog = { '/run/current-system/sw/bin/fish' }
+  config.default_prog = { '/run/current-system/sw/bin/fish', '-l' }
 end
 
 -- Key bindings
