@@ -222,8 +222,12 @@ New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config" -Target "\\wsl$
 # Create the Windows config directory in WSL
 mkdir -p ~/.config/windows/wezterm
 
-# Place WezTerm config files here
-# The config should be at: ~/.config/windows/wezterm/wezterm.lua
+# Link or copy your WezTerm config from dotfiles to the windows directory
+# Option 1: Create a symlink (recommended - changes auto-sync)
+ln -sf ~/dotfiles/config/wezterm/wezterm.lua ~/.config/windows/wezterm/wezterm.lua
+
+# Option 2: Copy the file (requires manual updates)
+# cp ~/dotfiles/config/wezterm/wezterm.lua ~/.config/windows/wezterm/wezterm.lua
 ```
 
 **Directory Structure:**
@@ -241,10 +245,12 @@ WSL:
 ```
 
 **How it works:**
-- Windows WezTerm looks for config at `%USERPROFILE%\.config\wezterm\wezterm.lua`
-- `%USERPROFILE%\.config` is a symbolic link to `~/.config/windows` in WSL
-- Therefore, WezTerm reads from `~/.config/windows/wezterm/wezterm.lua` on the WSL side
-- You can manage your WezTerm configuration directly from WSL while using Windows WezTerm
+1. Your dotfiles configuration is at `~/dotfiles/config/wezterm/wezterm.lua` in WSL
+2. You create a symlink from `~/.config/windows/wezterm/wezterm.lua` → `~/dotfiles/config/wezterm/wezterm.lua`
+3. Windows `%USERPROFILE%\.config` is a symbolic link to WSL `~/.config/windows`
+4. Windows WezTerm looks for config at `%USERPROFILE%\.config\wezterm\wezterm.lua`
+5. This resolves to `~/.config/windows/wezterm/wezterm.lua` → `~/dotfiles/config/wezterm/wezterm.lua`
+6. Result: You can edit your WezTerm config in the dotfiles repo and Windows WezTerm automatically uses it
 
 ### Git Identity
 
