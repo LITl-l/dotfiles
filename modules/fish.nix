@@ -45,49 +45,8 @@
 
     # Interactive shell initialization
     interactiveShellInit = ''
-      # Vi mode cursor shapes
-      function fish_vi_cursor_bind
-          set -l mode $argv[1]
-          set -l cursor $argv[2]
-
-          set -l bind_mode
-          switch $mode
-              case default
-                  set bind_mode normal
-              case insert
-                  set bind_mode insert
-              case visual
-                  set bind_mode visual
-              case replace_one
-                  set bind_mode replace
-          end
-
-          bind -M $bind_mode -m $bind_mode "" "set fish_cursor_$mode $cursor; commandline -f repaint"
-      end
-
-      # Enhanced vi mode indicator
-      function fish_mode_prompt
-          switch $fish_bind_mode
-              case default
-                  echo -n "🅝 "
-                  set_color --bold blue
-                  echo -n "NORMAL"
-              case insert
-                  echo -n "🅘 "
-                  set_color --bold green
-                  echo -n "INSERT"
-              case visual
-                  echo -n "🅥 "
-                  set_color --bold yellow
-                  echo -n "VISUAL"
-              case replace_one
-                  echo -n "🅡 "
-                  set_color --bold red
-                  echo -n "REPLACE"
-          end
-          set_color normal
-          echo -n " "
-      end
+      # Starship prompt will handle vi mode indicators via character.vicmd_symbol
+      # No need for custom fish_mode_prompt as it conflicts with starship
     '';
 
     # Fish functions
