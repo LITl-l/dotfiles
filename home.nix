@@ -120,13 +120,11 @@
     zoxide = {
       enable = true;
       enableFishIntegration = true;
-      enableZshIntegration = true;
     };
 
     # Better cd with fzf
     direnv = {
       enable = true;
-      enableZshIntegration = true;
       nix-direnv.enable = true;
     };
 
@@ -151,7 +149,6 @@
     fzf = {
       enable = true;
       enableFishIntegration = true;
-      enableZshIntegration = true;
       defaultCommand = "fd --type f --hidden --exclude .git";
       defaultOptions = [
         "--height 40%"
