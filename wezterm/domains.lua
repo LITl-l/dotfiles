@@ -1,5 +1,6 @@
 -- Domain-specific configuration (WSL, SSH, local)
 local platform = require 'platform'
+local shell = require 'shell'
 
 local M = {}
 
@@ -9,11 +10,11 @@ function M.apply(config)
     -- On Windows, prefer WSL2 and start in home directory
     config.default_prog = { 'wsl.exe', '--cd', '~' }
   elseif platform.is_linux then
-    -- On Linux, use fish shell
-    config.default_prog = { 'fish' }
+    -- On Linux, use fish shell from Nix
+    config.default_prog = { shell.fish_path }
   elseif platform.is_macos then
-    -- On macOS, use fish shell from nix
-    config.default_prog = { '/run/current-system/sw/bin/fish' }
+    -- On macOS, use fish shell from Nix
+    config.default_prog = { shell.fish_path }
   end
 
   -- Launch menu (platform-specific)
@@ -35,7 +36,7 @@ function M.apply(config)
   else
     table.insert(config.launch_menu, {
       label = 'Fish',
-      args = { 'fish', '-l' },
+      args = { shell.fish_path, '-l' },
     })
     table.insert(config.launch_menu, {
       label = 'Bash',
