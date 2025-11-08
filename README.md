@@ -15,9 +15,13 @@ A declarative, reproducible dotfiles configuration using Nix and Home Manager. W
 ## 📦 Included Tools
 
 ### Shell Environment
-- **Fish** - Modern shell with vi mode and excellent autosuggestions
-- **Starship** - Fast, customizable prompt with git integration
-- **Zoxide** - Smart directory jumper (better than cd)
+- **Fish** - Modern shell with vi mode, Catppuccin colors, and excellent autosuggestions
+  - **z** plugin - Directory jumper for quick navigation
+  - **fzf.fish** plugin - Enhanced fuzzy finding integration
+  - Custom functions for git, file search, and Nix shortcuts
+- **Starship** - Fast, customizable prompt with git integration and language detection
+- **Zoxide** - Smart directory jumper with frecency algorithm (better than cd)
+- **Direnv** - Per-directory environment variables with Nix integration
 
 ### Terminal & Editor
 - **WezTerm** - GPU-accelerated terminal (Linux/macOS, uses Windows WezTerm for WSL2)
@@ -30,12 +34,21 @@ A declarative, reproducible dotfiles configuration using Nix and Home Manager. W
 - **GitHub CLI** - Manage GitHub from the command line
 
 ### Modern CLI Utilities
-- **eza** - Modern ls replacement with icons
-- **fd** - Modern find replacement
-- **ripgrep** - Modern grep replacement
-- **bat** - cat with syntax highlighting
+- **eza** - Modern ls replacement with icons and git integration
+- **fd** - Modern find replacement (fast, user-friendly)
+- **ripgrep** - Modern grep replacement (recursive, fast)
+- **bat** - cat with syntax highlighting and line numbers
 - **fzf** - Fuzzy finder for files, history, and more
-- **delta** - Beautiful git diffs
+- **delta** - Beautiful git diffs with syntax highlighting
+- **jq** / **yq-go** - JSON and YAML processors
+- **htop** - Interactive process viewer
+- **tree** - Directory tree visualizer
+
+### Nix Development Tools
+- **nixpkgs-fmt** - Nix code formatter
+- **nil** - Nix Language Server for IDE integration
+- **home-manager** - Declarative user environment manager
+- Development shell with additional tools available via `nix develop`
 
 ## 🛠️ Installation
 
@@ -100,11 +113,13 @@ dotfiles/
 ├── flake.nix                   # Nix flake entry point
 ├── flake.lock                  # Locked dependencies
 ├── home.nix                    # Main Home Manager configuration
-├── install.sh                  # Installation script
+├── install.sh                  # Nix-based installation script
+├── install-legacy.sh           # Legacy bash-based installer (deprecated)
 ├── README.md                   # This file
+├── CLAUDE.md                   # Claude Code instructions
 │
 ├── modules/                    # Nix modules for each tool
-│   ├── common.nix             # Common settings
+│   ├── common.nix             # Common settings (SSH, GPG, readline)
 │   ├── fish.nix               # Fish shell configuration
 │   ├── wezterm.nix            # WezTerm terminal
 │   ├── neovim.nix             # Neovim editor
@@ -118,12 +133,36 @@ dotfiles/
 │
 ├── nvim/                       # Neovim configuration
 │   ├── init.lua               # Main config
-│   └── lua/                   # Lua modules
-│       └── config/
-│           ├── options.lua    # Editor options
-│           ├── keymaps.lua    # Key mappings
-│           ├── autocmds.lua   # Auto commands
-│           └── plugins.lua    # Plugin configuration
+│   ├── README.md              # Neovim-specific documentation
+│   └── lua/config/            # Lua modules
+│       ├── options.lua        # Editor options
+│       ├── keymaps.lua        # Key mappings
+│       ├── autocmds.lua       # Auto commands
+│       ├── plugins.lua        # Plugin configuration
+│       └── util.lua           # Utility functions
+│
+├── wezterm/                    # WezTerm documentation
+│   └── README.md
+│
+├── git/                        # Git documentation
+│   └── README.md
+│
+├── tmux/                       # Tmux documentation
+│   └── README.md
+│
+├── starship/                   # Starship documentation
+│   └── README.md
+│
+├── lazygit/                    # Lazygit documentation
+│   └── README.md
+│
+├── Legacy tools/               # Deprecated bash-based configs
+│   ├── zsh/                   # (Use Fish via Nix instead)
+│   ├── sheldon/               # (Use Fish plugins via Nix instead)
+│   ├── homebrew/              # (Use Nix packages instead)
+│   ├── docker/                # (Standalone tool, not managed by Nix)
+│   ├── proto/                 # (Standalone tool, not managed by Nix)
+│   └── eza/                   # (Use eza via Nix packages instead)
 │
 └── .github/
     └── workflows/
@@ -132,13 +171,39 @@ dotfiles/
 
 ## ⚙️ Configuration
 
+> **Note**: This repository includes legacy bash-based installation scripts in individual tool directories (zsh/, docker/, etc.). These are **deprecated** and maintained only for reference. The modern, recommended approach is using the Nix flakes configuration described in this document.
+
 ### Platform-Specific Setup
 
 The configuration automatically detects your platform and applies the correct settings:
 
-- **Linux**: Full configuration with WezTerm
-- **WSL2**: Configuration without WezTerm (uses Windows WezTerm)
-- **macOS**: Full configuration with WezTerm
+- **Linux (Generic)**: Full configuration with WezTerm - use `user@linux`
+- **WSL2**: Configuration without WezTerm (uses Windows WezTerm) - use `user@wsl`
+- **NixOS on WSL2**: Optimized for NixOS on WSL2 - use `nixos@wsl`
+- **macOS (Apple Silicon)**: Full configuration with WezTerm - use `user@darwin`
+
+#### NixOS Configuration
+
+If you're running NixOS (including NixOS-WSL), use the `nixos@wsl` configuration:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/dotfiles.git ~/dotfiles
+cd ~/dotfiles
+
+# Build and activate for NixOS on WSL2
+nix build .#homeConfigurations."nixos@wsl".activationPackage
+./result/activate
+
+# Or use home-manager directly
+home-manager switch --flake .#nixos@wsl
+```
+
+This configuration:
+- Sets the username to `nixos` (default NixOS-WSL user)
+- Sets home directory to `/home/nixos`
+- Disables WezTerm (uses Windows terminal)
+- Enables all other tools and configurations
 
 ### Git Identity
 
@@ -208,10 +273,24 @@ All tools use the **Catppuccin Mocha** color scheme for a consistent look:
 
 ### Fish Shell
 
+**Vi Mode Navigation:**
+- Press `Esc` - Enter normal mode
+- Visual mode indicators: 🅝 NORMAL, 🅘 INSERT, 🅥 VISUAL, 🅡 REPLACE
+- Cursor changes by mode (block/line/underscore)
+
+**Built-in Keybindings:**
 - `Ctrl+R` - Search command history with fzf
 - `Ctrl+F` - Accept autosuggestion
 - `Alt+F` - Accept one word from autosuggestion
-- Vi mode enabled - press `Esc` for normal mode
+- `Alt+E` - Edit command in $EDITOR
+
+**Custom Functions:**
+- `f` - Interactive file search with preview (fd + fzf + bat)
+- `fd_dir` - Interactive directory search and cd (fd + fzf + eza)
+- `mkcd <dir>` - Create directory and cd into it
+- `extract <file>` - Extract any archive format
+- `rebuild` - Rebuild home-manager configuration
+- `nix-search <pkg>` - Search for Nix packages
 
 ### Neovim
 
@@ -305,17 +384,63 @@ pkgs.nerdfonts
 
 Or manually install JetBrains Mono Nerd Font from [Nerd Fonts](https://www.nerdfonts.com/).
 
+## 🔧 Advanced Usage
+
+### Using the Development Shell
+
+The repository includes a Nix development shell with additional tools:
+
+```bash
+cd ~/dotfiles
+nix develop
+
+# Now you have access to:
+# - nixpkgs-fmt (format Nix files)
+# - nil (Nix LSP)
+# - home-manager CLI
+```
+
+### Testing Configuration Changes
+
+Before activating changes system-wide, you can test build them:
+
+```bash
+# Test build for your platform
+nix build .#homeConfigurations."user@linux".activationPackage
+
+# Check flake for errors
+nix flake check
+
+# Format Nix files
+nixpkgs-fmt **/*.nix
+```
+
+### Legacy Installation (Deprecated)
+
+⚠️ **Not Recommended**: The repository contains legacy bash-based installation scripts (`install-legacy.sh` and tool-specific `install.sh` scripts). These are maintained for reference only and are no longer the recommended installation method.
+
+The legacy approach:
+- Used bash scripts to manually install tools
+- Required manual configuration of dotfiles
+- Didn't provide reproducibility guarantees
+- Used Homebrew on macOS, manual installs on Linux
+
+**Migration**: If you're using the legacy setup, consider migrating to the Nix-based approach for better reproducibility and cross-platform consistency.
+
 ## 📚 Learning Resources
 
 ### Nix & Home Manager
 - [Nix Pills](https://nixos.org/guides/nix-pills/) - Learn Nix fundamentals
 - [Home Manager Manual](https://nix-community.github.io/home-manager/) - Official documentation
 - [NixOS Wiki](https://nixos.wiki/) - Community knowledge base
+- [Nix Flakes Guide](https://nixos.wiki/wiki/Flakes) - Understanding flakes
 
 ### Tools
 - [Fish Shell Documentation](https://fishshell.com/docs/current/)
 - [Neovim Documentation](https://neovim.io/doc/)
 - [WezTerm Documentation](https://wezfurlong.org/wezterm/)
+- [Starship Documentation](https://starship.rs/)
+- [Tmux Documentation](https://github.com/tmux/tmux/wiki)
 
 ## 🤝 Contributing
 

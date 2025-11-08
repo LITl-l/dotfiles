@@ -2,6 +2,10 @@
 
 GPU-accelerated terminal emulator with advanced features and Catppuccin theme.
 
+> **Managed by Nix**: This configuration is automatically managed by the main Nix flakes setup. See [modules/wezterm.nix](../modules/wezterm.nix) for the Nix configuration. No manual installation required when using the main dotfiles setup.
+>
+> **Note**: WezTerm is disabled on WSL2 configurations as most users prefer using Windows Terminal or Windows WezTerm.
+
 ## What it does
 
 WezTerm provides a modern terminal experience with:
@@ -10,10 +14,24 @@ WezTerm provides a modern terminal experience with:
 - **Advanced text rendering** with font fallbacks
 - **Built-in multiplexing** like tmux
 - **Extensive customization** via Lua configuration
+- **Cross-platform** with OS-specific settings
 
 ## Installation
 
-Run the installation script:
+### Via Nix (Recommended)
+
+WezTerm is automatically installed and configured when you use the main dotfiles setup:
+
+```bash
+# See main README for full installation
+home-manager switch --flake ~/dotfiles
+```
+
+The Lua configuration file ([config/wezterm/wezterm.lua](../config/wezterm/wezterm.lua)) includes OS detection for platform-specific settings.
+
+### Standalone (Legacy)
+
+If you need just wezterm configuration without the full Nix setup:
 
 ```bash
 ./wezterm/install.sh

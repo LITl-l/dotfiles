@@ -1,5 +1,16 @@
 # Docker
 
+> ℹ️ **STANDALONE TOOL**: Docker is intentionally not managed by the Nix configuration as it's a system-level container platform that's typically installed via distribution package managers.
+>
+> **Note**: This installation script remains valid and useful. Docker is not included in the main Nix configuration because:
+> - Docker requires system-level daemon configuration
+> - Most users prefer distribution-specific Docker packages
+> - Docker Desktop (on macOS/Windows) is often preferred
+>
+> Use this script if you need Docker installed on Linux. For NixOS, use the system-level NixOS Docker configuration instead.
+
+---
+
 Container platform for building, shipping, and running applications.
 
 ## What it does

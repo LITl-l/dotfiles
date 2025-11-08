@@ -2,6 +2,8 @@
 
 Cross-shell prompt with rich context and beautiful design.
 
+> **Managed by Nix**: This configuration is automatically managed by the main Nix flakes setup. See [modules/starship.nix](../modules/starship.nix) for the Nix configuration. No manual installation required when using the main dotfiles setup.
+
 ## What it does
 
 Starship provides an intelligent, context-aware shell prompt featuring:
@@ -10,10 +12,24 @@ Starship provides an intelligent, context-aware shell prompt featuring:
 - **Directory navigation** with smart truncation
 - **Performance monitoring** with command duration
 - **Cloud context** for AWS, Docker, Kubernetes
+- **Nix shell** indicator for development environments
 
 ## Installation
 
-Run the installation script:
+### Via Nix (Recommended)
+
+Starship is automatically installed and configured when you use the main dotfiles setup:
+
+```bash
+# See main README for full installation
+home-manager switch --flake ~/dotfiles
+```
+
+The Nix configuration automatically integrates Starship with Fish shell and sets up all necessary environment variables.
+
+### Standalone (Legacy)
+
+If you need just starship configuration without the full Nix setup:
 
 ```bash
 ./starship/install.sh
@@ -91,15 +107,22 @@ Run the installation script:
 
 ## Environment setup
 
-Configured in `zsh/env.zsh`:
-- **STARSHIP_CONFIG**: Points to configuration file
-- **STARSHIP_CACHE**: Cache directory for performance
-- **Shell integration**: Auto-initialized in shell startup
+Configured via Nix Home Manager ([modules/starship.nix](../modules/starship.nix)):
+- **Shell integration**: Auto-initialized in Fish shell
+- **Configuration**: Declaratively defined in Nix
+- **Cross-platform**: Works on Linux, macOS, and WSL2
 
 ## Customization
 
-The `starship.toml` file controls all aspects:
+When using the Nix setup, configuration is in `modules/starship.nix`:
 - **Module ordering** and visibility
 - **Color schemes** and styling
 - **Detection logic** for languages
 - **Prompt format** and layout
+
+All settings are declared in Nix format and automatically applied when you rebuild your configuration:
+
+```bash
+# Edit modules/starship.nix, then:
+home-manager switch --flake ~/dotfiles
+```

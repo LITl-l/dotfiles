@@ -1,5 +1,13 @@
 # Proto
 
+> ℹ️ **STANDALONE TOOL**: Proto is not currently managed by the Nix configuration. It's a universal toolchain manager that can coexist with Nix.
+>
+> **Consider**: For a fully Nix-based approach, you can install language toolchains directly via Nix or use project-specific `shell.nix`/`flake.nix` files. However, Proto is still a valid choice if you prefer its workflow.
+>
+> **Note**: Proto requires zsh for installation, which may conflict with the Fish shell used in the main configuration. If using the Nix setup, you may want to skip Proto or install it manually after ensuring zsh is available.
+
+---
+
 Universal toolchain manager for managing programming language versions.
 
 ## What it does

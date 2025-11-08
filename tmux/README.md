@@ -2,6 +2,8 @@
 
 Terminal multiplexer with Catppuccin theme and vim-style navigation.
 
+> **Managed by Nix**: This configuration is automatically managed by the main Nix flakes setup. See [modules/tmux.nix](../modules/tmux.nix) for the Nix configuration. No manual installation required when using the main dotfiles setup.
+
 ## What it does
 
 Tmux enables terminal session management with:
@@ -13,7 +15,18 @@ Tmux enables terminal session management with:
 
 ## Installation
 
-Run the installation script:
+### Via Nix (Recommended)
+
+Tmux is automatically installed and configured when you use the main dotfiles setup:
+
+```bash
+# See main README for full installation
+home-manager switch --flake ~/dotfiles
+```
+
+### Standalone (Legacy)
+
+If you need just tmux configuration without the full Nix setup:
 
 ```bash
 ./tmux/install.sh
