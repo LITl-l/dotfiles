@@ -205,6 +205,53 @@ This configuration:
 - Disables WezTerm (uses Windows terminal)
 - Enables all other tools and configurations
 
+#### WSL2 WezTerm Configuration
+
+When using WSL2, WezTerm runs on the Windows side but needs to access configuration from WSL. Set up a symbolic link to bridge the Windows and WSL filesystems:
+
+**Windows Side (PowerShell as Administrator):**
+
+```powershell
+# Create a symbolic link from Windows .config to WSL
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.config" -Target "\\wsl$\Ubuntu\home\<username>\.config\windows"
+```
+
+**WSL Side:**
+
+```bash
+# Create the Windows config directory in WSL
+mkdir -p ~/.config/windows/wezterm
+
+# Link or copy your WezTerm config from dotfiles to the windows directory
+# Option 1: Create a symlink (recommended - changes auto-sync)
+ln -sf ~/dotfiles/config/wezterm/wezterm.lua ~/.config/windows/wezterm/wezterm.lua
+
+# Option 2: Copy the file (requires manual updates)
+# cp ~/dotfiles/config/wezterm/wezterm.lua ~/.config/windows/wezterm/wezterm.lua
+```
+
+**Directory Structure:**
+```
+Windows:
+  %USERPROFILE%\.config\            → (symlink to WSL ~/.config/windows/)
+    └── wezterm/
+        └── wezterm.lua              → WezTerm reads from here
+
+WSL:
+  ~/.config/
+    └── windows/                     → (accessible from Windows via symlink)
+        └── wezterm/
+            └── wezterm.lua          → Actual config file location
+```
+
+**How it works:**
+1. Your dotfiles configuration is at `~/dotfiles/config/wezterm/wezterm.lua` in WSL
+2. You create a symlink from `~/.config/windows/wezterm/wezterm.lua` → `~/dotfiles/config/wezterm/wezterm.lua`
+3. Windows `%USERPROFILE%\.config` is a symbolic link to WSL `~/.config/windows`
+4. Windows WezTerm looks for config at `%USERPROFILE%\.config\wezterm\wezterm.lua`
+5. This resolves to `~/.config/windows/wezterm/wezterm.lua` → `~/dotfiles/config/wezterm/wezterm.lua`
+6. Result: You can edit your WezTerm config in the dotfiles repo and Windows WezTerm automatically uses it
+
 ### Git Identity
 
 Create `~/.config/git/config.local` to set your Git identity:
