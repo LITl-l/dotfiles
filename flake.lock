@@ -1,0 +1,82 @@
+{
+  "nodes": {
+    "fish-plugin-fzf": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1712464035,
+        "narHash": "sha256-xRLt1UQTromSBfeefdGFrWB1PmZPeZiv4PQ+8I5Busc=",
+        "owner": "PatrickF1",
+        "repo": "fzf.fish",
+        "rev": "8920367cf85eee5218cc25a11e209d46e2591e7a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "PatrickF1",
+        "repo": "fzf.fish",
+        "type": "github"
+      }
+    },
+    "fish-plugin-z": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1739459792,
+        "narHash": "sha256-kky+HP+e1JTDuW97HIRMqZYPICd6Kz5AQ0XSgkvArK0=",
+        "owner": "jethrokuan",
+        "repo": "z",
+        "rev": "067e867debee59aee231e789fc4631f80fa5788e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jethrokuan",
+        "repo": "z",
+        "type": "github"
+      }
+    },
+    "home-manager": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1762463325,
+        "narHash": "sha256-V3lBZXys0OLmlj7HIH8HgbiRfypKRIyszZ6lkAtwTHU=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "0562fef070a1027325dd4ea10813d64d2c967b39",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1762363567,
+        "narHash": "sha256-VYG+NsT9qRjwlIuqqoSDnv7L9/E0UgyccC/6E3FFBdE=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "ae814fd3904b621d8ab97418f1d0f2eb0d3716f4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "fish-plugin-fzf": "fish-plugin-fzf",
+        "fish-plugin-z": "fish-plugin-z",
+        "home-manager": "home-manager",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
