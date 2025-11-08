@@ -8,5 +8,5 @@
   };
 
   # WezTerm configuration
-  xdg.configFile."wezterm/wezterm.lua".source = ../config/wezterm/wezterm.lua;
+  xdg.configFile."wezterm/wezterm.lua".source = ../wezterm/wezterm.lua;
 }
