@@ -38,7 +38,33 @@
     # Plugins
     plugins = with pkgs.vimPlugins; [
       # Treesitter for syntax highlighting
-      nvim-treesitter.withAllGrammars
+      # Use specific grammars instead of all for better performance
+      (nvim-treesitter.withPlugins (p: [
+        # Essential for Neovim
+        p.lua
+        p.vim
+        p.vimdoc
+        p.query
+
+        # Dotfiles configuration languages
+        p.nix
+        p.bash
+        p.markdown
+        p.markdown_inline
+        p.yaml
+        p.toml
+
+        # Common development languages
+        p.javascript
+        p.typescript
+        p.tsx
+        p.python
+        p.rust
+        p.go
+        p.html
+        p.css
+        p.json
+      ]))
 
       # Color scheme
       catppuccin-nvim

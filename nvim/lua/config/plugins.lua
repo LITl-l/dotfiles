@@ -168,15 +168,32 @@ end
 -- Setup treesitter
 M.setup_treesitter = function()
   require('nvim-treesitter.configs').setup({
-    ensure_installed = {
-      'lua', 'vim', 'vimdoc', 'query',
-      'javascript', 'typescript', 'tsx',
-      'python', 'rust', 'go',
-      'html', 'css', 'json', 'yaml', 'toml',
-      'bash', 'markdown', 'markdown_inline',
+    -- Parsers are managed by Nix - disable auto-installation
+    -- This prevents write errors to read-only /nix/store
+    auto_install = false,
+
+    -- Parser list is for reference only - actual parsers come from Nix
+    -- See modules/neovim.nix for the list of installed parsers
+    ensure_installed = {}, -- Empty: parsers provided by Nix
+
+    highlight = {
+      enable = true,
+      -- Disable for very large files for performance
+      disable = function(lang, buf)
+        local max_filesize = 100 * 1024 -- 100 KB
+        local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+        if ok and stats and stats.size > max_filesize then
+          return true
+        end
+      end,
     },
-    highlight = { enable = true },
-    indent = { enable = true },
+
+    indent = {
+      enable = true,
+      -- Disable for certain languages if they have issues
+      disable = {},
+    },
+
     incremental_selection = {
       enable = true,
       keymaps = {

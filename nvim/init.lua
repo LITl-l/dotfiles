@@ -61,23 +61,34 @@ end)
 
 -- Load color scheme
 later(function()
-  add({
-    source = 'catppuccin/nvim',
-    name = 'catppuccin',
-  })
+  -- Note: catppuccin-nvim is provided by Nix (see modules/neovim.nix)
+  -- The plugin is already available via Nix's packpath
+
+  -- For non-Nix systems, you can uncomment the following:
+  -- add({
+  --   source = 'catppuccin/nvim',
+  --   name = 'catppuccin',
+  -- })
+
   plugins.setup_colorscheme()
 end)
 
 -- Load treesitter
 later(function()
-  add({
-    source = 'nvim-treesitter/nvim-treesitter',
-    hooks = {
-      post_checkout = function()
-        vim.cmd('TSUpdate')
-      end,
-    },
-  })
+  -- Note: nvim-treesitter is provided by Nix (see modules/neovim.nix)
+  -- The plugin is already available via Nix's packpath
+  -- We don't need to use mini.deps to download it again
+
+  -- For non-Nix systems, you can uncomment the following:
+  -- add({
+  --   source = 'nvim-treesitter/nvim-treesitter',
+  --   hooks = {
+  --     post_checkout = function()
+  --       vim.cmd('TSUpdate')
+  --     end,
+  --   },
+  -- })
+
   plugins.setup_treesitter()
 end)
 
