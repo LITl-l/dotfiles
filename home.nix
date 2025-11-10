@@ -8,6 +8,7 @@
     ./modules/starship.nix
     ./modules/git.nix
     ./modules/tmux.nix
+    ./modules/yazi.nix
     ./modules/common.nix
   ];
 
@@ -27,6 +28,7 @@
   home.packages = with pkgs; [
     # Modern CLI tools
     eza        # Modern ls replacement
+    yazi       # Terminal file manager
     fd         # Modern find replacement
     ripgrep    # Modern grep replacement
     fzf        # Fuzzy finder
