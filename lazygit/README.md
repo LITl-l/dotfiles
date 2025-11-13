@@ -56,6 +56,18 @@ If you need just lazygit configuration without the full Nix setup:
 - **Branch**: Create, checkout, merge, rebase
 - **Stash**: Save, apply, pop stashes
 - **Cherry-pick**: Copy commits between branches
+- **Worktrees**: Full worktree management with auto-cd
+
+### Worktree operations
+- **List worktrees**: `W` - View all worktrees
+- **Worktree info**: `Ctrl+w i` - Show worktrees and current location
+- **Add worktree**: `Ctrl+w a` - Create new worktree with prompts
+- **New branch in worktree**: `Ctrl+w n` - Create branch in worktree (with auto-cd and branch prefix selection)
+- **Go to worktree**: `Ctrl+w g` - Navigate to worktree for selected branch (opens new shell)
+- **Smart checkout**: `Ctrl+w c` - Checkout branch (auto-cd to worktree if it exists, opens lazygit)
+- **Remove worktree**: `Ctrl+w r` - Delete a worktree
+- **Move worktree**: `Ctrl+w m` - Move worktree to new location
+- **Prune worktrees**: `Ctrl+w p` - Clean up stale worktree data
 
 ### Basic operations
 - **Stage/unstage**: `space` for individual files, `a` for all
@@ -91,6 +103,44 @@ If you need just lazygit configuration without the full Nix setup:
 3. **Tab through panels**: Files, branches, commits, stash
 4. **Space to select**, **enter to execute**
 5. **`x` for options menu** on any item
+
+## Worktree workflow
+
+Git worktrees allow you to have multiple working directories from a single repository, making it easy to work on multiple branches simultaneously without stashing or switching contexts.
+
+### Quick start with worktrees
+
+1. **Create a new feature in a worktree**:
+   - Press `Ctrl+w n` in lazygit
+   - Select branch prefix (feature/, fix/, etc.)
+   - Enter branch name
+   - Lazygit will create the worktree and automatically navigate to it
+
+2. **Switch to an existing worktree branch**:
+   - Navigate to the branches panel
+   - Select a branch that exists in a worktree
+   - Press `Ctrl+w c` to checkout with auto-cd
+   - Lazygit will automatically switch to that worktree directory
+
+3. **View all worktrees**:
+   - Press `W` to see a list of all worktrees
+   - Press `Ctrl+w i` for detailed worktree information
+
+### Worktree best practices
+
+- **Naming convention**: Worktrees are created in `../<branch-name>` by default
+- **Branch prefixes**: Use standard prefixes (feature/, fix/, etc.) for organization
+- **Cleanup**: Use `Ctrl+w r` to remove worktrees when done
+- **Pruning**: Run `Ctrl+w p` periodically to clean up stale worktree data
+
+### Auto-cd behavior
+
+The configuration includes smart auto-cd behavior:
+- **`Ctrl+w c`**: When checking out a branch in a worktree, automatically cd to that worktree and reopen lazygit
+- **`Ctrl+w g`**: Navigate to a worktree and open a new shell there
+- **`Ctrl+w n`**: Create a new worktree and immediately switch to it with lazygit
+
+This eliminates the need to manually navigate between worktree directories and ensures you're always working in the correct context.
 
 ## Dependencies
 
