@@ -13,10 +13,11 @@ function M.apply(config)
   }
 
   -- Tab bar configuration
+  -- Configured for tabline.wez plugin compatibility
   config.enable_tab_bar = true
   config.tab_bar_at_bottom = false
-  config.use_fancy_tab_bar = true
-  config.hide_tab_bar_if_only_one_tab = true
+  config.use_fancy_tab_bar = false  -- Use retro tab bar for tabline.wez plugin
+  config.hide_tab_bar_if_only_one_tab = false  -- Always show tabline with system info
 
   -- Scrollback
   config.scrollback_lines = 10000
