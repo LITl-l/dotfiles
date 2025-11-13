@@ -5,8 +5,18 @@ local wezterm = require 'wezterm'
 local M = {}
 
 function M.apply(config)
-  -- Load the tabline plugin
-  local tabline = wezterm.plugin.require("https://github.com/michaelbrusegard/tabline.wez")
+  -- Load the tabline plugin with error handling
+  local success, tabline = pcall(function()
+    return wezterm.plugin.require("https://github.com/michaelbrusegard/tabline.wez")
+  end)
+
+  if not success then
+    wezterm.log_error("Failed to load tabline plugin: " .. tostring(tabline))
+    -- Fall back to basic tab bar configuration
+    config.use_fancy_tab_bar = false
+    config.hide_tab_bar_if_only_one_tab = false
+    return
+  end
 
   -- Configure tabline with CPU, RAM, and clock widgets
   tabline.setup({
@@ -45,3 +55,4 @@ function M.apply(config)
 end
 
 return M
+
