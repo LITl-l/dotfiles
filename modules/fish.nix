@@ -88,6 +88,9 @@
           set_color normal
           echo -n " "
       end
+
+      # Yazi keybinding - open with Ctrl+O
+      bind \co yazi-cd
     '';
 
     # Fish functions
@@ -195,6 +198,27 @@
         description = "Search for Nix packages";
         body = ''
           nix search nixpkgs $argv
+        '';
+      };
+
+      # Yazi wrapper to change directory on exit
+      yazi-cd = {
+        description = "Open yazi and cd to the directory on exit";
+        body = ''
+          set tmp (mktemp -t "yazi-cwd.XXXXX")
+          yazi $argv --cwd-file="$tmp"
+          if set cwd (cat -- "$tmp"); and [ -n "$cwd" ]; and [ "$cwd" != "$PWD" ]
+            cd -- "$cwd"
+          end
+          rm -f -- "$tmp"
+        '';
+      };
+
+      # Quick yazi shortcut
+      y = {
+        description = "Open yazi file manager";
+        body = ''
+          yazi-cd $argv
         '';
       };
     };
