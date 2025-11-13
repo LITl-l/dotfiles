@@ -2,7 +2,7 @@
 local M = {}
 
 function M.apply(config)
-  -- Color scheme (using Catppuccin Latte - light theme)
+  -- Color scheme (using Catppuccin Latte - warm light theme)
   config.color_scheme = 'Catppuccin Latte'
 
   -- Visual bell
