@@ -16,8 +16,6 @@ Starship provides an intelligent, context-aware shell prompt featuring:
 
 ## Installation
 
-### Via Nix (Recommended)
-
 Starship is automatically installed and configured when you use the main dotfiles setup:
 
 ```bash
@@ -26,14 +24,6 @@ home-manager switch --flake ~/dotfiles
 ```
 
 The Nix configuration automatically integrates Starship with Fish shell and sets up all necessary environment variables.
-
-### Standalone (Legacy)
-
-If you need just starship configuration without the full Nix setup:
-
-```bash
-./starship/install.sh
-```
 
 ## Key features
 
@@ -53,7 +43,7 @@ If you need just starship configuration without the full Nix setup:
 - **Docker**: With Dockerfile/compose detection
 
 ### Visual enhancements
-- **Catppuccin-inspired** color scheme
+- **Catppuccin Latte** color scheme
 - **Nerd Font icons** for file types and tools
 - **Two-line prompt** with clean separation
 - **Directory substitutions** for common paths
@@ -62,8 +52,8 @@ If you need just starship configuration without the full Nix setup:
 ## Prompt structure
 
 ```
-┌ user@host ~/Projects/repo  main +2 !1 [+15 -3] ○ node 18.17.0  1.2s 16:30
-└ ❯
+user@host ~/Projects/repo  main [+2 !1] [+15 -3] ○ node 18.17.0  1.2s 16:30
+❯
 ```
 
 **Components:**

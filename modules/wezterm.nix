@@ -16,6 +16,7 @@
   xdg.configFile."wezterm/mouse.lua".source = ../wezterm/mouse.lua;
   xdg.configFile."wezterm/performance.lua".source = ../wezterm/performance.lua;
   xdg.configFile."wezterm/platform.lua".source = ../wezterm/platform.lua;
+  xdg.configFile."wezterm/tabline.lua".source = ../wezterm/tabline.lua;
   xdg.configFile."wezterm/theme.lua".source = ../wezterm/theme.lua;
 
   # Create a shell configuration file with the correct fish path

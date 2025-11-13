@@ -14,7 +14,6 @@
 
       # Prompt format
       format = lib.concatStrings [
-        "[┌](bold green) "
         "$username"
         "$hostname"
         "$directory"
@@ -25,7 +24,6 @@
         "$fill"
         "$all"
         "$line_break"
-        "[└](bold green) "
         "$character"
       ];
 
@@ -34,32 +32,32 @@
 
       # Prompt character
       character = {
-        success_symbol = "[❯](bold green)";
-        error_symbol = "[❯](bold red)";
-        vicmd_symbol = "[❮](bold green)";
+        success_symbol = "[❯](bold #40a02b)";
+        error_symbol = "[❯](bold #d20f39)";
+        vicmd_symbol = "[❮](bold #ea76cb)";
       };
 
       # Username
       username = {
         show_always = false;
         format = "[$user]($style) ";
-        style_user = "bold blue";
-        style_root = "bold red";
+        style_user = "bold #8839ef";
+        style_root = "bold #d20f39";
       };
 
       # Hostname
       hostname = {
         ssh_only = true;
         format = "[@$hostname]($style) ";
-        style = "bold green";
+        style = "bold #40a02b";
       };
 
       # Directory
       directory = {
         format = "[$path]($style)[$read_only]($read_only_style) ";
-        style = "bold cyan";
+        style = "bold #04a5e5";
         read_only = " 󰌾";
-        read_only_style = "red";
+        read_only_style = "#d20f39";
         truncation_length = 3;
         truncate_to_repo = true;
         truncation_symbol = "…/";
@@ -77,12 +75,12 @@
       git_branch = {
         format = "[$symbol$branch(:$remote_branch)]($style) ";
         symbol = " ";
-        style = "bold purple";
+        style = "bold #8839ef";
       };
 
       git_status = {
-        format = "([$all_status$ahead_behind]($style) )";
-        style = "bold red";
+        format = "([\[$all_status$ahead_behind\]]($style) )";
+        style = "bold #e64553";
         conflicted = "=";
         ahead = "⇡\${count}";
         behind = "⇣\${count}";
@@ -97,21 +95,22 @@
 
       git_state = {
         format = "([$state( $progress_current/$progress_total)]($style)) ";
-        style = "bold yellow";
+        style = "bold #df8e1d";
       };
 
       git_metrics = {
         disabled = false;
         format = "([+$added]($added_style) )([-$deleted]($deleted_style) )";
-        added_style = "bold green";
-        deleted_style = "bold red";
+        added_style = "bold #40a02b";
+        deleted_style = "bold #d20f39";
       };
 
       # Languages and tools
       nodejs = {
         format = "[$symbol($version )]($style)";
         symbol = " ";
-        style = "bold green";
+        style = "bold #40a02b";
+        not_capable_style = "bold #d20f39";
         detect_extensions = [ "js" "mjs" "cjs" "ts" "mts" "cts" ];
         detect_files = [ "package.json" ".node-version" ".nvmrc" ];
         detect_folders = [ "node_modules" ];
@@ -120,25 +119,27 @@
       python = {
         format = "[\${symbol}\${pyenv_prefix}(\${version} )(\\($virtualenv\\) )]($style)";
         symbol = " ";
-        style = "bold yellow";
+        style = "bold #df8e1d";
         pyenv_version_name = true;
         pyenv_prefix = "pyenv ";
         detect_extensions = [ "py" ];
-        detect_files = [ ".python-version" "Pipfile" "pyproject.toml" "requirements.txt" "setup.py" "tox.ini" ];
+        detect_files = [ ".python-version" "Pipfile" "__pycache__" "pyproject.toml" "requirements.txt" "setup.py" "tox.ini" ];
+        detect_folders = [ ];
       };
 
       rust = {
         format = "[$symbol($version )]($style)";
         symbol = " ";
-        style = "bold red";
+        style = "bold #fe640b";
         detect_extensions = [ "rs" ];
         detect_files = [ "Cargo.toml" ];
+        detect_folders = [ ];
       };
 
       golang = {
         format = "[$symbol($version )]($style)";
         symbol = " ";
-        style = "bold cyan";
+        style = "bold #179299";
         detect_extensions = [ "go" ];
         detect_files = [ "go.mod" "go.sum" "glide.yaml" "Gopkg.yml" "Gopkg.lock" ".go-version" ];
         detect_folders = [ "Godeps" ];
@@ -147,50 +148,53 @@
       docker_context = {
         format = "[$symbol$context]($style) ";
         symbol = " ";
-        style = "blue bold";
+        style = "#1e66f5 bold";
         only_with_files = true;
+        detect_extensions = [ ];
         detect_files = [ "docker-compose.yml" "docker-compose.yaml" "Dockerfile" ];
+        detect_folders = [ ];
       };
 
       kubernetes = {
         format = "[$symbol$context( \\($namespace\\))]($style) ";
         symbol = "󱃾 ";
-        style = "cyan bold";
+        style = "#04a5e5 bold";
         disabled = false;
       };
 
       terraform = {
         format = "[$symbol$workspace]($style) ";
         symbol = "󱁢 ";
-        style = "bold purple";
+        style = "bold #8839ef";
         detect_extensions = [ "tf" "tfplan" "tfstate" ];
+        detect_files = [ ];
         detect_folders = [ ".terraform" ];
       };
 
       aws = {
         format = "[$symbol($profile )(\\($region\\) )(\\[$duration\\] )]($style)";
         symbol = " ";
-        style = "bold orange";
+        style = "bold #fe640b";
       };
 
       # Other modules
       cmd_duration = {
         format = "[ $duration]($style)";
-        style = "bold yellow";
+        style = "bold #df8e1d";
         min_time = 2000;
         show_milliseconds = false;
       };
 
       jobs = {
         format = "[$symbol$number]($style) ";
-        symbol = "✦";
-        style = "bold blue";
+        symbol = "✨";
+        style = "bold #8839ef";
         number_threshold = 1;
       };
 
       time = {
         format = "[$time]($style) ";
-        style = "bold dimmed white";
+        style = "bold dimmed #dc8a78";
         disabled = false;
         time_format = "%R";
       };
