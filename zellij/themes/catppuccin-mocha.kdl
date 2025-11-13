@@ -1,0 +1,60 @@
+// Catppuccin Mocha Theme for Zellij
+// Based on https://github.com/catppuccin/palette
+
+themes {
+    catppuccin-mocha {
+        // Base colors
+        bg "#1e1e2e"         // base
+        fg "#cdd6f4"         // text
+        red "#f38ba8"
+        green "#a6e3a1"
+        yellow "#f9e2af"
+        blue "#89b4fa"
+        magenta "#f5c2e7"
+        orange "#fab387"
+        cyan "#89dceb"
+        black "#181825"      // mantle
+        white "#cdd6f4"      // text
+
+        // UI colors
+        ui_bg "#1e1e2e"      // base
+        ui_fg "#cdd6f4"      // text
+        border "#45475a"     // surface1
+        selected_bg "#89b4fa" // blue
+        selected_fg "#1e1e2e" // base
+
+        // Pane colors
+        pane_border "#45475a"         // surface1
+        pane_active_border "#89b4fa"  // blue
+        pane_frames_bg "#1e1e2e"      // base
+        pane_frames_fg "#cdd6f4"      // text
+
+        // Tab colors
+        tab_active_bg "#89b4fa"    // blue
+        tab_active_fg "#1e1e2e"    // base
+        tab_inactive_bg "#45475a"  // surface1
+        tab_inactive_fg "#cdd6f4"  // text
+
+        // Status bar
+        status_bg "#1e1e2e"        // base
+        status_fg "#cdd6f4"        // text
+        status_active_bg "#89b4fa" // blue
+        status_active_fg "#1e1e2e" // base
+
+        // Mode colors
+        mode_normal "#89b4fa"      // blue
+        mode_locked "#f38ba8"      // red
+        mode_resize "#f9e2af"      // yellow
+        mode_pane "#a6e3a1"        // green
+        mode_tab "#fab387"         // orange
+        mode_scroll "#f5c2e7"      // magenta
+        mode_enter_search "#89dceb" // cyan
+        mode_search "#89dceb"      // cyan
+        mode_rename_tab "#fab387"  // orange
+        mode_rename_pane "#a6e3a1" // green
+        mode_session "#f5c2e7"     // magenta
+        mode_move "#f9e2af"        // yellow
+        mode_prompt "#a6e3a1"      // green
+        mode_tmux "#fab387"        // orange
+    }
+}
