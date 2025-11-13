@@ -17,4 +17,7 @@ require('mouse').apply(config)
 require('domains').apply(config)
 require('performance').apply(config)
 
+-- Load tabline plugin (must be loaded after other configurations)
+require('tabline').apply(config)
+
 return config

@@ -2,8 +2,8 @@
 local M = {}
 
 function M.apply(config)
-  -- Color scheme
-  config.color_scheme = 'Catppuccin Mocha'
+  -- Color scheme (using Catppuccin Latte - light theme)
+  config.color_scheme = 'Catppuccin Latte'
 
   -- Visual bell
   config.audible_bell = "Disabled"
