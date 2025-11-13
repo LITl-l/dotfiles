@@ -137,7 +137,7 @@
     # Preview dependencies
     ffmpegthumbnailer  # Video thumbnails
     unar               # Archive preview
-    poppler_utils      # PDF preview
+    poppler-utils      # PDF preview
     imagemagick        # Image operations
   ];
 }
