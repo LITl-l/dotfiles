@@ -1,62 +1,77 @@
 { config, pkgs, lib, ... }:
 
 {
+  # Yazi file manager configuration
+  # This configuration is managed by home-manager and generates read-only files
+  # in ~/.config/yazi/ to ensure declarative configuration management.
+  #
+  # Note: Yazi deprecated 'manager' in favor of 'mgr' (see yazi PR #2803)
+  # Using the new syntax prevents auto-migration warnings.
   programs.yazi = {
     enable = true;
     enableFishIntegration = true;
 
     # Yazi settings
     settings = {
-      manager = {
-        # Layout
+      # Manager settings (formerly 'manager', now 'mgr' as of yazi PR #2803)
+      mgr = {
+        # Layout: [parent_width, current_width, preview_width] ratios
+        # Determines column widths in the 3-pane layout
         layout = [ 1 4 3 ];
-        sort_by = "natural";
-        sort_sensitive = false;
-        sort_reverse = false;
-        sort_dir_first = true;
-        linemode = "size";
-        show_hidden = false;
-        show_symlink = true;
 
-        # Scrolloff
+        # Sorting configuration
+        sort_by = "natural";        # Natural sorting (foo1, foo2, foo10)
+        sort_sensitive = false;     # Case-insensitive sorting
+        sort_reverse = false;       # Ascending order
+        sort_dir_first = true;      # Directories before files
+
+        # Display settings
+        linemode = "size";          # Show file sizes in the listing
+        show_hidden = false;        # Hide dotfiles by default (toggle with '.')
+        show_symlink = true;        # Show symbolic link targets
+
+        # Navigation: Keep cursor this many lines from top/bottom
         scrolloff = 5;
       };
 
+      # File preview configuration
       preview = {
-        # Preview settings
-        tab_size = 2;
-        max_width = 600;
-        max_height = 900;
-        cache_dir = "${config.xdg.cacheHome}/yazi";
+        tab_size = 2;               # Tab width for text file previews
+        max_width = 600;            # Maximum preview width in pixels
+        max_height = 900;           # Maximum preview height in pixels
+        cache_dir = "${config.xdg.cacheHome}/yazi";  # Preview cache location
       };
 
-      # Opener integration
+      # File opener definitions
+      # Define how different file types should be opened
       opener = {
         edit = [
-          { run = "nvim \"$@\""; block = true; }
+          { run = "nvim \"$@\""; block = true; }  # Open in nvim, block until closed
         ];
         play = [
-          { run = "mpv \"$@\""; orphan = true; }
+          { run = "mpv \"$@\""; orphan = true; }  # Play media, detach from yazi
         ];
         open = [
-          { run = "xdg-open \"$@\""; desc = "Open"; }
+          { run = "xdg-open \"$@\""; desc = "Open"; }  # Use system default opener
         ];
       };
 
+      # Rules for which opener to use based on file type
       open = {
         rules = [
-          { name = "*/"; use = "edit"; }
-          { mime = "text/*"; use = "edit"; }
-          { mime = "image/*"; use = "open"; }
-          { mime = "video/*"; use = "play"; }
-          { mime = "audio/*"; use = "play"; }
+          { name = "*/"; use = "edit"; }          # Directories
+          { mime = "text/*"; use = "edit"; }      # Text files
+          { mime = "image/*"; use = "open"; }     # Images with system viewer
+          { mime = "video/*"; use = "play"; }     # Videos in mpv
+          { mime = "audio/*"; use = "play"; }     # Audio in mpv
         ];
       };
     };
 
     # Keybindings
+    # Custom keybindings for vim-like navigation and operations
     keymap = {
-      manager.prepend_keymap = [
+      mgr.prepend_keymap = [
         # Navigation
         { on = [ "h" ]; run = "leave"; desc = "Go back"; }
         { on = [ "l" ]; run = "enter"; desc = "Enter directory"; }
@@ -106,38 +121,40 @@
     };
 
     # Theme configuration
+    # Color scheme for different file types in the listing
     theme = {
-      # File type colors
       filetype = {
         rules = [
-          # Images
-          { mime = "image/*"; fg = "cyan"; }
-          # Videos
-          { mime = "video/*"; fg = "yellow"; }
-          # Audio
-          { mime = "audio/*"; fg = "magenta"; }
-          # Archives
+          # Media files
+          { mime = "image/*"; fg = "cyan"; }      # Images in cyan
+          { mime = "video/*"; fg = "yellow"; }    # Videos in yellow
+          { mime = "audio/*"; fg = "magenta"; }   # Audio in magenta
+
+          # Compressed archives in red
           { mime = "application/zip"; fg = "red"; }
           { mime = "application/gzip"; fg = "red"; }
           { mime = "application/x-tar"; fg = "red"; }
           { mime = "application/x-bzip"; fg = "red"; }
           { mime = "application/x-7z-compressed"; fg = "red"; }
           { mime = "application/x-rar"; fg = "red"; }
+
           # Documents
-          { mime = "application/pdf"; fg = "green"; }
-          # Code
+          { mime = "application/pdf"; fg = "green"; }  # PDFs in green
+
+          # Code and text files in blue
           { mime = "text/*"; fg = "blue"; }
         ];
       };
     };
   };
 
-  # Additional packages for yazi functionality
+  # Additional packages for enhanced yazi functionality
+  # These packages enable rich previews for various file types
   home.packages = with pkgs; [
-    # Preview dependencies
-    ffmpegthumbnailer  # Video thumbnails
-    unar               # Archive preview
-    poppler-utils      # PDF preview
-    imagemagick        # Image operations
+    ffmpegthumbnailer  # Generate video thumbnails in preview pane
+    unar               # Preview and extract archive contents
+    poppler-utils      # PDF text extraction and preview (pdftotext, pdfinfo)
+    imagemagick        # Image format conversion and manipulation
   ];
 }
+
