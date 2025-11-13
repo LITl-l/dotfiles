@@ -269,6 +269,125 @@ customCommands:
     description: 'Add TODO comment'
     context: 'files'
     output: terminal
+  # Worktree management commands
+  - key: 'W'
+    command: 'git worktree list'
+    description: 'List all worktrees'
+    context: 'global'
+    output: terminal
+  - key: '<c-w>a'
+    command: |
+      WORKTREE_DIR="../{{.Form.WorktreeName}}" &&
+      git worktree add -b {{.Form.BranchName}} "$WORKTREE_DIR" {{.Form.BaseBranch}} &&
+      echo "Worktree created at $WORKTREE_DIR"
+    description: 'Add new worktree'
+    context: 'global'
+    prompts:
+      - type: 'input'
+        title: 'Worktree directory name (will be created in ../)'
+        key: 'WorktreeName'
+        initialValue: 'worktree-'
+      - type: 'input'
+        title: 'New branch name'
+        key: 'BranchName'
+        initialValue: 'feature/'
+      - type: 'input'
+        title: 'Base branch (leave empty for HEAD)'
+        key: 'BaseBranch'
+        initialValue: ''
+    output: terminal
+  - key: '<c-w>r'
+    command: 'git worktree remove {{.Form.WorktreePath}}'
+    description: 'Remove a worktree'
+    context: 'global'
+    prompts:
+      - type: 'input'
+        title: 'Worktree path to remove'
+        key: 'WorktreePath'
+        initialValue: '../'
+    output: terminal
+  - key: '<c-w>p'
+    command: 'git worktree prune -v'
+    description: 'Prune stale worktree information'
+    context: 'global'
+    output: terminal
+  - key: '<c-w>m'
+    command: 'git worktree move {{.Form.CurrentPath}} {{.Form.NewPath}}'
+    description: 'Move a worktree'
+    context: 'global'
+    prompts:
+      - type: 'input'
+        title: 'Current worktree path'
+        key: 'CurrentPath'
+        initialValue: '../'
+      - type: 'input'
+        title: 'New worktree path'
+        key: 'NewPath'
+        initialValue: '../'
+    output: terminal
+  - key: '<c-w>g'
+    command: |
+      WORKTREE_PATH=$(git worktree list --porcelain | grep -A 2 "branch {{.SelectedLocalBranch.Name}}" | grep "worktree" | cut -d' ' -f2) &&
+      if [ -n "$WORKTREE_PATH" ]; then
+        echo "Branch {{.SelectedLocalBranch.Name}} is in worktree: $WORKTREE_PATH" &&
+        cd "$WORKTREE_PATH" &&
+        exec $SHELL
+      else
+        echo "Branch {{.SelectedLocalBranch.Name}} is not in a worktree"
+      fi
+    description: 'Go to worktree for selected branch (auto-cd)'
+    context: 'localBranches'
+    output: terminal
+  - key: '<c-w>c'
+    command: |
+      WORKTREE_PATH=$(git worktree list --porcelain | grep -A 2 "branch {{.SelectedLocalBranch.Name}}" | grep "worktree" | cut -d' ' -f2) &&
+      if [ -n "$WORKTREE_PATH" ]; then
+        echo "Switching to worktree at: $WORKTREE_PATH" &&
+        cd "$WORKTREE_PATH" &&
+        lazygit
+      else
+        git checkout {{.SelectedLocalBranch.Name}}
+      fi
+    description: 'Checkout branch (auto-cd to worktree if exists)'
+    context: 'localBranches'
+    output: terminal
+  - key: '<c-w>n'
+    command: |
+      BRANCH_NAME="{{.Form.BranchPrefix}}{{.Form.BranchName}}" &&
+      WORKTREE_DIR="../${BRANCH_NAME//\//-}" &&
+      git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" {{.Form.BaseBranch}} &&
+      cd "$WORKTREE_DIR" &&
+      echo "Created and switched to worktree: $WORKTREE_DIR" &&
+      exec lazygit
+    description: 'New branch in worktree (with auto-cd)'
+    context: 'global'
+    prompts:
+      - type: 'menuFromCommand'
+        title: 'Branch prefix'
+        key: 'BranchPrefix'
+        command: 'echo -e "feature/\nfix/\nrefactor/\ndocs/\ntest/\nchore/"'
+        filter: '(?P<prefix>.*)'
+        valueFormat: '{{ .prefix }}'
+        labelFormat: '{{ .prefix }}'
+      - type: 'input'
+        title: 'Branch name (without prefix)'
+        key: 'BranchName'
+        initialValue: ''
+      - type: 'input'
+        title: 'Base branch (leave empty for HEAD)'
+        key: 'BaseBranch'
+        initialValue: ''
+    output: terminal
+  - key: '<c-w>i'
+    command: |
+      echo "=== Git Worktrees ===" &&
+      git worktree list &&
+      echo "" &&
+      echo "Current directory: $(pwd)" &&
+      echo "Current branch: $(git branch --show-current)"
+    description: 'Worktree info (list + current location)'
+    context: 'global'
+    output: terminal
 # Services (for creating PRs, issues, etc.)
 services:
   'github.com': 'github.com'
