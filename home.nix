@@ -48,6 +48,7 @@
     # Development tools
     git-lfs    # Git Large File Storage
     gh         # GitHub CLI
+    claude-code # Claude AI coding assistant
 
     # Nix tools
     nixpkgs-fmt # Nix formatter
