@@ -67,11 +67,9 @@ gui:
   animateExplosion: true
 git:
   # Paging
-  paging:
-    colorArg: always
-    pager: delta --dark --paging=never
-    useConfig: false
-    externalDiffCommand: ''
+  pagers:
+    - pager: delta --dark --paging=never
+      colorArg: always
   # Commit settings
   commit:
     signOff: false
