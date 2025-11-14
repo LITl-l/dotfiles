@@ -64,30 +64,30 @@ function M.apply(config)
     -- Custom color overrides to match warm white, orange, brown palette
     theme_overrides = {
       normal_mode = {
-        -- Mode indicator (left) - warm orange accent
+        -- Mode indicator (left) - warm orange accent (matches theme cursor)
         a = { fg = '#fefdf8', bg = '#d97742', intensity = 'Bold' },
-        -- Workspace section - light cream with warm brown
-        b = { fg = '#5c4d3d', bg = '#f5ede3' },
-        -- Middle section - very light warm background
-        c = { fg = '#8b7355', bg = '#faf8f3' },
+        -- Workspace section - enhanced cream with darker warm brown for better contrast
+        b = { fg = '#5c4d3d', bg = '#f5e6d3' },
+        -- Middle section - very light warm background with medium brown text
+        c = { fg = '#8b7355', bg = '#fefdf8' },
       },
       copy_mode = {
-        -- Copy mode - slightly brighter orange
+        -- Copy mode - golden amber (brighter warm variant)
         a = { fg = '#fefdf8', bg = '#ebad5f', intensity = 'Bold' },
-        b = { fg = '#5c4d3d', bg = '#f5ede3' },
-        c = { fg = '#8b7355', bg = '#faf8f3' },
+        b = { fg = '#5c4d3d', bg = '#f5e6d3' },
+        c = { fg = '#8b7355', bg = '#fefdf8' },
       },
       search_mode = {
-        -- Search mode - olive green accent
+        -- Search mode - warm olive green (from ansi palette)
         a = { fg = '#fefdf8', bg = '#8a9a5b', intensity = 'Bold' },
-        b = { fg = '#5c4d3d', bg = '#f5ede3' },
-        c = { fg = '#8b7355', bg = '#faf8f3' },
+        b = { fg = '#5c4d3d', bg = '#f5e6d3' },
+        c = { fg = '#8b7355', bg = '#fefdf8' },
       },
       window_mode = {
-        -- Window mode - muted slate blue
+        -- Window mode - warm slate blue (from ansi palette)
         a = { fg = '#fefdf8', bg = '#7c8fa3', intensity = 'Bold' },
-        b = { fg = '#5c4d3d', bg = '#f5ede3' },
-        c = { fg = '#8b7355', bg = '#faf8f3' },
+        b = { fg = '#5c4d3d', bg = '#f5e6d3' },
+        c = { fg = '#8b7355', bg = '#fefdf8' },
       },
       -- Active tab - warm orange with white text (matches theme.lua active_tab)
       tab = {
@@ -95,10 +95,15 @@ function M.apply(config)
         bg = '#d97742',
         intensity = 'Bold',
       },
-      -- Inactive tab - cream with medium brown text (matches theme.lua inactive_tab)
+      -- Inactive tab - light beige with medium brown text (enhanced contrast)
       tab_inactive = {
-        fg = '#8b7355',
+        fg = '#5c4d3d',
         bg = '#f5ede3',
+      },
+      -- Inactive tab hover - light orange with warm brown (matches theme.lua)
+      tab_inactive_hover = {
+        fg = '#5c4d3d',
+        bg = '#edb88b',
       },
     },
   })
