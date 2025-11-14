@@ -1,0 +1,63 @@
+// Warm Light Theme for Zellij
+// Matches Wezterm's warm white, orange, and brown aesthetic
+// Designed to provide visual consistency when using Zellij inside Wezterm
+
+themes {
+    warm-light {
+        // Base colors - warm white background with brown text
+        bg "#fefdf8"         // soft warm white (matches Wezterm background)
+        fg "#5c4d3d"         // warm brown (matches Wezterm foreground)
+
+        // ANSI colors - warm palette matching Wezterm
+        red "#c04f30"        // terracotta
+        green "#8a9a5b"      // olive
+        yellow "#d99545"     // amber
+        blue "#7c8fa3"       // muted slate
+        magenta "#a06469"    // dusty rose
+        orange "#d97742"     // warm orange (primary accent)
+        cyan "#8ea59d"       // sage
+        black "#5c4d3d"      // warm brown
+        white "#f5ede3"      // cream
+
+        // UI colors - warm and minimal
+        ui_bg "#fefdf8"      // soft warm white
+        ui_fg "#5c4d3d"      // warm brown
+        border "#e6d5c3"     // light tan
+        selected_bg "#f5e6d3" // light beige (matches Wezterm selection)
+        selected_fg "#5c4d3d" // warm brown
+
+        // Pane colors - subtle borders
+        pane_border "#e6d5c3"         // light tan
+        pane_active_border "#d97742"  // warm orange (accent)
+        pane_frames_bg "#faf8f3"      // very light warm white
+        pane_frames_fg "#5c4d3d"      // warm brown
+
+        // Tab colors - matching Wezterm's tab bar
+        tab_active_bg "#d97742"    // warm orange (matches Wezterm active tab)
+        tab_active_fg "#fefdf8"    // warm white
+        tab_inactive_bg "#f5ede3"  // light cream (matches Wezterm inactive tab)
+        tab_inactive_fg "#8b7355"  // medium brown
+
+        // Status bar - minimal and warm
+        status_bg "#faf8f3"        // very light warm white
+        status_fg "#5c4d3d"        // warm brown
+        status_active_bg "#d97742" // warm orange
+        status_active_fg "#fefdf8" // warm white
+
+        // Mode colors - warm palette with good visibility
+        mode_normal "#7c8fa3"      // muted slate blue
+        mode_locked "#c04f30"      // terracotta red
+        mode_resize "#d99545"      // amber
+        mode_pane "#8a9a5b"        // olive green
+        mode_tab "#d97742"         // warm orange
+        mode_scroll "#a06469"      // dusty rose
+        mode_enter_search "#8ea59d" // sage cyan
+        mode_search "#8ea59d"      // sage cyan
+        mode_rename_tab "#d97742"  // warm orange
+        mode_rename_pane "#8a9a5b" // olive green
+        mode_session "#a06469"     // dusty rose
+        mode_move "#d99545"        // amber
+        mode_prompt "#8a9a5b"      // olive green
+        mode_tmux "#d97742"        // warm orange
+    }
+}
