@@ -79,7 +79,7 @@
       };
 
       git_status = {
-        format = "([\[$all_status$ahead_behind\]]($style) )";
+        format = "([$all_status$ahead_behind]($style) )";
         style = "bold #e64553";
         conflicted = "=";
         ahead = "⇡\${count}";
