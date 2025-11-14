@@ -2,7 +2,7 @@
 // Modern terminal workspace replacement for tmux
 
 // Theme
-theme "catppuccin-mocha"
+theme "warm-light"
 
 // General Settings
 simplified_ui true
@@ -39,10 +39,10 @@ keybinds clear-defaults=true {
         bind "Ctrl g" { SwitchToMode "locked"; }
         bind "Ctrl p" { SwitchToMode "pane"; }
         bind "Ctrl t" { SwitchToMode "tab"; }
-        bind "Ctrl r" { SwitchToMode "resize"; }
-        bind "Ctrl s" { SwitchToMode "scroll"; }
+        bind "Alt r" { SwitchToMode "resize"; }
+        bind "Alt s" { SwitchToMode "scroll"; }
         bind "Ctrl o" { SwitchToMode "session"; }
-        bind "Ctrl h" { SwitchToMode "move"; }
+        bind "Ctrl m" { SwitchToMode "move"; }
 
         // Quit
         bind "Ctrl q" { Quit; }
@@ -112,7 +112,7 @@ keybinds clear-defaults=true {
 
     // Resize mode - for resizing panes (vim-style)
     resize {
-        bind "Ctrl r" "Esc" { SwitchToMode "normal"; }
+        bind "Alt r" "Esc" { SwitchToMode "normal"; }
         bind "h" "Left" { Resize "Increase Left"; }
         bind "j" "Down" { Resize "Increase Down"; }
         bind "k" "Up" { Resize "Increase Up"; }
@@ -127,7 +127,7 @@ keybinds clear-defaults=true {
 
     // Move mode - for moving panes
     move {
-        bind "Ctrl h" "Esc" { SwitchToMode "normal"; }
+        bind "Ctrl m" "Esc" { SwitchToMode "normal"; }
         bind "n" "Tab" { MovePane; }
         bind "h" "Left" { MovePane "Left"; }
         bind "j" "Down" { MovePane "Down"; }
@@ -137,7 +137,7 @@ keybinds clear-defaults=true {
 
     // Scroll mode - for scrolling and searching
     scroll {
-        bind "Ctrl s" "Esc" { SwitchToMode "normal"; }
+        bind "Alt s" "Esc" { SwitchToMode "normal"; }
         bind "e" { EditScrollback; SwitchToMode "normal"; }
         bind "j" "Down" { ScrollDown; }
         bind "k" "Up" { ScrollUp; }
@@ -158,7 +158,7 @@ keybinds clear-defaults=true {
 
     // Search mode - for entering search terms
     search {
-        bind "Ctrl s" "Esc" { SwitchToMode "normal"; }
+        bind "Alt s" "Esc" { SwitchToMode "normal"; }
         bind "Ctrl c" { SearchToggleOption "CaseSensitivity"; }
         bind "Ctrl w" { SearchToggleOption "Wrap"; }
         bind "Ctrl o" { SearchToggleOption "WholeWord"; }
