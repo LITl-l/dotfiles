@@ -26,16 +26,16 @@ function M.apply(config)
       tabs_enabled = true,
       -- Round separators for a softer, more elegant look
       section_separators = {
-        left = wezterm.nerdfonts.ple_left_half_circle_thick,
-        right = wezterm.nerdfonts.ple_right_half_circle_thick,
+        left = wezterm.nerdfonts.ple_right_half_circle_thick,
+        right = wezterm.nerdfonts.ple_left_half_circle_thick,
       },
       component_separators = {
-        left = wezterm.nerdfonts.ple_left_half_circle_thin,
-        right = wezterm.nerdfonts.ple_right_half_circle_thin,
+        left = wezterm.nerdfonts.ple_right_half_circle_thin,
+        right = wezterm.nerdfonts.ple_left_half_circle_thin,
       },
       tab_separators = {
-        left = wezterm.nerdfonts.ple_left_half_circle_thick,
-        right = wezterm.nerdfonts.ple_right_half_circle_thick,
+        left = wezterm.nerdfonts.ple_right_half_circle_thick,
+        right = wezterm.nerdfonts.ple_left_half_circle_thick,
       },
     },
     sections = {
@@ -47,6 +47,8 @@ function M.apply(config)
         { 'parent', padding = 0 },
         '/',
         { 'cwd', padding = { left = 0, right = 1 } },
+        '|',
+        { 'process', padding = { left = 1, right = 0} },
       },
       tab_inactive = {
         'index',
