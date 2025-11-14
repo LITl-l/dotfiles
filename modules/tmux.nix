@@ -79,29 +79,29 @@
       bind -r C-l next-window
       bind Tab last-window
 
-      # Status bar configuration (Catppuccin Mocha)
+      # Status bar configuration (Catppuccin Latte)
       set -g status-position top
-      set -g status-style "bg=#1e1e2e fg=#cdd6f4"
+      set -g status-style "bg=#eff1f5 fg=#4c4f69"
       set -g status-left-length 60
       set -g status-right-length 60
 
       # Status left
-      set -g status-left "#[fg=#1e1e2e,bg=#89b4fa,bold] #S #[fg=#89b4fa,bg=#1e1e2e,nobold]"
+      set -g status-left "#[fg=#eff1f5,bg=#1e66f5,bold] #S #[fg=#1e66f5,bg=#eff1f5,nobold]"
 
       # Status right
-      set -g status-right "#[fg=#45475a,bg=#1e1e2e]#[fg=#cdd6f4,bg=#45475a] %Y-%m-%d #[fg=#585b70,bg=#45475a]#[fg=#cdd6f4,bg=#585b70] %H:%M #[fg=#89b4fa,bg=#585b70]#[fg=#1e1e2e,bg=#89b4fa,bold] #h "
+      set -g status-right "#[fg=#ccd0da,bg=#eff1f5]#[fg=#4c4f69,bg=#ccd0da] %Y-%m-%d #[fg=#bcc0cc,bg=#ccd0da]#[fg=#4c4f69,bg=#bcc0cc] %H:%M #[fg=#1e66f5,bg=#bcc0cc]#[fg=#eff1f5,bg=#1e66f5,bold] #h "
 
       # Window status
-      set -g window-status-format "#[fg=#1e1e2e,bg=#45475a] #I #[fg=#cdd6f4,bg=#313244] #W "
-      set -g window-status-current-format "#[fg=#1e1e2e,bg=#89b4fa,bold] #I #[fg=#1e1e2e,bg=#a6adc8,bold] #W#{?window_zoomed_flag, 󰊓,} "
+      set -g window-status-format "#[fg=#eff1f5,bg=#ccd0da] #I #[fg=#4c4f69,bg=#e6e9ef] #W "
+      set -g window-status-current-format "#[fg=#eff1f5,bg=#1e66f5,bold] #I #[fg=#eff1f5,bg=#7287fd,bold] #W#{?window_zoomed_flag, 󰊓,} "
       set -g window-status-separator ""
 
       # Pane borders
-      set -g pane-border-style "fg=#45475a"
-      set -g pane-active-border-style "fg=#89b4fa"
+      set -g pane-border-style "fg=#ccd0da"
+      set -g pane-active-border-style "fg=#1e66f5"
 
       # Message style
-      set -g message-style "fg=#cdd6f4 bg=#313244 bold"
+      set -g message-style "fg=#4c4f69 bg=#e6e9ef bold"
 
       # Plugin settings
       set -g @resurrect-capture-pane-contents "on"

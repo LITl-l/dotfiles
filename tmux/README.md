@@ -1,6 +1,6 @@
 # Tmux
 
-Terminal multiplexer with Catppuccin theme and vim-style navigation.
+Terminal multiplexer with Catppuccin Latte theme and vim-style navigation.
 
 > **Managed by Nix**: This configuration is automatically managed by the main Nix flakes setup. See [modules/tmux.nix](../modules/tmux.nix) for the Nix configuration. No manual installation required when using the main dotfiles setup.
 
@@ -11,25 +11,15 @@ Tmux enables terminal session management with:
 - **Session persistence** across disconnects
 - **Vim-style navigation** and keybindings
 - **Plugin ecosystem** for extended functionality
-- **Beautiful Catppuccin theme** for consistent aesthetics
+- **Beautiful Catppuccin Latte theme** for consistent aesthetics
 
 ## Installation
-
-### Via Nix (Recommended)
 
 Tmux is automatically installed and configured when you use the main dotfiles setup:
 
 ```bash
 # See main README for full installation
 home-manager switch --flake ~/dotfiles
-```
-
-### Standalone (Legacy)
-
-If you need just tmux configuration without the full Nix setup:
-
-```bash
-./tmux/install.sh
 ```
 
 ## Key configuration
@@ -60,8 +50,8 @@ If you need just tmux configuration without the full Nix setup:
 
 ## Theme and appearance
 
-### Catppuccin colors
-- **Status bar**: Top position with beautiful gradients
+### Catppuccin Latte colors
+- **Status bar**: Top position with beautiful light theme gradients
 - **Active indicators**: Blue highlights for current items
 - **Pane borders**: Subtle inactive, bright active
 - **Window status**: Clear current/inactive distinction
@@ -73,9 +63,9 @@ If you need just tmux configuration without the full Nix setup:
 
 ## Plugin ecosystem
 
-### TPM (Tmux Plugin Manager)
-- **Auto-installation**: Installs on first run
-- **Plugin management**: Install/update/remove plugins
+### Nix-managed plugins
+- **Automatic installation**: Plugins installed via Nix
+- **Declarative management**: Defined in `modules/tmux.nix`
 
 ### Included plugins
 - **tmux-sensible**: Sensible default settings
