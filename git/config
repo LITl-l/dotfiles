@@ -25,65 +25,6 @@
     interactive = auto
     status = auto
 
-[alias]
-    # Status
-    s = status -s
-    st = status
-
-    # Branch
-    br = branch
-    co = checkout
-    cob = checkout -b
-    
-    # Commit
-    c = commit
-    cm = commit -m
-    ca = commit --amend
-    can = commit --amend --no-edit
-    
-    # Diff
-    d = diff
-    dc = diff --cached
-    ds = diff --staged
-    
-    # Add
-    a = add
-    aa = add --all
-    ap = add --patch
-    
-    # Log
-    l = log --oneline --graph --decorate
-    lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
-    ll = log --pretty=format:'%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]' --decorate --numstat
-    
-    # Remote
-    f = fetch
-    pl = pull
-    ps = push
-    psu = push -u origin HEAD
-    
-    # Stash
-    ss = stash save
-    sl = stash list
-    sp = stash pop
-    sa = stash apply
-    
-    # Reset
-    unstage = reset HEAD --
-    undo = reset --soft HEAD^
-    
-    # Show
-    last = log -1 HEAD
-    
-    # Utilities
-    aliases = config --get-regexp alias
-    branches = branch -a
-    remotes = remote -v
-    contributors = shortlog --summary --numbered
-    
-    # Cleanup
-    cleanup = !git branch --merged | grep -v '\\*\\|main\\|master\\|develop' | xargs -n 1 git branch -d
-
 [push]
     default = current
     autoSetupRemote = true
