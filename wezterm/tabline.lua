@@ -18,11 +18,11 @@ function M.apply(config)
     return
   end
 
-  -- Configure tabline with CPU, RAM, and clock widgets
+  -- Configure tabline with CPU, RAM, and clock widgets (warm white, orange, brown aesthetic)
   tabline.setup({
     options = {
       icons_enabled = true,
-      theme = 'Catppuccin Latte',
+      theme = 'auto',  -- Use custom colors from theme.lua
       tabs_enabled = true,
     },
     sections = {
@@ -46,7 +46,7 @@ function M.apply(config)
       tabline_y = {
         { 'datetime', padding = 1 },
       },
-      tabline_z = { 'hostname' },
+      tabline_z = {},
     },
   })
 
