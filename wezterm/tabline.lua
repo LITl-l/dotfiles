@@ -18,11 +18,11 @@ function M.apply(config)
     return
   end
 
-  -- Configure tabline with CPU, RAM, and clock widgets (warm peachy aesthetic)
+  -- Configure tabline with CPU, RAM, and clock widgets (warm white, orange, brown aesthetic)
   tabline.setup({
     options = {
       icons_enabled = true,
-      theme = 'Tokyo Night Day',
+      theme = 'auto',  -- Use custom colors from theme.lua
       tabs_enabled = true,
     },
     sections = {
