@@ -22,7 +22,7 @@ function M.apply(config)
   tabline.setup({
     options = {
       icons_enabled = true,
-      theme = 'auto',  -- Use custom colors from theme.lua
+      theme = 'Tokyo Night Day',  -- Warm theme that matches our color scheme
       tabs_enabled = true,
     },
     sections = {
