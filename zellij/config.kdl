@@ -23,7 +23,7 @@ scrollback_lines_to_serialize 50000
 
 // UI Configuration
 default_layout "default"
-default_mode "normal"
+default_mode "locked"
 ui {
     pane_frames {
         rounded_corners true
