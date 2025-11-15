@@ -23,7 +23,6 @@ function M.apply(config)
   tabline.setup({
     options = {
       icons_enabled = true,
-      theme = tabline_theme.WarmPalette,  -- Custom warm palette theme
       tabs_enabled = true,
       -- Round separators for a softer, more elegant look
       section_separators = {
@@ -38,6 +37,8 @@ function M.apply(config)
         left = wezterm.nerdfonts.ple_right_half_circle_thick,
         right = wezterm.nerdfonts.ple_left_half_circle_thick,
       },
+      -- Custom warm palette theme
+      theme_overrides = tabline_theme.WarmPalette,
     },
     sections = {
       tabline_a = { 'mode' },
