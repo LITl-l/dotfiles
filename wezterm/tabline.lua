@@ -1,7 +1,7 @@
 -- Tabline plugin configuration
 -- Uses tabline.wez for enhanced tab bar with system information
 local wezterm = require 'wezterm'
-local tabline_theme = require 'wezterm.tabline-theme'
+local tabline_theme = require 'tabline-theme'
 
 local M = {}
 
