@@ -152,9 +152,48 @@ end
 -- Setup color scheme
 M.setup_colorscheme = function()
   require('catppuccin').setup({
-    flavour = 'mocha',
+    flavour = 'latte',
     transparent_background = false,
     term_colors = true,
+    color_overrides = {
+      latte = {
+        -- Base colors matching Wezterm warm palette
+        base = '#fefdf8',      -- soft warm white background
+        mantle = '#faf8f3',    -- very light warm white
+        crust = '#f5ede3',     -- cream
+
+        -- Text colors
+        text = '#5c4d3d',      -- warm brown foreground
+        subtext1 = '#6d5d4d',  -- slightly lighter brown
+        subtext0 = '#8b7355',  -- medium brown
+
+        -- Overlay colors
+        overlay2 = '#a89888',  -- light brown
+        overlay1 = '#c5b5a5',  -- lighter brown
+        overlay0 = '#e6d5c3',  -- light tan
+
+        -- Surface colors
+        surface2 = '#f5e6d3',  -- light beige (selection)
+        surface1 = '#f5ede3',  -- cream
+        surface0 = '#faf8f3',  -- very light warm white
+
+        -- Accent colors from warm palette
+        blue = '#7c8fa3',      -- muted slate
+        lavender = '#97aec2',  -- light slate
+        sapphire = '#8ea59d',  -- sage
+        sky = '#abd5c9',       -- mint
+        teal = '#8ea59d',      -- sage cyan
+        green = '#8a9a5b',     -- olive
+        yellow = '#d99545',    -- amber
+        peach = '#d97742',     -- warm orange (primary accent)
+        maroon = '#c04f30',    -- terracotta
+        red = '#c04f30',       -- terracotta red
+        mauve = '#a06469',     -- dusty rose
+        pink = '#b88b8f',      -- rose
+        flamingo = '#b88b8f',  -- rose
+        rosewater = '#d97742', -- warm orange
+      },
+    },
     integrations = {
       mini = {
         enabled = true,
