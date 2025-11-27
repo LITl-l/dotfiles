@@ -45,6 +45,9 @@
     gzip       # Compression tool
     rsync      # File sync
 
+    # WSL utilities
+    wslu       # WSL utilities for Windows integration
+
     # Development tools
     git-lfs    # Git Large File Storage
     gh         # GitHub CLI
