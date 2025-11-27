@@ -78,50 +78,6 @@ in
     XDG_BIN_HOME = "${config.home.homeDirectory}/.local/bin";
   };
 
-  # Shell aliases (available in all shells)
-  home.shellAliases = {
-    # Eza aliases (modern ls)
-    ls = "eza --icons --group-directories-first";
-    ll = "eza --icons --group-directories-first -l";
-    la = "eza --icons --group-directories-first -la";
-    lt = "eza --icons --group-directories-first --tree";
-
-    # Git aliases
-    g = "git";
-    gs = "git status";
-    ga = "git add";
-    gc = "git commit";
-    gp = "git push";
-    gl = "git pull";
-    gd = "git diff";
-    gco = "git checkout";
-    gb = "git branch";
-    glg = "git log --graph --oneline --decorate";
-
-    # Neovim
-    vi = "nvim";
-    vim = "nvim";
-
-    # Safety
-    rm = "rm -i";
-    cp = "cp -i";
-    mv = "mv -i";
-
-    # Shortcuts
-    ".." = "cd ..";
-    "..." = "cd ../..";
-    "...." = "cd ../../..";
-
-    # Config shortcuts
-    dotfiles = "cd ~/.config/dotfiles";
-    config = "cd ~/.config";
-
-    # Nix shortcuts (using nix-manager)
-    nix-rebuild = "nix-manager rebuild";
-    nix-update = "nix-manager update";
-    nix-clean = "nix-manager clean";
-  };
-
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
