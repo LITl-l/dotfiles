@@ -105,12 +105,12 @@
     "...." = "cd ../../..";
 
     # Config shortcuts
-    dotfiles = "cd ~/dotfiles";
+    dotfiles = "cd ~/.config/dotfiles";
     config = "cd ~/.config";
 
     # Nix shortcuts
-    nix-rebuild = "home-manager switch --flake ~/dotfiles";
-    nix-update = "nix flake update ~/dotfiles";
+    nix-rebuild = "home-manager switch --flake ~/.config/dotfiles";
+    nix-update = "nix flake update ~/.config/dotfiles";
     nix-clean = "nix-collect-garbage -d";
   };
 
