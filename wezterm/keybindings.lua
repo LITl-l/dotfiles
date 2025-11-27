@@ -124,11 +124,14 @@ function M.apply(config)
       action = wezterm.action.ShowLauncher,
     },
 
-    -- Reload configuration
+    -- Reload configuration and restart shell
     {
       key = 'r',
       mods = 'LEADER',
-      action = wezterm.action.ReloadConfiguration,
+      action = wezterm.action.Multiple {
+        wezterm.action.ReloadConfiguration,
+        wezterm.action.SendString 'exec $SHELL\n',
+      },
     },
 
     -- ============================================
