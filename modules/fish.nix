@@ -93,6 +93,50 @@
       bind \co yazi-cd
     '';
 
+    # Fish abbreviations
+    shellAbbrs = {
+      # Eza abbreviations (modern ls)
+      ls = "eza --icons --group-directories-first";
+      ll = "eza --icons --group-directories-first -l";
+      la = "eza --icons --group-directories-first -la";
+      lt = "eza --icons --group-directories-first --tree";
+
+      # Git abbreviations
+      g = "git";
+      gs = "git status";
+      ga = "git add";
+      gc = "git commit";
+      gp = "git push";
+      gl = "git pull";
+      gd = "git diff";
+      gco = "git checkout";
+      gb = "git branch";
+      glg = "git log --graph --oneline --decorate";
+
+      # Neovim
+      vi = "nvim";
+      vim = "nvim";
+
+      # Safety
+      rm = "rm -i";
+      cp = "cp -i";
+      mv = "mv -i";
+
+      # Navigation
+      ".." = "cd ..";
+      "..." = "cd ../..";
+      "...." = "cd ../../..";
+
+      # Config shortcuts
+      dotfiles = "cd ~/.config/dotfiles";
+      config = "cd ~/.config";
+
+      # Nix shortcuts (using nix-manager)
+      nix-rebuild = "nix-manager rebuild";
+      nix-update = "nix-manager update";
+      nix-clean = "nix-manager clean";
+    };
+
     # Fish functions
     functions = {
       # Git commit with conventional format
