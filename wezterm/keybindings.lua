@@ -1,70 +1,143 @@
--- Keyboard shortcuts configuration
+-- Keyboard shortcuts configuration with leader key
 local wezterm = require 'wezterm'
 local platform = require 'platform'
 
 local M = {}
 
 function M.apply(config)
+  -- Leader key: CTRL+Space with 1 second timeout
+  config.leader = { key = 'Space', mods = 'CTRL', timeout_milliseconds = 1000 }
+
   config.keys = {
+    -- ============================================
+    -- Pane operations (LEADER + key)
+    -- ============================================
+
     -- Split panes
     {
       key = 'd',
-      mods = 'CTRL|SHIFT',
-      action = wezterm.action.SplitHorizontal { domain = 'CurrentPaneDomain' },
+      mods = 'LEADER',
+      action = wezterm.action.SplitVertical { domain = 'CurrentPaneDomain' },
     },
     {
       key = 'd',
-      mods = 'CTRL',
-      action = wezterm.action.SplitVertical { domain = 'CurrentPaneDomain' },
+      mods = 'LEADER|SHIFT',
+      action = wezterm.action.SplitHorizontal { domain = 'CurrentPaneDomain' },
     },
-    -- Navigate panes
+
+    -- Navigate panes (vim-style)
     {
       key = 'h',
-      mods = 'CTRL|SHIFT',
+      mods = 'LEADER',
       action = wezterm.action.ActivatePaneDirection 'Left',
     },
     {
       key = 'l',
-      mods = 'CTRL|SHIFT',
+      mods = 'LEADER',
       action = wezterm.action.ActivatePaneDirection 'Right',
     },
     {
       key = 'k',
-      mods = 'CTRL|SHIFT',
+      mods = 'LEADER',
       action = wezterm.action.ActivatePaneDirection 'Up',
     },
     {
       key = 'j',
-      mods = 'CTRL|SHIFT',
+      mods = 'LEADER',
       action = wezterm.action.ActivatePaneDirection 'Down',
     },
-    -- Resize panes
+
+    -- Resize panes (LEADER + SHIFT + hjkl)
     {
       key = 'h',
-      mods = 'CTRL|ALT',
+      mods = 'LEADER|SHIFT',
       action = wezterm.action.AdjustPaneSize { 'Left', 5 },
     },
     {
       key = 'l',
-      mods = 'CTRL|ALT',
+      mods = 'LEADER|SHIFT',
       action = wezterm.action.AdjustPaneSize { 'Right', 5 },
     },
     {
       key = 'k',
-      mods = 'CTRL|ALT',
+      mods = 'LEADER|SHIFT',
       action = wezterm.action.AdjustPaneSize { 'Up', 5 },
     },
     {
       key = 'j',
-      mods = 'CTRL|ALT',
+      mods = 'LEADER|SHIFT',
       action = wezterm.action.AdjustPaneSize { 'Down', 5 },
     },
+
     -- Close pane
     {
       key = 'w',
-      mods = 'CTRL|SHIFT',
+      mods = 'LEADER',
       action = wezterm.action.CloseCurrentPane { confirm = true },
     },
+
+    -- Zoom pane
+    {
+      key = 'z',
+      mods = 'LEADER',
+      action = wezterm.action.TogglePaneZoomState,
+    },
+
+    -- ============================================
+    -- Tab operations (LEADER + key)
+    -- ============================================
+
+    -- New tab
+    {
+      key = 't',
+      mods = 'LEADER',
+      action = wezterm.action.SpawnTab 'CurrentPaneDomain',
+    },
+
+    -- Switch tabs
+    {
+      key = 'n',
+      mods = 'LEADER',
+      action = wezterm.action.ActivateTabRelative(1),
+    },
+    {
+      key = 'p',
+      mods = 'LEADER',
+      action = wezterm.action.ActivateTabRelative(-1),
+    },
+
+    -- ============================================
+    -- Utility operations (LEADER + key)
+    -- ============================================
+
+    -- Search
+    {
+      key = 'f',
+      mods = 'LEADER',
+      action = wezterm.action.Search { CaseSensitiveString = '' },
+    },
+
+    -- Show launcher
+    {
+      key = 'Space',
+      mods = 'LEADER',
+      action = wezterm.action.ShowLauncher,
+    },
+
+    -- Reload configuration and restart shell
+    {
+      key = 'r',
+      mods = 'LEADER',
+      action = wezterm.action.Multiple {
+        wezterm.action.ReloadConfiguration,
+        wezterm.action.SendString 'exec $SHELL\n',
+      },
+    },
+
+    -- ============================================
+    -- Direct keybindings (no leader required)
+    -- ============================================
+
     -- Copy/Paste (platform-specific)
     {
       key = 'c',
@@ -75,47 +148,6 @@ function M.apply(config)
       key = 'v',
       mods = platform.is_macos and 'CMD' or 'CTRL|SHIFT',
       action = wezterm.action.PasteFrom 'Clipboard',
-    },
-    -- Search
-    {
-      key = 'f',
-      mods = platform.is_macos and 'CMD' or 'CTRL|SHIFT',
-      action = wezterm.action.Search { CaseSensitiveString = '' },
-    },
-    -- New tab
-    {
-      key = 't',
-      mods = platform.is_macos and 'CMD' or 'CTRL|SHIFT',
-      action = wezterm.action.SpawnTab 'CurrentPaneDomain',
-    },
-    -- Switch tabs
-    {
-      key = 'Tab',
-      mods = 'CTRL',
-      action = wezterm.action.ActivateTabRelative(1),
-    },
-    {
-      key = 'Tab',
-      mods = 'CTRL|SHIFT',
-      action = wezterm.action.ActivateTabRelative(-1),
-    },
-    -- Zoom pane
-    {
-      key = 'z',
-      mods = platform.is_macos and 'CMD' or 'CTRL|SHIFT',
-      action = wezterm.action.TogglePaneZoomState,
-    },
-    -- Show launcher
-    {
-      key = 'l',
-      mods = platform.is_macos and 'CMD|SHIFT' or 'CTRL|SHIFT|ALT',
-      action = wezterm.action.ShowLauncher,
-    },
-    -- Reload configuration
-    {
-      key = 'r',
-      mods = platform.is_macos and 'CMD|SHIFT' or 'CTRL|SHIFT|ALT',
-      action = wezterm.action.ReloadConfiguration,
     },
   }
 end
