@@ -69,6 +69,7 @@ in
     VISUAL = "nvim";
     PAGER = "less";
     LESS = "-R";
+    BROWSER = "wslview";  # Use wslview to open URLs in Windows default browser
 
     # XDG directories
     XDG_CONFIG_HOME = "${config.home.homeDirectory}/.config";
