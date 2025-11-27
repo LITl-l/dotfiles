@@ -207,10 +207,12 @@
         showCommandLog = false;
       };
       git = {
-        paging = {
-          colorArg = "always";
-          pager = "delta --paging=never";
-        };
+        pagers = [
+          {
+            colorArg = "always";
+            pager = "delta --paging=never";
+          }
+        ];
       };
       os = {
         editPreset = "nvim";
