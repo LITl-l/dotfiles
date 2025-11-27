@@ -1,5 +1,9 @@
 { config, pkgs, lib, inputs, ... }:
 
+let
+  # Custom nix-manager package
+  nix-manager = pkgs.callPackage ./pkgs/nix-manager.nix { };
+in
 {
   imports = [
     ./modules/fish.nix
@@ -56,6 +60,7 @@
     # Nix tools
     nixpkgs-fmt # Nix formatter
     nil        # Nix LSP
+    nix-manager # Custom nix-manager command
   ];
 
   # Environment variables
@@ -111,10 +116,10 @@
     dotfiles = "cd ~/.config/dotfiles";
     config = "cd ~/.config";
 
-    # Nix shortcuts
-    nix-rebuild = "home-manager switch --flake ~/.config/dotfiles";
-    nix-update = "nix flake update ~/.config/dotfiles";
-    nix-clean = "nix-collect-garbage -d";
+    # Nix shortcuts (using nix-manager)
+    nix-rebuild = "nix-manager rebuild";
+    nix-update = "nix-manager update";
+    nix-clean = "nix-manager clean";
   };
 
   # Allow unfree packages
