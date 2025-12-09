@@ -21,4 +21,9 @@
       };
     };
   };
+
+  # jjui - TUI for Jujutsu VCS
+  home.packages = with pkgs; [
+    jjui
+  ];
 }
