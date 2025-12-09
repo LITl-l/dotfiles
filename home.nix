@@ -11,6 +11,7 @@ in
     ./modules/neovim.nix
     ./modules/starship.nix
     ./modules/git.nix
+    ./modules/jujutsu.nix
     ./modules/zellij.nix
     ./modules/yazi.nix
     ./modules/common.nix
