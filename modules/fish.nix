@@ -91,6 +91,11 @@
 
       # Yazi keybinding - open with Ctrl+O
       bind \co yazi-cd
+
+      # Devbox shell completions
+      if command -q devbox
+        devbox completion fish | source
+      end
     '';
 
     # Fish abbreviations
@@ -135,6 +140,13 @@
       nix-rebuild = "nix-manager rebuild";
       nix-update = "nix-manager update";
       nix-clean = "nix-manager clean";
+
+      # Devbox shortcuts
+      db = "devbox";
+      dbs = "devbox shell";
+      dbr = "devbox run";
+      dba = "devbox add";
+      dbi = "devbox init";
     };
 
     # Fish functions

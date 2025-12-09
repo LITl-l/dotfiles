@@ -54,6 +54,7 @@ in
     git-lfs    # Git Large File Storage
     gh         # GitHub CLI
     claude-code # Claude AI coding assistant
+    devbox     # Portable, isolated dev environments
 
     # Nix tools
     nixpkgs-fmt # Nix formatter
@@ -91,10 +92,14 @@ in
       enableFishIntegration = true;
     };
 
-    # Better cd with fzf
+    # Automatic environment loading
     direnv = {
       enable = true;
       nix-direnv.enable = true;
+      # Silence verbose output
+      config.global = {
+        hide_env_diff = true;
+      };
     };
 
     # Man pages
