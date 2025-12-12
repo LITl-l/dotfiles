@@ -6,6 +6,7 @@ let
 in
 {
   imports = [
+    ./modules/bash.nix
     ./modules/fish.nix
     ./modules/wezterm.nix
     ./modules/neovim.nix
