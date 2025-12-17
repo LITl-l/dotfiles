@@ -10,6 +10,7 @@
         editor = "nvim";
         excludesfile = "~/.config/git/ignore";
         attributesfile = "~/.config/git/attributes";
+        hooksPath = "~/.config/git/hooks";
         autocrlf = "input";
         safecrlf = "warn";
         whitespace = "fix,-indent-with-non-tab,trailing-space,cr-at-eol";
@@ -324,4 +325,10 @@
     *.woff2 binary
     *.otf binary
   '';
+
+  # Copy git hooks
+  xdg.configFile."git/hooks/post-checkout" = {
+    source = ../git/hooks/post-checkout;
+    executable = true;
+  };
 }
