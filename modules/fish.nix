@@ -265,6 +265,74 @@
           yazi-cd $argv
         '';
       };
+
+      # Git worktree wrapper with file copying
+      git-worktree-add = {
+        description = "Create git worktree and copy configured files";
+        body = ''
+          # Get the repository root
+          set -l repo_root (git rev-parse --show-toplevel 2>/dev/null)
+          if test -z "$repo_root"
+            echo "Error: Not in a git repository" >&2
+            return 1
+          end
+
+          # Create the worktree
+          git worktree add $argv
+          if test $status -ne 0
+            return 1
+          end
+
+          # The last argument should be the path (or extract from output)
+          set -l worktree_path $argv[-1]
+
+          # If path is relative, make it absolute
+          if not string match -q '/*' $worktree_path
+            set worktree_path (pwd)/$worktree_path
+          end
+
+          # Copy files using the script
+          set -l script_path "$repo_root/scripts/copy-workspace-files.sh"
+          if test -x "$script_path"
+            echo "🔄 Copying workspace files..."
+            $script_path "$repo_root" "$worktree_path"
+          end
+        '';
+      };
+
+      # Jujutsu workspace wrapper with file copying
+      jj-workspace-add = {
+        description = "Create jj workspace and copy configured files";
+        body = ''
+          # Get the repository root
+          set -l repo_root (jj root 2>/dev/null)
+          if test -z "$repo_root"
+            echo "Error: Not in a jujutsu repository" >&2
+            return 1
+          end
+
+          # Create the workspace
+          jj workspace add $argv
+          if test $status -ne 0
+            return 1
+          end
+
+          # The last argument should be the path
+          set -l workspace_path $argv[-1]
+
+          # If path is relative, make it absolute
+          if not string match -q '/*' $workspace_path
+            set workspace_path (pwd)/$workspace_path
+          end
+
+          # Copy files using the script
+          set -l script_path "$repo_root/scripts/copy-workspace-files.sh"
+          if test -x "$script_path"
+            echo "🔄 Copying workspace files..."
+            $script_path "$repo_root" "$workspace_path"
+          end
+        '';
+      };
     };
 
     # Fish plugins

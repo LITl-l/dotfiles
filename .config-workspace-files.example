@@ -1,0 +1,12 @@
+# Workspace Files Configuration
+# List files (one per line) that should be copied when creating a new workspace
+# Paths are relative to the source repository root
+# Lines starting with # are ignored
+
+# Example: Environment files
+.env
+.env.local
+
+# Example: Local configuration
+.vscode/settings.json
+.idea/workspace.xml

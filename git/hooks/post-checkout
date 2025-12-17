@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Git post-checkout hook
+# Automatically copies configured files when creating a new worktree
+
+# Hook arguments
+prev_head=$1
+new_head=$2
+branch_checkout=$3
+
+# Only run for branch checkouts (not file checkouts)
+if [ "$branch_checkout" != "1" ]; then
+    exit 0
+fi
+
+# Detect if this is a worktree by checking if we're in a .git/worktrees directory
+git_dir=$(git rev-parse --git-dir 2>/dev/null)
+if [[ ! "$git_dir" =~ \.git/worktrees/ ]]; then
+    # Not a worktree, exit
+    exit 0
+fi
+
+# Find the repository root
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$repo_root" ]; then
+    exit 0
+fi
+
+# Find the main repository (parent of all worktrees)
+# The main repository is typically where the .git directory is a directory, not a file
+current_dir="$repo_root"
+main_repo=""
+
+# Look for the main .git directory
+if [ -d "$repo_root/.git/worktrees" ]; then
+    # This is the main repository
+    main_repo="$repo_root"
+else
+    # This is a worktree, find the main repository
+    # The .git file in a worktree contains: gitdir: /path/to/main/.git/worktrees/name
+    git_file="$repo_root/.git"
+    if [ -f "$git_file" ]; then
+        # Extract the main .git directory path
+        main_git_dir=$(grep 'gitdir:' "$git_file" | cut -d' ' -f2)
+        # Remove /worktrees/name to get the main .git directory
+        main_git_dir=$(echo "$main_git_dir" | sed 's|/worktrees/[^/]*$||')
+        # The main repository is the parent of the .git directory
+        main_repo=$(dirname "$main_git_dir")
+    fi
+fi
+
+# If we couldn't find the main repository, exit
+if [ -z "$main_repo" ] || [ ! -d "$main_repo" ]; then
+    exit 0
+fi
+
+# Find the copy script
+script_path="$main_repo/scripts/copy-workspace-files.sh"
+if [ ! -x "$script_path" ]; then
+    # Script not found or not executable, exit silently
+    exit 0
+fi
+
+# Execute the copy script
+echo "🔄 Copying workspace files..."
+"$script_path" "$main_repo" "$repo_root" || true
+
+exit 0
