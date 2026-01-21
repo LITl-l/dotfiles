@@ -205,44 +205,34 @@ M.setup_colorscheme = function()
 end
 
 -- Setup treesitter
+-- Note: nvim-treesitter v1.0+ removed the configs module
+-- Highlighting and indent are now handled by Neovim's built-in vim.treesitter
+-- Parsers are managed by Nix (see modules/neovim.nix)
 M.setup_treesitter = function()
-  require('nvim-treesitter.configs').setup({
-    -- Parsers are managed by Nix - disable auto-installation
-    -- This prevents write errors to read-only /nix/store
-    auto_install = false,
+  -- Enable treesitter-based highlighting for all supported filetypes
+  vim.api.nvim_create_autocmd('FileType', {
+    callback = function(args)
+      -- Skip for very large files (100KB+)
+      local max_filesize = 100 * 1024
+      local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(args.buf))
+      if ok and stats and stats.size > max_filesize then
+        return
+      end
 
-    -- Parser list is for reference only - actual parsers come from Nix
-    -- See modules/neovim.nix for the list of installed parsers
-    ensure_installed = {}, -- Empty: parsers provided by Nix
-
-    highlight = {
-      enable = true,
-      -- Disable for very large files for performance
-      disable = function(lang, buf)
-        local max_filesize = 100 * 1024 -- 100 KB
-        local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
-        if ok and stats and stats.size > max_filesize then
-          return true
-        end
-      end,
-    },
-
-    indent = {
-      enable = true,
-      -- Disable for certain languages if they have issues
-      disable = {},
-    },
-
-    incremental_selection = {
-      enable = true,
-      keymaps = {
-        init_selection = '<C-space>',
-        node_incremental = '<C-space>',
-        scope_incremental = false,
-        node_decremental = '<bs>',
-      },
-    },
+      -- Start treesitter highlighting if parser is available
+      local lang = vim.treesitter.language.get_lang(args.match)
+      if lang and pcall(vim.treesitter.start, args.buf, lang) then
+        -- Enable treesitter-based indentation
+        vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+      end
+    end,
   })
+
+  -- Setup incremental selection keymaps
+  local incremental_selection = require('nvim-treesitter.incremental_selection')
+  vim.keymap.set('n', '<C-space>', incremental_selection.init_selection, { desc = 'Start incremental selection' })
+  vim.keymap.set('x', '<C-space>', incremental_selection.node_incremental, { desc = 'Increment selection to node' })
+  vim.keymap.set('x', '<bs>', incremental_selection.node_decremental, { desc = 'Decrement selection to node' })
 end
 
 return M
