@@ -107,25 +107,38 @@ nvim/
 - **Formatting**: Code formatting support
 - **Snippets**: Code snippet expansion
 
-## LSP installation
+## LSP servers
 
-Auto-install LSP servers using the custom command:
+LSP servers are managed entirely by Nix and installed via the `modules/neovim.nix` configuration. No manual installation is required.
 
-```vim
-:LspInstall server-name
+The configuration automatically enables LSP servers that are found in PATH. To add or remove LSP servers, edit the `extraPackages` section in `modules/neovim.nix`:
+
+```nix
+extraPackages = with pkgs; [
+  lua-language-server
+  nil                                          # Nix LSP
+  nodePackages.bash-language-server
+  nodePackages.typescript-language-server
+  nodePackages.vscode-langservers-extracted    # HTML, CSS, JSON
+  nodePackages.yaml-language-server
+  python3Packages.python-lsp-server
+  rust-analyzer
+  gopls
+];
 ```
 
-Example:
-```vim
-:LspInstall lua-language-server
-:LspInstall pyright
+After modifying, rebuild with:
+
+```bash
+home-manager switch --flake ~/dotfiles
 ```
 
 ## Dependencies
 
+All dependencies are managed by Nix. When using the Nix setup, no manual installation is required.
+
+For standalone usage (legacy):
 - **Neovim 0.9+**: Modern Neovim version
 - **Git**: For plugin management
-- **Node.js**: For some LSP servers
-- **npm**: For LSP server installation
-- **ripgrep**: For text search (optional)
-- **fd**: For file finding (optional)
+- **ripgrep**: For text search
+- **fd**: For file finding
