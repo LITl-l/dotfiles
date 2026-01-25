@@ -228,11 +228,51 @@ M.setup_treesitter = function()
     end,
   })
 
-  -- Setup incremental selection keymaps
-  local incremental_selection = require('nvim-treesitter.incremental_selection')
-  vim.keymap.set('n', '<C-space>', incremental_selection.init_selection, { desc = 'Start incremental selection' })
-  vim.keymap.set('x', '<C-space>', incremental_selection.node_incremental, { desc = 'Increment selection to node' })
-  vim.keymap.set('x', '<bs>', incremental_selection.node_decremental, { desc = 'Decrement selection to node' })
+  -- Incremental selection using built-in vim.treesitter API
+  -- (nvim-treesitter v1.0+ removed the incremental_selection module)
+  local selection_stack = {}
+
+  local function select_node(node)
+    if not node then return end
+    local start_row, start_col, end_row, end_col = node:range()
+    vim.api.nvim_buf_set_mark(0, '<', start_row + 1, start_col, {})
+    vim.api.nvim_buf_set_mark(0, '>', end_row + 1, end_col - 1, {})
+    vim.cmd('normal! gv')
+  end
+
+  local function init_selection()
+    selection_stack = {}
+    local node = vim.treesitter.get_node()
+    if node then
+      table.insert(selection_stack, node)
+      select_node(node)
+    end
+  end
+
+  local function node_incremental()
+    local node = selection_stack[#selection_stack]
+    if not node then
+      node = vim.treesitter.get_node()
+    end
+    if node then
+      local parent = node:parent()
+      if parent then
+        table.insert(selection_stack, parent)
+        select_node(parent)
+      end
+    end
+  end
+
+  local function node_decremental()
+    if #selection_stack > 1 then
+      table.remove(selection_stack)
+      select_node(selection_stack[#selection_stack])
+    end
+  end
+
+  vim.keymap.set('n', '<C-space>', init_selection, { desc = 'Start incremental selection' })
+  vim.keymap.set('x', '<C-space>', node_incremental, { desc = 'Increment selection to node' })
+  vim.keymap.set('x', '<bs>', node_decremental, { desc = 'Decrement selection to node' })
 end
 
 return M
