@@ -69,6 +69,18 @@
       # Color scheme
       catppuccin-nvim
 
+      # Snippet engine
+      luasnip
+      friendly-snippets
+
+      # Formatter
+      conform-nvim
+
+      # Debugger
+      nvim-dap
+      nvim-dap-ui
+      nvim-dap-virtual-text
+
       # Mini.nvim will be bootstrapped in init.lua
     ];
   };

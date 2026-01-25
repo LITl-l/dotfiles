@@ -94,30 +94,20 @@ end)
 
 -- LSP configuration
 later(function()
-  -- LSP servers list
-  local lsp_servers = {
-    'lua_ls',
-    'pyright',
-    'rust_analyzer',
-    'tsserver',
-    'gopls',
-    'bashls',
-    'jsonls',
-    'yamlls',
-    'html',
-    'cssls',
-    'dockerls',
-    'terraformls',
-  }
+  require('config.lsp').setup()
+end)
 
-  -- Auto-install LSP servers command
-  vim.api.nvim_create_user_command('LspInstall', function(opts)
-    local server = opts.args
-    if server == '' then
-      vim.notify('Please specify a server name', vim.log.levels.ERROR)
-      return
-    end
-    local cmd = string.format('!npm install -g %s', server)
-    vim.cmd(cmd)
-  end, { nargs = 1 })
+-- Snippet engine
+later(function()
+  require('config.snippets').setup()
+end)
+
+-- Formatter configuration
+later(function()
+  require('config.format').setup()
+end)
+
+-- Debug Adapter Protocol
+later(function()
+  require('config.dap').setup()
 end)
