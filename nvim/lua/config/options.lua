@@ -54,9 +54,10 @@ vim.opt.autoindent = true
 vim.opt.mouse = 'a'
 vim.opt.clipboard = 'unnamedplus'
 
--- Folding
+-- Folding (using built-in Neovim treesitter API)
 vim.opt.foldmethod = 'expr'
-vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
+vim.opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+vim.opt.foldtext = ''  -- Use default fold text (shows first line)
 vim.opt.foldlevel = 99
 vim.opt.foldlevelstart = 99
 vim.opt.foldenable = true

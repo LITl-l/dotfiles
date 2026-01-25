@@ -14,6 +14,7 @@ in
     ./modules/jujutsu.nix
     ./modules/yazi.nix
     ./modules/common.nix
+    ./modules/claude-code.nix
   ];
 
   # Let Home Manager manage itself
