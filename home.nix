@@ -54,7 +54,6 @@ in
     git-lfs    # Git Large File Storage
     gh         # GitHub CLI
     claude-code # Claude AI coding assistant
-    devbox     # Portable, isolated dev environments
 
     # Nix tools
     nixpkgs-fmt # Nix formatter

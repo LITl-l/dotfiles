@@ -62,16 +62,6 @@ Abbreviations expand when you press Space or Enter.
 | `nix-update` | `nix-manager update` | Update flake inputs |
 | `nix-clean` | `nix-manager clean` | Clean old generations |
 
-### Devbox
-
-| Abbr | Expands To | Description |
-|------|------------|-------------|
-| `db` | `devbox` | Devbox shortcut |
-| `dbs` | `devbox shell` | Enter devbox shell |
-| `dbr` | `devbox run` | Run devbox command |
-| `dba` | `devbox add` | Add package |
-| `dbi` | `devbox init` | Initialize project |
-
 ### Editor
 
 | Abbr | Expands To | Description |
