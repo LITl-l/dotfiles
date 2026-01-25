@@ -62,7 +62,6 @@
 
         # Development tools
         "Bash(direnv:*)"
-        "Bash(devbox:*)"
       ];
 
       deny = [
