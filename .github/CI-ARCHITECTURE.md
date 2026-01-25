@@ -20,7 +20,7 @@ The CI pipeline is designed to validate and build NixOS configurations using Git
    - Tests each module individually
    - Validates syntax with `nix-instantiate`
    - Evaluates module loading
-   - Runs for: fish, wezterm, neovim, starship, git, zellij, common
+   - Runs for: fish, wezterm, neovim, starship, git, common
 
 3. **build-linux** (Required)
    - Builds `user@linux` Home Manager configuration
@@ -59,7 +59,6 @@ modules/
 ├── git.nix         → Git and Lazygit setup
 ├── neovim.nix      → Neovim with packages
 ├── starship.nix    → Starship prompt
-├── zellij.nix      → Zellij multiplexer
 └── wezterm.nix     → WezTerm terminal
 ```
 
