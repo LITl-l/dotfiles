@@ -27,6 +27,11 @@ local add, now, later = MiniDeps.add, MiniDeps.now, MiniDeps.later
 -- Get plugins configuration
 local plugins = require('config.plugins')
 
+-- Load which-key for keybinding hints
+now(function()
+  plugins.setup_whichkey()
+end)
+
 -- Load essential mini.nvim plugins immediately
 now(function()
   plugins.setup_mini()

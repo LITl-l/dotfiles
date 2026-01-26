@@ -275,4 +275,29 @@ M.setup_treesitter = function()
   vim.keymap.set('x', '<bs>', node_decremental, { desc = 'Decrement selection to node' })
 end
 
+-- Setup which-key
+M.setup_whichkey = function()
+  local wk = require('which-key')
+  wk.setup({
+    preset = 'modern',
+    delay = 300,
+    icons = {
+      mappings = false,
+      rules = false,
+    },
+    spec = {
+      { '<leader>b', group = 'buffer' },
+      { '<leader>c', group = 'code' },
+      { '<leader>d', group = 'debug' },
+      { '<leader>f', group = 'find' },
+      { '<leader>g', group = 'git' },
+      { '<leader>s', group = 'search' },
+      { '<leader>u', group = 'ui/toggle' },
+      { '<leader>w', group = 'window' },
+      { '<leader><tab>', group = 'tab' },
+    },
+  })
+end
+
 return M
+

@@ -81,6 +81,9 @@
       nvim-dap-ui
       nvim-dap-virtual-text
 
+      # Keybinding helper
+      which-key-nvim
+
       # Mini.nvim will be bootstrapped in init.lua
     ];
   };
