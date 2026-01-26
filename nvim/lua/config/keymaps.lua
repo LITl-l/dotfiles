@@ -102,8 +102,5 @@ map("i", ";", ";<c-g>u")
 -- Search and replace
 map("n", "<leader>sr", ":%s/\\<<C-r><C-w>\\>/<C-r><C-w>/gI<Left><Left><Left>", { desc = "Search and replace word under cursor" })
 
--- Diagnostic keymaps
-map("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous diagnostic message" })
-map("n", "]d", vim.diagnostic.goto_next, { desc = "Go to next diagnostic message" })
-map("n", "<leader>e", vim.diagnostic.open_float, { desc = "Open floating diagnostic message" })
+-- Diagnostic keymaps (lspsaga will override [d, ]d, <leader>e when LSP is attached)
 map("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostics list" })
