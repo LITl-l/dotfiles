@@ -84,6 +84,9 @@
       # Keybinding helper
       which-key-nvim
 
+      # LSP UI enhancement
+      lspsaga-nvim
+
       # Mini.nvim will be bootstrapped in init.lua
     ];
   };

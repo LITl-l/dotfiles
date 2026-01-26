@@ -127,35 +127,46 @@ autocmd("LspAttach", {
       vim.keymap.set('n', keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
     end
 
-    -- Jump to the definition of the word under your cursor
-    map('gd', require('mini.pick').builtin.lsp({ scope = 'definition' }), '[G]oto [D]efinition')
-    map('gr', require('mini.pick').builtin.lsp({ scope = 'references' }), '[G]oto [R]eferences')
-    map('gI', require('mini.pick').builtin.lsp({ scope = 'implementation' }), '[G]oto [I]mplementation')
-    map('<leader>D', require('mini.pick').builtin.lsp({ scope = 'type_definition' }), 'Type [D]efinition')
-    map('<leader>ds', require('mini.pick').builtin.lsp({ scope = 'document_symbol' }), '[D]ocument [S]ymbols')
-    map('<leader>ws', require('mini.pick').builtin.lsp({ scope = 'workspace_symbol' }), '[W]orkspace [S]ymbols')
+    -- Lspsaga enhanced features
+    map('K', '<cmd>Lspsaga hover_doc<cr>', 'Hover Documentation')
+    map('gd', '<cmd>Lspsaga goto_definition<cr>', 'Goto Definition')
+    map('gp', '<cmd>Lspsaga peek_definition<cr>', 'Peek Definition')
+    map('gr', '<cmd>Lspsaga finder<cr>', 'Find References')
+    map('gI', '<cmd>Lspsaga finder imp<cr>', 'Find Implementation')
+    map('gD', vim.lsp.buf.declaration, 'Goto Declaration')
 
-    -- See `:help K` for why this keymap
-    map('K', vim.lsp.buf.hover, 'Hover Documentation')
-    map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
+    -- Lspsaga diagnostics
+    map('[d', '<cmd>Lspsaga diagnostic_jump_prev<cr>', 'Prev Diagnostic')
+    map(']d', '<cmd>Lspsaga diagnostic_jump_next<cr>', 'Next Diagnostic')
+    map('<leader>e', '<cmd>Lspsaga show_line_diagnostics<cr>', 'Line Diagnostics')
 
-    -- Lesser used LSP functionality
-    map('<leader>wa', vim.lsp.buf.add_workspace_folder, '[W]orkspace [A]dd Folder')
-    map('<leader>wr', vim.lsp.buf.remove_workspace_folder, '[W]orkspace [R]emove Folder')
+    -- Lspsaga code actions and rename
+    map('<leader>ca', '<cmd>Lspsaga code_action<cr>', 'Code Action')
+    map('<leader>rn', '<cmd>Lspsaga rename<cr>', 'Rename')
+
+    -- Lspsaga outline
+    map('<leader>o', '<cmd>Lspsaga outline<cr>', 'Toggle Outline')
+
+    -- Lspsaga call hierarchy
+    map('<leader>ci', '<cmd>Lspsaga incoming_calls<cr>', 'Incoming Calls')
+    map('<leader>co', '<cmd>Lspsaga outgoing_calls<cr>', 'Outgoing Calls')
+
+    -- Mini.pick for symbols
+    map('<leader>D', require('mini.pick').builtin.lsp({ scope = 'type_definition' }), 'Type Definition')
+    map('<leader>ds', require('mini.pick').builtin.lsp({ scope = 'document_symbol' }), 'Document Symbols')
+    map('<leader>ws', require('mini.pick').builtin.lsp({ scope = 'workspace_symbol' }), 'Workspace Symbols')
+
+    -- Workspace folder management
+    map('<leader>wa', vim.lsp.buf.add_workspace_folder, 'Workspace Add Folder')
+    map('<leader>wr', vim.lsp.buf.remove_workspace_folder, 'Workspace Remove Folder')
     map('<leader>wl', function()
       print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
-    end, '[W]orkspace [L]ist Folders')
-
-    -- Rename the variable under your cursor
-    map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
-
-    -- Execute a code action
-    map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+    end, 'Workspace List Folders')
 
     -- Format buffer
     map('<leader>cf', function()
       vim.lsp.buf.format({ async = false, timeout_ms = 2000 })
-    end, '[C]ode [F]ormat')
+    end, 'Code Format')
 
     -- Create a command `:Format` local to the LSP buffer
     vim.api.nvim_buf_create_user_command(event.buf, 'Format', function(_)

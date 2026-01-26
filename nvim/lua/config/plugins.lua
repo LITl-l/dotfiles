@@ -275,6 +275,25 @@ M.setup_treesitter = function()
   vim.keymap.set('x', '<bs>', node_decremental, { desc = 'Decrement selection to node' })
 end
 
+-- Setup lspsaga
+M.setup_lspsaga = function()
+  require('lspsaga').setup({
+    ui = {
+      border = 'rounded',
+      code_action = '󰌵',
+    },
+    lightbulb = {
+      enable = false,
+    },
+    symbol_in_winbar = {
+      enable = false,
+    },
+    outline = {
+      layout = 'float',
+    },
+  })
+end
+
 -- Setup which-key
 M.setup_whichkey = function()
   local wk = require('which-key')

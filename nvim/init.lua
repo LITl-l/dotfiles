@@ -99,6 +99,7 @@ end)
 
 -- LSP configuration
 later(function()
+  plugins.setup_lspsaga()
   require('config.lsp').setup()
 end)
 
