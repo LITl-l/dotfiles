@@ -345,6 +345,29 @@
         '';
       };
 
+      # Clone repository with ghq and initialize jj colocate
+      ghq-get = {
+        description = "Clone repository with ghq and initialize jj colocate";
+        body = ''
+          # Clone with ghq
+          ghq get $argv
+          if test $status -ne 0
+            return 1
+          end
+
+          # Get the cloned repository path
+          set -l repo_path (ghq list --full-path | grep -F (echo $argv[-1] | sed 's|.*/||; s|\.git$||') | head -1)
+          if test -z "$repo_path"
+            echo "Warning: Could not determine repository path for jj init" >&2
+            return 0
+          end
+
+          # Initialize jj colocate
+          echo "🔄 Initializing jj colocate..."
+          jj git init --colocate $repo_path
+        '';
+      };
+
       # Navigate to jj workspaces interactively
       jj-ws = {
         description = "Navigate to jj workspaces with fzf";
