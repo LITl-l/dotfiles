@@ -333,6 +333,41 @@
           end
         '';
       };
+
+      # Navigate to ghq-managed repositories interactively
+      repo = {
+        description = "Navigate to ghq repositories with fzf";
+        body = ''
+          set -l selected (ghq list | fzf)
+          if test -n "$selected"
+            cd (ghq root)/$selected
+          end
+        '';
+      };
+
+      # Navigate to jj workspaces interactively
+      jj-ws = {
+        description = "Navigate to jj workspaces with fzf";
+        body = ''
+          # Get the repository root
+          set -l repo_root (jj root 2>/dev/null)
+          if test -z "$repo_root"
+            echo "Error: Not in a jujutsu repository" >&2
+            return 1
+          end
+
+          # Get workspace list and select with fzf
+          set -l selected (jj workspace list 2>/dev/null | awk '{print $1}' | fzf)
+          if test -n "$selected"
+            # Get workspace path from jj workspace list output
+            set -l workspace_info (jj workspace list 2>/dev/null | grep "^$selected ")
+            set -l workspace_path (echo $workspace_info | awk '{print $2}')
+            if test -n "$workspace_path"
+              cd $workspace_path
+            end
+          end
+        '';
+      };
     };
 
     # Fish plugins
