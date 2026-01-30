@@ -269,45 +269,6 @@ setup_fish_shell() {
     fi
 }
 
-# Install Claude Code (native installer)
-install_claude_code() {
-    log_info "Installing Claude Code (native installer)..."
-
-    # Check if already installed
-    if command -v claude >/dev/null 2>&1; then
-        log_success "Claude Code is already installed"
-        claude --version 2>/dev/null || true
-        return 0
-    fi
-
-    # Install using official native installer
-    if command -v curl >/dev/null 2>&1; then
-        log_info "Downloading and installing Claude Code..."
-        if curl -fsSL https://claude.ai/install.sh | bash; then
-            log_success "Claude Code installed successfully!"
-
-            # Add to PATH for current session if not already there
-            if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-                export PATH="$HOME/.local/bin:$PATH"
-            fi
-
-            # Verify installation
-            if command -v claude >/dev/null 2>&1; then
-                log_success "Claude Code is ready to use"
-                claude --version 2>/dev/null || true
-            else
-                log_warning "Claude Code installed but not in PATH. Restart your shell or add ~/.local/bin to PATH"
-            fi
-        else
-            log_warning "Claude Code installation failed. You can install it manually later with:"
-            log_info "  curl -fsSL https://claude.ai/install.sh | bash"
-        fi
-    else
-        log_error "curl is required to install Claude Code"
-        return 1
-    fi
-}
-
 # Show post-installation instructions
 show_post_install() {
     echo ""
@@ -340,7 +301,6 @@ show_post_install() {
     echo "  - WezTerm (Linux/macOS)"
     echo "  - Git with delta"
     echo "  - Lazygit"
-    echo "  - Claude Code (native installer, auto-updates)"
     echo "  - Modern CLI tools (eza, fd, ripgrep, bat, fzf, etc.)"
     echo ""
     echo "📚 For more information, see the README.md file"
@@ -468,9 +428,6 @@ main() {
     if [ "$change_shell" = true ]; then
         setup_fish_shell
     fi
-
-    # Install Claude Code (native installer, auto-updates)
-    install_claude_code
 
     # Show post-installation instructions
     show_post_install

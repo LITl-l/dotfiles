@@ -54,8 +54,7 @@ in
     git-lfs    # Git Large File Storage
     gh         # GitHub CLI
     ghq        # Git repository manager
-    # Claude Code is installed via native installer (not npm)
-    # Run: curl -fsSL https://claude.ai/install.sh | bash
+    claude-code # Claude AI coding assistant
 
     # Nix tools
     nixpkgs-fmt # Nix formatter
