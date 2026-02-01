@@ -3,13 +3,11 @@
 let
   # Path to dotfiles repo (adjust if needed)
   dotfilesPath = ../.; # Relative to this module
+  localPluginsPath = "${dotfilesPath}/claude/plugins";
 in
 {
-  # Symlink local plugins to Claude plugins cache
-  home.file.".claude/plugins/cache/local/jj-master/local" = {
-    source = "${dotfilesPath}/claude/plugins/jj-master";
-    recursive = true;
-  };
+  # Note: Local plugins are symlinked via activation script below
+  # because ~/.claude/plugins/marketplaces/ is not fully managed by home-manager
 
   # Claude Code global settings
   # Note: Project-specific settings remain in .claude/settings.local.json
@@ -155,17 +153,44 @@ in
     ];
   };
 
-  # Register local plugin in installed_plugins.json
+  # Register local marketplace and plugin
   home.activation.registerClaudePlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     PLUGINS_FILE="$HOME/.claude/plugins/installed_plugins.json"
-    PLUGIN_PATH="$HOME/.claude/plugins/cache/local/jj-master/local"
+    MARKETPLACES_FILE="$HOME/.claude/plugins/known_marketplaces.json"
+    MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/local"
+    PLUGIN_PATH="$MARKETPLACE_DIR/jj-master"
+    LOCAL_PLUGINS_SOURCE="${localPluginsPath}"
+
+    # Create directories
+    mkdir -p "$HOME/.claude/plugins/marketplaces"
+
+    # Symlink local marketplace (remove old symlink/dir if exists)
+    rm -rf "$MARKETPLACE_DIR"
+    ln -sf "$LOCAL_PLUGINS_SOURCE" "$MARKETPLACE_DIR"
 
     # Create plugins file if not exists
     if [ ! -f "$PLUGINS_FILE" ]; then
       echo '{"version":2,"plugins":{}}' > "$PLUGINS_FILE"
     fi
 
-    # Add jj-master plugin entry using jq
+    # Create marketplaces file if not exists
+    if [ ! -f "$MARKETPLACES_FILE" ]; then
+      echo '{}' > "$MARKETPLACES_FILE"
+    fi
+
+    # Register local marketplace
+    ${pkgs.jq}/bin/jq --arg dir "$MARKETPLACE_DIR" '
+      .["local"] = {
+        "source": {
+          "source": "local",
+          "path": $dir
+        },
+        "installLocation": $dir,
+        "lastUpdated": (now | strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+      }
+    ' "$MARKETPLACES_FILE" > "$MARKETPLACES_FILE.tmp" && mv "$MARKETPLACES_FILE.tmp" "$MARKETPLACES_FILE"
+
+    # Add jj-master plugin entry
     ${pkgs.jq}/bin/jq --arg path "$PLUGIN_PATH" '
       .plugins["jj-master@local"] = [{
         "scope": "user",
