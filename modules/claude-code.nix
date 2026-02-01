@@ -153,7 +153,7 @@ in
     ];
   };
 
-  # Register local marketplace and plugin
+  # Register local plugin (symlink plugins and register in installed_plugins.json)
   home.activation.registerClaudePlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     PLUGINS_FILE="$HOME/.claude/plugins/installed_plugins.json"
     MARKETPLACES_FILE="$HOME/.claude/plugins/known_marketplaces.json"
@@ -173,22 +173,10 @@ in
       echo '{"version":2,"plugins":{}}' > "$PLUGINS_FILE"
     fi
 
-    # Create marketplaces file if not exists
-    if [ ! -f "$MARKETPLACES_FILE" ]; then
-      echo '{}' > "$MARKETPLACES_FILE"
+    # Remove invalid local marketplace entry from known_marketplaces.json if it exists
+    if [ -f "$MARKETPLACES_FILE" ]; then
+      ${pkgs.jq}/bin/jq 'del(.["local"])' "$MARKETPLACES_FILE" > "$MARKETPLACES_FILE.tmp" && mv "$MARKETPLACES_FILE.tmp" "$MARKETPLACES_FILE"
     fi
-
-    # Register local marketplace
-    ${pkgs.jq}/bin/jq --arg dir "$MARKETPLACE_DIR" '
-      .["local"] = {
-        "source": {
-          "source": "local",
-          "path": $dir
-        },
-        "installLocation": $dir,
-        "lastUpdated": (now | strftime("%Y-%m-%dT%H:%M:%S.000Z"))
-      }
-    ' "$MARKETPLACES_FILE" > "$MARKETPLACES_FILE.tmp" && mv "$MARKETPLACES_FILE.tmp" "$MARKETPLACES_FILE"
 
     # Add jj-master plugin entry
     ${pkgs.jq}/bin/jq --arg path "$PLUGIN_PATH" '
