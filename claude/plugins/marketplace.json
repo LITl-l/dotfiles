@@ -1,11 +1,15 @@
 {
   "name": "local",
   "description": "Local plugins from dotfiles",
-  "plugins": {
-    "jj-master": {
+  "owner": {
+    "name": "dotfiles"
+  },
+  "plugins": [
+    {
       "name": "jj-master",
       "description": "Jujutsu (jj) workflow automation with workspace management",
-      "path": "./jj-master"
+      "source": "./jj-master",
+      "version": "1.0.0"
     }
-  }
+  ]
 }
