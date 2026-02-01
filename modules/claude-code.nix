@@ -146,6 +146,16 @@ in
       "jj-master@local" = true;
     };
 
+    # Register local marketplace for custom plugins
+    extraKnownMarketplaces = {
+      local = {
+        source = {
+          source = "directory";
+          path = "~/.claude/plugins/marketplaces/local";
+        };
+      };
+    };
+
     # Additional directories Claude can access
     additionalDirectories = [
       "~/wkspace/**"
