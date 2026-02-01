@@ -1,6 +1,16 @@
 { config, pkgs, lib, ... }:
 
+let
+  # Path to dotfiles repo (adjust if needed)
+  dotfilesPath = ../.; # Relative to this module
+in
 {
+  # Symlink local plugins to Claude plugins cache
+  home.file.".claude/plugins/cache/local/jj-master/local" = {
+    source = "${dotfilesPath}/claude/plugins/jj-master";
+    recursive = true;
+  };
+
   # Claude Code global settings
   # Note: Project-specific settings remain in .claude/settings.local.json
   home.file.".claude/settings.json".text = builtins.toJSON {
@@ -45,6 +55,14 @@
         "Bash(jj show:*)"
         "Bash(jj config:*)"
         "Bash(jj help:*)"
+        "Bash(jj workspace list:*)"
+
+        # Jujutsu operations (write)
+        "Bash(jj new:*)"
+        "Bash(jj commit:*)"
+        "Bash(jj describe:*)"
+        "Bash(jj workspace add:*)"
+        "Bash(jj git clone:*)"
 
         # Nix operations
         "Bash(nix flake check:*)"
@@ -59,6 +77,10 @@
         "Bash(gh run view:*)"
         "Bash(gh run list:*)"
         "Bash(gh auth:*)"
+        "Bash(gh repo view:*)"
+
+        # Jujutsu git remote (for PR workflow)
+        "Bash(jj git remote:*)"
 
         # Development tools
         "Bash(direnv:*)"
@@ -79,6 +101,7 @@
         "Bash(jj git push:*)"
         "Bash(gh pr create:*)"
         "Bash(gh pr merge:*)"
+        "Bash(gh api:*)"
       ];
 
       defaultMode = "default";
@@ -122,6 +145,7 @@
       "ralph-wiggum@claude-plugins-official" = true;
       "hookify@claude-plugins-official" = true;
       "mgrep@Mixedbread-Grep" = true;
+      "jj-master@local" = true;
     };
 
     # Additional directories Claude can access
@@ -130,4 +154,27 @@
       "~/.config/dotfiles/**"
     ];
   };
+
+  # Register local plugin in installed_plugins.json
+  home.activation.registerClaudePlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    PLUGINS_FILE="$HOME/.claude/plugins/installed_plugins.json"
+    PLUGIN_PATH="$HOME/.claude/plugins/cache/local/jj-master/local"
+
+    # Create plugins file if not exists
+    if [ ! -f "$PLUGINS_FILE" ]; then
+      echo '{"version":2,"plugins":{}}' > "$PLUGINS_FILE"
+    fi
+
+    # Add jj-master plugin entry using jq
+    ${pkgs.jq}/bin/jq --arg path "$PLUGIN_PATH" '
+      .plugins["jj-master@local"] = [{
+        "scope": "user",
+        "installPath": $path,
+        "version": "local",
+        "installedAt": (now | strftime("%Y-%m-%dT%H:%M:%S.000Z")),
+        "lastUpdated": (now | strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+      }]
+    ' "$PLUGINS_FILE" > "$PLUGINS_FILE.tmp" && mv "$PLUGINS_FILE.tmp" "$PLUGINS_FILE"
+  '';
 }
+
