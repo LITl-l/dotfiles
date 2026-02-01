@@ -5,7 +5,8 @@ This guide explains how to add plugins (local and remote), install skills, and c
 ## Table of Contents
 
 - [Plugin Types](#plugin-types)
-- [Adding Official/Remote Plugins](#adding-officialremote-plugins)
+- [Adding Official Plugins](#adding-official-plugins)
+- [Adding Third-Party Plugins](#adding-third-party-plugins)
 - [Adding Local Plugins](#adding-local-plugins)
 - [Installing Skills](#installing-skills)
 - [Marketplace Configuration](#marketplace-configuration)
@@ -21,37 +22,17 @@ Claude Code supports three plugin sources:
 | **Third-party** | Community marketplaces (GitHub repos) | `mgrep@Mixedbread-Grep` |
 | **Local** | Custom plugins from local directories | `jj-master@local` |
 
-## Adding Official/Remote Plugins
+## Adding Official Plugins
 
-### Method 1: Using Claude Code CLI (Recommended)
+Official plugins from `claude-plugins-official` are **installed automatically** - you just need to enable them in Claude Code.
 
-```bash
-# Install from official marketplace
-claude plugin install <plugin-name>
+### Enabling Official Plugins
 
-# Install from third-party marketplace
-claude plugin install <plugin-name>@<marketplace-name>
+1. Open Claude Code
+2. Use the `/plugins` command or settings menu
+3. Browse and enable plugins from the official marketplace
 
-# Examples
-claude plugin install frontend-design
-claude plugin install context7
-claude plugin install mgrep@Mixedbread-Grep
-```
-
-### Method 2: Manual Configuration in settings.json
-
-Add the plugin to `enabledPlugins` in `~/.claude/settings.json`:
-
-```json
-{
-  "enabledPlugins": [
-    "frontend-design@claude-plugins-official",
-    "context7@claude-plugins-official",
-    "playwright@claude-plugins-official",
-    "mgrep@Mixedbread-Grep"
-  ]
-}
-```
+Official plugins include built-in skills that work immediately after enabling.
 
 ### Available Official Plugins
 
@@ -63,6 +44,32 @@ Some popular official plugins from `claude-plugins-official`:
 - `playwright` - Browser automation testing
 - `security-guidance` - Security best practices
 - `hookify` - Hook management
+
+## Adding Third-Party Plugins
+
+For third-party marketplace plugins (community GitHub repos):
+
+### Method 1: Using Claude Code CLI
+
+```bash
+# Install from third-party marketplace
+claude plugin install <plugin-name>@<marketplace-name>
+
+# Example
+claude plugin install mgrep@Mixedbread-Grep
+```
+
+### Method 2: Manual Configuration in settings.json
+
+Add the plugin to `enabledPlugins` in `~/.claude/settings.json`:
+
+```json
+{
+  "enabledPlugins": [
+    "mgrep@Mixedbread-Grep"
+  ]
+}
+```
 
 ## Adding Local Plugins
 
@@ -287,8 +294,9 @@ home.activation.installClaudePlugins = lib.hm.dag.entryAfter ["writeBoundary"] '
 
 | Task | Command |
 |------|---------|
-| Install official plugin | `claude plugin install <name>` |
-| Install from marketplace | `claude plugin install <name>@<marketplace>` |
+| Enable official plugin | Use `/plugins` command in Claude Code |
+| Install third-party plugin | `claude plugin install <name>@<marketplace>` |
+| Install local plugin | `claude plugin install <name>@local --scope user` |
 | Uninstall plugin | `claude plugin uninstall <name>@<marketplace>` |
 | List installed plugins | Check `enabledPlugins` in settings.json |
 | Use a skill | `/skill-name <argument>` in Claude Code |
