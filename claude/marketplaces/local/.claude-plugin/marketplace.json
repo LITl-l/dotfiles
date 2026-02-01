@@ -1,7 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "dotfiles-local",
-  "description": "Local plugins from dotfiles",
+  "name": "local",
   "owner": {
     "name": "dotfiles"
   },
@@ -9,11 +8,7 @@
     {
       "name": "jj-master",
       "description": "Jujutsu (jj) workflow automation with workspace management",
-      "version": "1.0.0",
-      "author": {
-        "name": "dotfiles"
-      },
-      "source": "./claude/plugins/jj-master"
+      "source": "./plugins/jj-master"
     }
   ]
 }
