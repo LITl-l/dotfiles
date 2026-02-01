@@ -4,13 +4,5 @@
   "description": "Jujutsu (jj) workflow automation with workspace management",
   "author": {
     "name": "dotfiles"
-  },
-  "skills": [
-    "./skills/jj",
-    "./skills/jj-pr"
-  ],
-  "agents": [
-    "./agents/jj-workspace.md",
-    "./agents/jj-github.md"
-  ]
+  }
 }
