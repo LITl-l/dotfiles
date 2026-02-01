@@ -1,0 +1,8 @@
+{
+  "name": "jj-master",
+  "description": "Jujutsu (jj) workflow automation with workspace management",
+  "author": {
+    "name": "dotfiles",
+    "email": "user@local"
+  }
+}
