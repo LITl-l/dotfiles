@@ -82,14 +82,13 @@
     ]
   },
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true,
-    "context7@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "ralph-wiggum@claude-plugins-official": true,
-    "hookify@claude-plugins-official": true,
-    "mgrep@Mixedbread-Grep": true,
+    "frontend-design@claude-code-plugins": true,
+    "context7@claude-code-plugins": true,
+    "feature-dev@claude-code-plugins": true,
+    "playwright@claude-code-plugins": true,
+    "security-guidance@claude-code-plugins": true,
+    "ralph-wiggum@claude-code-plugins": true,
+    "hookify@claude-code-plugins": true,
     "jj-master@local": true
   },
   "extraKnownMarketplaces": {
