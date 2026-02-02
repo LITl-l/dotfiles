@@ -102,6 +102,7 @@
   },
   "additionalDirectories": [
     "~/wkspace/**",
+    "~/wkspace/worktree",
     "~/.config/dotfiles/**"
   ]
 }
