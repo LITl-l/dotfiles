@@ -126,4 +126,5 @@ jj evolog              # Change evolution history
 - `/jj-revsets` - Revision selection language
 - `/jj-history` - History editing operations
 - `/jj-safety` - Undo, redo, recovery
+- `/jj-submodules` - Git submodules workarounds
 
