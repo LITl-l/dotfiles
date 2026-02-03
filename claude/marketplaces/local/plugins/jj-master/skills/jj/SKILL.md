@@ -59,3 +59,71 @@ jj git push --bookmark <type>/<name>
 
 # Create PR via gh api (see /jj-pr)
 ```
+
+## Quick Reference
+
+### Navigation & Viewing
+
+```bash
+jj status              # Current state
+jj log                 # Commit graph
+jj log -r 'main..@'    # Commits since main
+jj diff                # Current changes
+jj diff -r @-          # Parent's changes
+```
+
+### History Editing (see /jj-history)
+
+```bash
+jj edit <id>           # Edit past commit
+jj squash              # Combine with parent
+jj split               # Break commit apart
+jj rebase -d trunk()   # Update to latest
+jj absorb              # Smart change distribution
+```
+
+### Safety (see /jj-safety)
+
+```bash
+jj undo                # Reverse last operation
+jj op log              # View all operations
+jj op restore <id>     # Restore previous state
+```
+
+### Revsets (see /jj-revsets)
+
+```bash
+@                      # Current commit
+@-                     # Parent
+main..@                # Commits since main
+mine()                 # My commits
+trunk()                # Main branch
+file("path")           # Commits touching file
+```
+
+### Conflict Resolution
+
+```bash
+jj status              # Shows conflicts
+jj resolve --list      # List conflicted files
+jj resolve <file>      # Interactive resolve
+jj resolve --tool=:ours   # Use our version
+jj resolve --tool=:theirs # Use their version
+```
+
+### Advanced Operations
+
+```bash
+jj bisect run '<cmd>'  # Find bug introduction
+jj fix                 # Apply formatters
+jj interdiff           # Compare commit versions
+jj evolog              # Change evolution history
+```
+
+## Related Skills
+
+- `/jj-pr` - Create GitHub PRs
+- `/jj-revsets` - Revision selection language
+- `/jj-history` - History editing operations
+- `/jj-safety` - Undo, redo, recovery
+
