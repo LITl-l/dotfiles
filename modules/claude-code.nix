@@ -11,8 +11,12 @@ in
   # Edit ~/dotfiles/claude/settings.json directly to modify
   home.file.".claude/settings.json".source = "${claudeConfigPath}/settings.json";
   home.file.".claude/stop-hook-git-check.sh".source = "${claudeConfigPath}/stop-hook-git-check.sh";
+  home.file.".claude/merge-plugin-configs.sh" = {
+    source = "${claudeConfigPath}/merge-plugin-configs.sh";
+    executable = true;
+  };
 
-  # Register local plugin (symlink marketplace and install via CLI)
+  # Register local plugin using merge strategy (preserves locally-installed plugins)
   home.activation.registerClaudePlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/local"
     LOCAL_MARKETPLACE_SOURCE="${localMarketplacePath}"
@@ -24,13 +28,10 @@ in
     rm -rf "$MARKETPLACE_DIR"
     ln -sf "$LOCAL_MARKETPLACE_SOURCE" "$MARKETPLACE_DIR"
 
-    # Install plugin via CLI if claude is available
-    # This properly registers skills and agents
-    if command -v claude &> /dev/null; then
-      # Uninstall first to ensure clean state (ignore errors if not installed)
-      claude plugin uninstall jj-master@local --scope user 2>/dev/null || true
-      # Install the plugin from local marketplace
-      claude plugin install jj-master@local --scope user 2>/dev/null || true
+    # Merge plugin configs (preserves existing plugins, adds managed ones)
+    # This uses jq to merge rather than overwrite
+    if [[ -x "$HOME/.claude/merge-plugin-configs.sh" ]]; then
+      PATH="${pkgs.jq}/bin:$PATH" "$HOME/.claude/merge-plugin-configs.sh"
     fi
   '';
 }
