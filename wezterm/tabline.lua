@@ -5,31 +5,6 @@ local tabline_theme = require 'tabline-theme'
 
 local M = {}
 
--- Initialize GLOBAL state for CapsLock
-wezterm.GLOBAL = wezterm.GLOBAL or {}
-wezterm.GLOBAL.caps_lock = false
-
--- Register event handler to update CapsLock state
--- This runs on status updates and stores state in GLOBAL
-wezterm.on('update-status', function(window, _)
-  local ok, result = pcall(function()
-    local _, leds = window:keyboard_modifiers()
-    return leds and leds:find('CAPS_LOCK') ~= nil
-  end)
-  if ok then
-    wezterm.GLOBAL.caps_lock = result
-  end
-end)
-
--- CapsLock indicator extension for tabline
--- Reads from GLOBAL state set by update-status event
-local function caps_lock_extension()
-  if wezterm.GLOBAL.caps_lock then
-    return 'CAPS'
-  end
-  return ''
-end
-
 function M.apply(config)
   -- Load the tabline plugin with error handling
   local success, tabline = pcall(function()
@@ -82,7 +57,6 @@ function M.apply(config)
         { 'process', padding = { left = 0, right = 1 } }
       },
       tabline_x = {
-        { caps_lock_extension, padding = 1 },
         { 'ram', padding = 1 },
         { 'cpu', padding = 1 },
       },
