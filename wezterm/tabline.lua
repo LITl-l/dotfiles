@@ -7,9 +7,11 @@ local M = {}
 
 -- CapsLock indicator extension for tabline
 -- Only shows "CAPS" when CapsLock is enabled
+-- Note: keyboard_modifiers() returns two strings: (modifiers, leds)
+-- where leds contains pipe-separated flags like "CAPS_LOCK|NUM_LOCK"
 local function caps_lock_extension(window)
-  local led_state = window:keyboard_modifiers()
-  if led_state.caps_lock then
+  local _, leds = window:keyboard_modifiers()
+  if leds and leds:find('CAPS_LOCK') then
     return 'CAPS'
   end
   return ''
