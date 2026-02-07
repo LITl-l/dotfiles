@@ -5,6 +5,16 @@ local tabline_theme = require 'tabline-theme'
 
 local M = {}
 
+-- CapsLock indicator extension for tabline
+-- Only shows "CAPS" when CapsLock is enabled
+local function caps_lock_extension(window)
+  local led_state = window:keyboard_modifiers()
+  if led_state.caps_lock then
+    return 'CAPS'
+  end
+  return ''
+end
+
 function M.apply(config)
   -- Load the tabline plugin with error handling
   local success, tabline = pcall(function()
@@ -57,6 +67,7 @@ function M.apply(config)
         { 'process', padding = { left = 0, right = 1 } }
       },
       tabline_x = {
+        { caps_lock_extension, padding = 1 },
         { 'ram', padding = 1 },
         { 'cpu', padding = 1 },
       },
