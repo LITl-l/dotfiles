@@ -2,6 +2,19 @@
 
 local map = vim.keymap.set
 
+-- Tabout: jump past closing brackets/quotes with Tab
+local tabout_chars = { ')', ']', '}', '"', "'", '`', '>' }
+local function tabout()
+  local col = vim.fn.col('.')
+  local line = vim.fn.getline('.')
+  local char = line:sub(col, col)
+  if vim.tbl_contains(tabout_chars, char) then
+    return '<Right>'
+  end
+  return '<Tab>'
+end
+map('i', '<Tab>', tabout, { expr = true, desc = 'Tabout or insert tab' })
+
 -- Better up/down
 map({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 map({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
