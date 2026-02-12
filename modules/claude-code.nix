@@ -9,9 +9,11 @@ in
   home.file.".claude/settings.json".source = "${claudeConfigPath}/settings.json";
   home.file.".claude/stop-hook-git-check.sh".source = "${claudeConfigPath}/stop-hook-git-check.sh";
 
-  # Local marketplace and plugins are managed via CLI:
-  #   ./claude/setup-marketplace.sh            # install
-  #   ./claude/setup-marketplace.sh --update   # update after plugin changes
-  #   ./claude/setup-marketplace.sh --uninstall
+  # Run marketplace setup script after build (registers marketplace + installs plugins via CLI)
+  home.activation.setupClaudeMarketplace = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if command -v claude &>/dev/null; then
+      "${claudeConfigPath}/setup-marketplace.sh" 2>/dev/null || true
+    fi
+  '';
 }
 
