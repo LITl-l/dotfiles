@@ -8,7 +8,6 @@ This guide explains how to add plugins (local and remote), install skills, and c
 - [Adding Official Plugins](#adding-official-plugins)
 - [Adding Third-Party Plugins](#adding-third-party-plugins)
 - [Adding Local Plugins](#adding-local-plugins)
-- [Local Marketplace Setup](#local-marketplace-setup)
 - [Installing Skills](#installing-skills)
 - [Marketplace Configuration](#marketplace-configuration)
 - [Known Limitations](#known-limitations)
@@ -30,8 +29,10 @@ Official plugins from `claude-plugins-official` are **installed automatically** 
 ### Enabling Official Plugins
 
 1. Open Claude Code
-2. Use the `/plugin` command or settings menu
+2. Use the `/plugins` command or settings menu
 3. Browse and enable plugins from the official marketplace
+
+Official plugins include built-in skills that work immediately after enabling.
 
 ### Available Official Plugins
 
@@ -51,18 +52,23 @@ For third-party marketplace plugins (community GitHub repos):
 ### Method 1: Using Claude Code CLI
 
 ```bash
-# Add a marketplace from GitHub
-claude plugin marketplace add owner/repo
+# Install from third-party marketplace
+claude plugin install <plugin-name>@<marketplace-name>
 
-# Install a plugin from it
-claude plugin install plugin-name@marketplace-name
+# Example
+claude plugin install mgrep@Mixedbread-Grep
 ```
 
-### Method 2: From Inside Claude Code
+### Method 2: Manual Configuration in settings.json
 
-```
-/plugin marketplace add owner/repo
-/plugin install plugin-name@marketplace-name
+Add the plugin to `enabledPlugins` in `~/.claude/settings.json`:
+
+```json
+{
+  "enabledPlugins": [
+    "mgrep@Mixedbread-Grep"
+  ]
+}
 ```
 
 ## Adding Local Plugins
@@ -89,17 +95,11 @@ marketplaces/
 
 ```json
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "$schema": "https://json.schemastore.org/claude-plugin-marketplace",
   "name": "local",
-  "owner": {
-    "name": "your-name"
-  },
+  "owner": "your-name",
   "plugins": [
-    {
-      "name": "your-plugin",
-      "description": "Description of your plugin",
-      "source": "./plugins/your-plugin"
-    }
+    "./plugins/your-plugin"
   ]
 }
 ```
@@ -130,6 +130,17 @@ argument-hint: <description of expected input>
 # Your Skill
 
 Instructions for Claude when this skill is invoked.
+
+## Steps
+
+1. Do something
+2. Do something else
+
+## Example Commands
+
+\`\`\`bash
+echo "example command"
+\`\`\`
 ```
 
 ### Step 5: Create an Agent (optional)
@@ -146,52 +157,37 @@ model: haiku
 # Your Agent
 
 Description of what this agent does autonomously.
+
+## Instructions
+
+1. Step one
+2. Step two
 ```
 
-### Step 6: Register via CLI
+### Step 6: Register the Marketplace
+
+Add to `settings.json`:
+
+```json
+{
+  "marketplaces": {
+    "local": {
+      "source": "~/.claude/plugins/marketplaces/local",
+      "type": "directory"
+    }
+  }
+}
+```
+
+### Step 7: Install the Plugin
 
 ```bash
-# Add the marketplace (from a separate terminal, not inside Claude Code)
-claude plugin marketplace add ./path/to/marketplaces/local
+# Uninstall first if exists (ignore errors)
+claude plugin uninstall your-plugin@local --scope user 2>/dev/null || true
 
 # Install the plugin
 claude plugin install your-plugin@local --scope user
 ```
-
-## Local Marketplace Setup
-
-This dotfiles repo includes a local marketplace with the `jj-master` plugin for Jujutsu workflow automation.
-
-### Quick Setup
-
-Run the setup script from a **separate terminal** (not inside Claude Code):
-
-```bash
-# Install marketplace and plugins
-./claude/setup-marketplace.sh
-
-# After modifying plugin files, update
-./claude/setup-marketplace.sh --update
-
-# Remove everything
-./claude/setup-marketplace.sh --uninstall
-```
-
-### What It Does
-
-The script uses the Claude Code CLI to:
-
-1. `claude plugin marketplace add` — registers the local marketplace directory
-2. `claude plugin install` — installs each plugin from the marketplace
-
-No JSON merging, no symlinks, no jq — the CLI handles all state management.
-
-### Adding a New Plugin
-
-1. Create your plugin under `marketplaces/local/plugins/your-plugin/`
-2. Add it to `marketplaces/local/.claude-plugin/marketplace.json`
-3. Add `"your-plugin@local"` to the `PLUGINS` array in `setup-marketplace.sh`
-4. Run `./claude/setup-marketplace.sh --update`
 
 ## Installing Skills
 
@@ -230,54 +226,41 @@ Each `SKILL.md` must have front matter with:
 
 ## Marketplace Configuration
 
-### Managing Marketplaces
+### Local Directory Marketplace
 
-```bash
-# Add from local directory
-claude plugin marketplace add ./my-marketplace
-
-# Add from GitHub
-claude plugin marketplace add owner/repo
-
-# List registered marketplaces
-claude plugin marketplace list
-
-# Update a marketplace
-claude plugin marketplace update marketplace-name
-
-# Remove a marketplace
-claude plugin marketplace remove marketplace-name
+```json
+{
+  "marketplaces": {
+    "local": {
+      "source": "~/.claude/plugins/marketplaces/local",
+      "type": "directory"
+    }
+  }
+}
 ```
 
-### Managing Plugins
+### GitHub Repository Marketplace
 
-```bash
-# Install
-claude plugin install plugin-name@marketplace --scope user
-
-# Uninstall
-claude plugin uninstall plugin-name@marketplace --scope user
-
-# Disable without uninstalling (inside Claude Code)
-/plugin disable plugin-name@marketplace
-
-# Re-enable (inside Claude Code)
-/plugin enable plugin-name@marketplace
-```
-
-### Validate a Marketplace
-
-```bash
-claude plugin validate ./path/to/marketplace
+```json
+{
+  "marketplaces": {
+    "my-marketplace": {
+      "source": "github:username/repo",
+      "type": "git"
+    }
+  }
+}
 ```
 
 ## Known Limitations
 
-### Cannot Install Plugins from Within Claude Code
+### Cannot Install Skills from Within Claude Code
 
-**Issue**: You cannot install plugins from inside a running Claude Code session.
+**Issue**: While you can add a marketplace configuration within Claude Code, you cannot install skills/plugins from inside a Claude Code session.
 
-**Workaround**: Run install commands from a separate terminal:
+**Reason**: Plugin installation requires the `claude plugin install` CLI command, which modifies Claude Code's internal state. Running this command from within Claude Code creates a conflict.
+
+**Workaround**: Install plugins from a separate terminal session:
 
 ```bash
 # In a separate terminal (not inside Claude Code)
@@ -288,49 +271,53 @@ Then restart Claude Code to see the new skills.
 
 ### Plugin Changes Require Reinstallation
 
-After modifying plugin files (SKILL.md, agents, etc.), update via the setup script:
+After modifying plugin files (SKILL.md, agents, etc.), you must reinstall:
 
 ```bash
-./claude/setup-marketplace.sh --update
+claude plugin uninstall your-plugin@local --scope user 2>/dev/null || true
+claude plugin install your-plugin@local --scope user
+```
+
+### Nix/Home Manager Integration
+
+If using Nix with Home Manager, plugins can be automatically registered during activation:
+
+```nix
+# In your Nix module
+home.activation.installClaudePlugins = lib.hm.dag.entryAfter ["writeBoundary"] ''
+  run ${pkgs.claude-code}/bin/claude plugin uninstall your-plugin@local --scope user 2>/dev/null || true
+  run ${pkgs.claude-code}/bin/claude plugin install your-plugin@local --scope user 2>/dev/null || true
+'';
 ```
 
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Setup local marketplace | `./claude/setup-marketplace.sh` |
-| Update after plugin changes | `./claude/setup-marketplace.sh --update` |
-| Remove local marketplace | `./claude/setup-marketplace.sh --uninstall` |
-| Add third-party marketplace | `claude plugin marketplace add owner/repo` |
-| Install a plugin | `claude plugin install name@marketplace` |
-| Uninstall a plugin | `claude plugin uninstall name@marketplace` |
-| List marketplaces | `claude plugin marketplace list` |
+| Enable official plugin | Use `/plugins` command in Claude Code |
+| Install third-party plugin | `claude plugin install <name>@<marketplace>` |
+| Install local plugin | `claude plugin install <name>@local --scope user` |
+| Uninstall plugin | `claude plugin uninstall <name>@<marketplace>` |
+| List installed plugins | Check `enabledPlugins` in settings.json |
 | Use a skill | `/skill-name <argument>` in Claude Code |
 
 ## File Structure Reference
 
 ```
-claude/
-├── settings.json                    # Main Claude Code configuration
-├── stop-hook-git-check.sh           # Git check hook
-├── setup-marketplace.sh             # Marketplace setup script
-├── README.md                        # This guide
-└── marketplaces/
-    └── local/                       # Local marketplace
-        ├── .claude-plugin/
-        │   └── marketplace.json
-        └── plugins/
-            └── jj-master/
-                ├── .claude-plugin/
-                │   └── plugin.json
-                ├── skills/
-                │   ├── jj/SKILL.md
-                │   ├── jj-history/SKILL.md
-                │   ├── jj-pr/SKILL.md
-                │   ├── jj-revsets/SKILL.md
-                │   ├── jj-safety/SKILL.md
-                │   └── jj-submodules/SKILL.md
-                └── agents/
-                    ├── jj-github.md
-                    └── jj-workspace.md
+~/.claude/
+├── settings.json                    # Main configuration
+└── plugins/
+    └── marketplaces/
+        └── local/                   # Local marketplace
+            ├── .claude-plugin/
+            │   └── marketplace.json
+            └── plugins/
+                └── plugin-name/
+                    ├── .claude-plugin/
+                    │   └── plugin.json
+                    ├── skills/
+                    │   └── skill-name/
+                    │       └── SKILL.md
+                    └── agents/
+                        └── agent-name.md
 ```

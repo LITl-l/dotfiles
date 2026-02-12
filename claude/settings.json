@@ -88,7 +88,16 @@
     "playwright@claude-code-plugins": true,
     "security-guidance@claude-code-plugins": true,
     "ralph-wiggum@claude-code-plugins": true,
-    "hookify@claude-code-plugins": true
+    "hookify@claude-code-plugins": true,
+    "jj-master@local": true
+  },
+  "extraKnownMarketplaces": {
+    "local": {
+      "source": {
+        "source": "directory",
+        "path": "~/.claude/plugins/marketplaces/local"
+      }
+    }
   },
   "additionalDirectories": [
     "~/wkspace/**",
