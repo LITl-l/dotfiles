@@ -12,7 +12,7 @@ in
   # Run marketplace setup script after build (registers marketplace + installs plugins via CLI)
   home.activation.setupClaudeMarketplace = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if command -v claude &>/dev/null; then
-      "${claudeConfigPath}/setup-marketplace.sh" 2>/dev/null || true
+      "${claudeConfigPath}/setup-marketplace.sh" --update 2>/dev/null || true
     fi
   '';
 }

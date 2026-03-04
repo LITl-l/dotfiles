@@ -77,6 +77,7 @@ update() {
   check_claude
 
   info "Updating local marketplace..."
+  claude plugin marketplace add "$MARKETPLACE_PATH" 2>/dev/null || true
   claude plugin marketplace update local
 
   for plugin in "${PLUGINS[@]}"; do
