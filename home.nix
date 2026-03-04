@@ -84,6 +84,35 @@ in
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
+  # Nix configuration (managed by Home Manager)
+  # Uses !include to optionally load a local config with GitHub access token
+  xdg.configFile."nix/nix.conf" = {
+    # Force overwrite in case install.sh created a regular file here
+    force = true;
+    text = ''
+      experimental-features = nix-command flakes
+      warn-dirty = false
+      accept-flake-config = true
+      !include ${config.home.homeDirectory}/.config/nix/nix.local.conf
+    '';
+  };
+
+  # Generate nix.local.conf with GitHub token for authenticated API access
+  # This avoids GitHub API rate limiting during `nix flake update`
+  home.activation.setupNixGithubToken = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    local_conf="${config.home.homeDirectory}/.config/nix/nix.local.conf"
+    if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
+      token=$(gh auth token 2>/dev/null)
+      if [ -n "$token" ]; then
+        echo "access-tokens = github.com=$token" > "$local_conf"
+      else
+        touch "$local_conf"
+      fi
+    else
+      touch "$local_conf"
+    fi
+  '';
+
   # Enable programs with simple configs
   programs = {
     # Directory jumper
