@@ -10,6 +10,8 @@
   programs.yazi = {
     enable = true;
     enableFishIntegration = true;
+    # Explicitly set to keep legacy default since stateVersion < 26.05
+    shellWrapperName = "yy";
 
     # Yazi settings
     settings = {
