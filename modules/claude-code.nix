@@ -4,16 +4,17 @@ let
   claudeConfigPath = "${../.}/claude";
 in
 {
-  # Claude Code settings - symlinked from dotfiles for easy editing
-  # Edit ~/dotfiles/claude/settings.json directly to modify
-  home.file.".claude/settings.json".source = "${claudeConfigPath}/settings.json";
+  # Claude Code stop hook - symlinked (read-only, safe as symlink)
   home.file.".claude/stop-hook-git-check.sh".source = "${claudeConfigPath}/stop-hook-git-check.sh";
 
-  # Run marketplace setup script after build (registers marketplace + installs plugins via CLI)
-  home.activation.setupClaudeMarketplace = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  # Setup Claude Code configuration and plugins after build
+  # settings.json is COPIED (not symlinked) so Claude CLI can modify it for plugin registration
+  home.activation.setupClaudeCode = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    mkdir -p "$HOME/.claude"
+    cp -f "${claudeConfigPath}/settings.json" "$HOME/.claude/settings.json"
+    chmod 644 "$HOME/.claude/settings.json"
     if command -v claude &>/dev/null; then
       "${claudeConfigPath}/setup-marketplace.sh" --update 2>/dev/null || true
     fi
   '';
 }
-
