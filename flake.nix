@@ -19,6 +19,11 @@
       url = "github:PatrickF1/fzf.fish";
       flake = false;
     };
+
+    # Claude Code (native binary with Cachix)
+    claude-code = {
+      url = "github:sadjow/claude-code-nix";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, ... }@inputs:
@@ -33,6 +38,9 @@
       nixpkgsFor = forAllSystems (system: import nixpkgs {
         inherit system;
         config.allowUnfree = true;
+        overlays = [
+          inputs.claude-code.overlays.default
+        ];
       });
     in
     {
