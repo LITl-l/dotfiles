@@ -8,4 +8,4 @@ LIBSEAT_BACKEND=seatd \
   WLR_DRM_DEVICES=/dev/dri/card0 \
   WLR_RENDERER=pixman \
   WLR_NO_HARDWARE_CURSORS=1 \
-  Hyprland
+  start-hyprland
