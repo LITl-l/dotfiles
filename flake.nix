@@ -77,6 +77,7 @@
               targets.genericLinux.enable = true;
               # WSL-specific settings
               programs.wezterm.enable = false; # Use Windows WezTerm
+              dotfiles.hyprland.enable = true;
             }
           ];
           extraSpecialArgs = { inherit inputs; };
@@ -96,6 +97,7 @@
               targets.genericLinux.enable = true;
               # WSL-specific settings
               programs.wezterm.enable = false; # Use Windows WezTerm
+              dotfiles.hyprland.enable = true;
             }
           ];
           extraSpecialArgs = { inherit inputs; };
