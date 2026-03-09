@@ -15,6 +15,7 @@ in
     ./modules/yazi.nix
     ./modules/common.nix
     ./modules/claude-code.nix
+    ./modules/hyprland.nix
   ];
 
   # Let Home Manager manage itself
