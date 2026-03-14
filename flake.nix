@@ -22,7 +22,7 @@
 
     # Claude Code (native binary with Cachix)
     claude-code = {
-      url = "github:sadjow/claude-code-nix";
+      url = "github:ryoppippi/claude-code-overlay";
     };
   };
 

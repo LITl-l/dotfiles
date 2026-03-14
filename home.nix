@@ -55,7 +55,7 @@ in
     git-lfs    # Git Large File Storage
     gh         # GitHub CLI
     ghq        # Git repository manager
-    claude-code # Claude AI coding assistant (native binary via sadjow/claude-code-nix)
+    claude-code # Claude AI coding assistant (native binary via ryoppippi/claude-code-overlay)
 
     # Nix tools
     nixpkgs-fmt # Nix formatter
@@ -94,8 +94,8 @@ in
       experimental-features = nix-command flakes
       warn-dirty = false
       accept-flake-config = true
-      extra-substituters = https://claude-code.cachix.org
-      extra-trusted-public-keys = claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk=
+      extra-substituters = https://ryoppippi.cachix.org
+      extra-trusted-public-keys = ryoppippi.cachix.org-1:b2LbtWNvJeL/qb1B6TYOMK+apaCps4SCbzlPRfSQIms=
       !include ${config.home.homeDirectory}/.config/nix/nix.local.conf
     '';
   };
