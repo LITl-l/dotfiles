@@ -13,6 +13,8 @@ in
     mkdir -p "$HOME/.claude"
     cp -f "${claudeConfigPath}/settings.json" "$HOME/.claude/settings.json"
     chmod 644 "$HOME/.claude/settings.json"
+    cp -f "${claudeConfigPath}/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+    chmod 644 "$HOME/.claude/CLAUDE.md"
     if command -v claude &>/dev/null; then
       "${claudeConfigPath}/setup-marketplace.sh" --update 2>/dev/null || true
     fi
