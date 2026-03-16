@@ -91,6 +91,11 @@
 
       # Yazi keybinding - open with Ctrl+O
       bind \co yazi-cd
+
+      # Auto gh switch on pwd
+      function __gh_auto_switch_on_pwd --on-variable PWD
+        __gh_auto_switch
+      end
     '';
 
     # Fish abbreviations
@@ -391,6 +396,61 @@
           end
         '';
       };
+
+      # Auto gh switch by remote URL (only works if set GH_WORK_ORG)
+      __gh_auto_switch = {
+        description = "Auto gh switch by remote URL";
+        body = ''
+          # To turn on run:
+          # set -U GH_WORK_ORG org-name
+
+          if not set -q GH_WORK_ORG; or test -z "$GH_WORK_ORG"
+            return
+          end
+
+          set -l remote (git remote get-url origin 2>/dev/null)
+          if test -z "$remote"; return; end
+
+          set -l remote_org (string match --group-only -r \
+            'github\.com[/:]([^/]+)' -- $remote)
+          if test -z "$remote_org"; return; end
+
+          if not set -q __gh_work_account
+            set -l all_accounts (gh auth status 2>&1 \
+              | string match --group-only -r 'account (\S+) \(')
+            for acc in $all_accounts
+              set -l tok (gh auth token --user $acc 2>/dev/null)
+              set -l in_org (env GH_TOKEN=$tok \
+                gh api /user/orgs --jq \
+                "[.[].login] | contains([\"$GH_WORK_ORG\"])" 2>/dev/null)
+              if test "$in_org" = true
+                set -U __gh_work_account $acc
+                break
+              end
+            end
+          end
+
+          if not set -q __gh_work_account; return; end
+
+          set -l current (gh auth status --active 2>&1 \
+            | string match --group-only -r 'account (\S+) \(')
+
+          if test "$remote_org" = "$GH_WORK_ORG"
+            and test "$current" != "$__gh_work_account"
+            gh auth switch -u $__gh_work_account 2>/dev/null
+          else if test "$remote_org" != "$GH_WORK_ORG"
+            and test "$current" = "$__gh_work_account"
+            set -l all (gh auth status 2>&1 \
+              | string match --group-only -r 'account (\S+) \(')
+            for acc in $all
+              if test "$acc" != "$__gh_work_account"
+                  gh auth switch -u $acc 2>/dev/null
+                  break
+              end
+            end
+          end
+        '';
+      };
     };
 
     # Fish plugins
@@ -413,3 +473,4 @@
     SHELL = "${pkgs.fish}/bin/fish";
   };
 }
+
