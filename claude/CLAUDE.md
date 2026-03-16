@@ -6,75 +6,35 @@
 - Before doing anything, analyze the request and generate productivity prompts to ensure efficient task completion
 - After generating productivity prompts, you MUST ask whether to continue with the initial request or pick from your suggestions
 
-## Git Workflow Rules
+## Version Control: Jujutsu (jj)
 
-### Creating a New Worktree
+This environment uses **Jujutsu (jj)**, not git. **Never use git commands directly.**
 
-**IMPORTANT: When starting any new task, you MUST create a new worktree from origin/develop:**
+Use the `jj-master` plugin skills and agents automatically as needed:
+- `/jj` — Core workflow and workspace creation
+- `/jj-pr` — Create GitHub PRs
+- `/jj-history` — Squash, split, rebase, absorb
+- `/jj-revsets` — Revision selection queries
+- `/jj-safety` — Undo, redo, recovery
+- `jj-workspace` agent — Creates workspaces under `~/wkspace/worktree/<type>/`
+- `jj-github` agent — Creates PRs from jj repos
 
-```bash
-git worktree add -b <branch-name> ../<worktree-name> origin/develop
-```
+### Workflow
 
-### Branch Naming Convention
+- **New task**: Use `jj-workspace` agent to create a workspace
+- **Already in workspace**: Check with `jj workspace root` — skip creation if already in one
+- **Completing work**: Use `/jj-pr` or `jj-github` agent to push and create a PR
+- **IMPORTANT**: Whenever you change any files, you MUST complete the entire workflow including creating a pull request
 
-Branch names MUST start with one of these prefixes:
-- `feature/` - For new features
-- `fix/` - For bug fixes
-- `refactor/` - For code refactoring
-- `docs/` - For documentation updates
-- `test/` - For test additions or updates
-- `chore/` - For maintenance tasks
+### Gotchas
 
-### Completing the Workflow
-
-**IMPORTANT: Whenever you change any files in this repository, you MUST complete the entire workflow including creating a pull request. This applies to ALL file changes, no matter how small.**
-
-When your task is done, you MUST commit, push, and open a pull request from the new worktree branch:
-
-```bash
-# Make sure you're in the worktree directory
-cd ../<worktree-name>
-
-# Commit your changes
-git add .
-git commit -m "<commit message>"
-
-# Push to remote
-git push -u origin <branch-name>
-
-# Create PR with all changes from the worktree branch
-gh pr create --base develop --title "<PR title>" --body "<PR description>"
-```
+- jj auto-snapshots the working copy on every command — no need to manually stage or save
+- Conflicts are stored in commits, not blocking — resolve them, don't panic
+- Use `/jj-safety` for undo/recovery instead of trying manual fixes
+- Bookmarks are jj's equivalent of git branches — use `/jj` skill for naming conventions
 
 ### PR Title Convention
 
-Pull request titles MUST follow the gitmoji + conventional commit format:
-- Start with a relevant gitmoji code (e.g.,:sparkles: for new features,:bug: for bug fixes,:recycle: for refactoring)
-- Followed by conventional commit type with MANDATORY scope: `type(scope): description`
-- **IMPORTANT: The scope is REQUIRED and must be included in parentheses**
+Gitmoji + conventional commit with **mandatory scope**: `:emoji: type(scope): description`
 
-Examples:
-- `:sparkles: feat(auth): add user authentication feature`
-- `:bug: fix(api): resolve timeout bug in endpoint`
-- `:recycle: refactor(database): improve query performance`
-- `:memo: docs(readme): update installation instructions`
-- `:white_check_mark: test(user-service): add unit tests for validation`
-
-### Cleaning Up After PR Merge
-
-After your PR is merged, you MUST remove the worktree and update your main repository:
-
-```bash
-# Return to the main repository (use the appropriate path)
-cd <main-repository-path>
-
-# Remove the worktree
-git worktree remove ../<worktree-name>
-
-# Checkout to develop branch
-git checkout develop
-
-# Update to latest from origin
-git pull origin develop
-```
+Examples: `:sparkles: feat(auth): add login`, `:bug: fix(api): timeout error`, `:recycle: refactor(db): query perf`
