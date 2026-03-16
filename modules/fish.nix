@@ -411,13 +411,13 @@
           set -l remote (git remote get-url origin 2>/dev/null)
           if test -z "$remote"; return; end
 
-          set -l remote_org (string match --group-only -r \
+          set -l remote_org (string match --groups-only -r \
             'github\.com[/:]([^/]+)' -- $remote)
           if test -z "$remote_org"; return; end
 
           if not set -q __gh_work_account
             set -l all_accounts (gh auth status 2>&1 \
-              | string match --group-only -r 'account (\S+) \(')
+              | string match --groups-only -r 'account (\S+) \(')
             for acc in $all_accounts
               set -l tok (gh auth token --user $acc 2>/dev/null)
               set -l in_org (env GH_TOKEN=$tok \
@@ -433,7 +433,7 @@
           if not set -q __gh_work_account; return; end
 
           set -l current (gh auth status --active 2>&1 \
-            | string match --group-only -r 'account (\S+) \(')
+            | string match --groups-only -r 'account (\S+) \(')
 
           if test "$remote_org" = "$GH_WORK_ORG"
             and test "$current" != "$__gh_work_account"
@@ -441,7 +441,7 @@
           else if test "$remote_org" != "$GH_WORK_ORG"
             and test "$current" = "$__gh_work_account"
             set -l all (gh auth status 2>&1 \
-              | string match --group-only -r 'account (\S+) \(')
+              | string match --groups-only -r 'account (\S+) \(')
             for acc in $all
               if test "$acc" != "$__gh_work_account"
                   gh auth switch -u $acc 2>/dev/null
