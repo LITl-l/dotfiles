@@ -17,6 +17,35 @@
   services.seatd.enable = true;
   users.users.nixos.extraGroups = [ "seat" "video" ];
 
+  # nix-ld: run unpatched dynamic binaries on NixOS
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = with pkgs; [
+    stdenv.cc.cc
+    zlib
+    openssl
+    curl
+    glib
+    icu
+    expat
+    nss
+    nspr
+    atk
+    cups
+    dbus
+    libdrm
+    pango
+    cairo
+    mesa
+    libGL
+    xorg.libX11
+    xorg.libXcomposite
+    xorg.libXdamage
+    xorg.libXext
+    xorg.libXfixes
+    xorg.libXrandr
+    xorg.libxcb
+  ];
+
   # System-level packages for Hyprland compositor
   environment.systemPackages = with pkgs; [
     hyprland
