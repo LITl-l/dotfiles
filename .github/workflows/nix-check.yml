@@ -126,6 +126,11 @@ jobs:
           name: nix-community
           skipPush: true
 
+      - name: Setup dotfiles path for mkOutOfStoreSymlink
+        run: |
+          sudo mkdir -p /home/nixos/.config/dotfiles/claude
+          sudo cp -r claude/* /home/nixos/.config/dotfiles/claude/
+
       - name: Build user@linux configuration
         run: |
           nix build .#homeConfigurations."user@linux".activationPackage \
@@ -161,6 +166,11 @@ jobs:
           name: nix-community
           skipPush: true
 
+      - name: Setup dotfiles path for mkOutOfStoreSymlink
+        run: |
+          sudo mkdir -p /home/nixos/.config/dotfiles/claude
+          sudo cp -r claude/* /home/nixos/.config/dotfiles/claude/
+
       - name: Build user@wsl configuration
         run: |
           nix build .#homeConfigurations."user@wsl".activationPackage \
@@ -195,6 +205,11 @@ jobs:
         with:
           name: nix-community
           skipPush: true
+
+      - name: Setup dotfiles path for mkOutOfStoreSymlink
+        run: |
+          sudo mkdir -p /home/nixos/.config/dotfiles/claude
+          sudo cp -r claude/* /home/nixos/.config/dotfiles/claude/
 
       - name: Build nixos@wsl configuration
         run: |
