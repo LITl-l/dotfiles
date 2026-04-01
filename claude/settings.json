@@ -89,8 +89,10 @@
     "security-guidance@claude-code-plugins": true,
     "ralph-wiggum@claude-code-plugins": true,
     "hookify@claude-code-plugins": true,
-    "jj-master@local": true
+    "jj-master@local": true,
+    "rust-analyzer-lsp@claude-plugins-official": true
   },
+  "skipAutoPermissionPrompt": true,
   "additionalDirectories": [
     "~/wkspace/**",
     "~/wkspace/worktree",
