@@ -13,10 +13,10 @@
       # Language servers
       lua-language-server
       nil # Nix LSP
-      nodePackages.bash-language-server
-      nodePackages.typescript-language-server
-      nodePackages.vscode-langservers-extracted # HTML, CSS, JSON, ESLint
-      nodePackages.yaml-language-server
+      bash-language-server
+      typescript-language-server
+      vscode-langservers-extracted # HTML, CSS, JSON, ESLint
+      yaml-language-server
       python3Packages.python-lsp-server
       rust-analyzer
       gopls
@@ -24,7 +24,7 @@
       # Formatters
       nixpkgs-fmt
       shfmt
-      nodePackages.prettier
+      prettierd
       black
       rustfmt
 
