@@ -11,6 +11,7 @@
 This environment uses **Jujutsu (jj)**, not git. **Never use git commands directly.**
 
 Use the `jj-master` plugin skills and agents automatically as needed:
+
 - `/jj` — Core workflow and workspace creation
 - `/jj-pr` — Create GitHub PRs
 - `/jj-history` — Squash, split, rebase, absorb
