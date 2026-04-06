@@ -17,9 +17,8 @@ NixOS dotfiles managed with Home Manager and Nix flakes. Includes configs for Hy
 - `flake.nix` / `flake.lock` — Nix flake definition
 - `home.nix` — Home Manager entry point
 - `modules/` — Nix module definitions
-- `claude/CLAUDE.md` — User-scope Claude instructions (deployed to `~/.claude/CLAUDE.md`)
+- `claude/` — Claude Code config (symlinked to `~/.claude/`)
 - `scripts/` — Shell utility scripts
-- `install.sh` — Bootstrap installer
 
 ## Code Conventions
 
@@ -28,8 +27,14 @@ NixOS dotfiles managed with Home Manager and Nix flakes. Includes configs for Hy
 - Shell scripts should target Fish syntax unless explicitly for bash
 - Always add trailing newline to files
 
-## Commands
+## Commands & Verification
 
-- `home-manager switch --flake .` — Apply dotfiles config
-- `nix flake check` — Validate flake
+- `home-manager switch --flake .` — Apply config (ALWAYS run after changes to verify)
+- `nix flake check` — Validate flake (run before committing)
 - `nix flake update` — Update all flake inputs
+
+## Gotchas
+
+- Nix errors can be cryptic — read the full trace, don't guess
+- home-manager switch can fail silently on some options — check `systemctl --user status` if behavior seems wrong
+- When adding new packages, check nixpkgs for the correct attribute path with `nix search`

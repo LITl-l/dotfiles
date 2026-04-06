@@ -8,9 +8,6 @@
       "WebSearch",
       "Skill",
       "Bash(ls:*)",
-      "Bash(echo:*)",
-      "Bash(cat:*)",
-      "Bash(cd:*)",
       "Bash(pwd:*)",
       "Bash(which:*)",
       "Bash(env)",
@@ -22,26 +19,18 @@
       "Bash(git branch:*)",
       "Bash(git show:*)",
       "Bash(git fetch:*)",
-      "Bash(git worktree list:*)",
+      "Bash(git worktree:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git worktree:*)",
-      "Bash(jj status:*)",
-      "Bash(jj log:*)",
-      "Bash(jj diff:*)",
-      "Bash(jj show:*)",
-      "Bash(jj config:*)",
-      "Bash(jj help:*)",
-      "Bash(jj workspace list:*)",
-      "Bash(jj new:*)",
-      "Bash(jj commit:*)",
-      "Bash(jj describe:*)",
-      "Bash(jj workspace add:*)",
-      "Bash(jj git clone:*)",
+      "Bash(jj:*)",
       "Bash(nix flake check:*)",
       "Bash(nix eval:*)",
       "Bash(nix search:*)",
+      "Bash(nix build:*)",
+      "Bash(nix path-info:*)",
+      "Bash(nix derivation:*)",
       "Bash(nix-instantiate:*)",
+      "Bash(home-manager switch:*)",
       "Bash(gh pr view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr checks:*)",
@@ -49,30 +38,40 @@
       "Bash(gh run list:*)",
       "Bash(gh auth:*)",
       "Bash(gh repo view:*)",
-      "Bash(jj git remote:*)",
-      "Bash(direnv:*)"
+      "Bash(direnv:*)",
+      "Bash(fish:*)"
     ],
     "deny": [
       "Bash(rm -rf ~)",
       "Bash(rm -rf /)",
       "Bash(rm -rf /*)",
       "Bash(sudo rm:*)",
-      "Bash(chmod -R 777:*)"
+      "Bash(chmod -R 777:*)",
+      "Bash(nix-collect-garbage:*)"
     ],
     "ask": [
       "Bash(git push:*)",
       "Bash(jj git push:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr merge:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(nix flake update:*)"
     ],
     "defaultMode": "auto"
   },
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
+  },
+  "showThinkingSummaries": true,
   "hooks": {
     "Stop": [
       {
         "matcher": "",
         "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/stop-phrase-guard.sh"
+          },
           {
             "type": "command",
             "command": "~/.claude/stop-hook-git-check.sh"
@@ -95,7 +94,6 @@
   "skipAutoPermissionPrompt": true,
   "additionalDirectories": [
     "~/wkspace/**",
-    "~/wkspace/worktree",
     "~/.config/dotfiles/**"
   ]
 }

@@ -9,7 +9,32 @@ if [[ "$stop_hook_active" = "true" ]]; then
   exit 0
 fi
 
-# Check if we're in a git repository - bail if not
+# Detect jj repos — jj auto-snapshots, so use jj-native checks
+if jj workspace root >/dev/null 2>&1; then
+  # Check if there are any changes not yet described (working copy has modifications)
+  # In jj, the working copy is always a commit, so we check if the current change
+  # has been described and if bookmarks are pushed
+  current_desc=$(jj log -r @ --no-graph -T 'description' 2>/dev/null)
+  if [[ -z "$current_desc" || "$current_desc" == "(no description set)" ]]; then
+    # Working copy has no description — check if it has actual changes
+    has_diff=$(jj diff --stat 2>/dev/null)
+    if [[ -n "$has_diff" ]]; then
+      echo "There are undescribed changes in the jj working copy. Please describe and push your changes." >&2
+      exit 2
+    fi
+  fi
+
+  # Check for unpushed bookmarks
+  unpushed=$(jj log -r 'bookmarks() ~ remote_bookmarks()' --no-graph -T 'change_id ++ "\n"' 2>/dev/null | head -5)
+  if [[ -n "$unpushed" ]]; then
+    echo "There are unpushed bookmarks. Please push your changes to the remote." >&2
+    exit 2
+  fi
+
+  exit 0
+fi
+
+# Fall back to git checks for non-jj repos
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
   exit 0
 fi
