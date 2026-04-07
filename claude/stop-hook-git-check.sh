@@ -14,11 +14,11 @@ if jj workspace root >/dev/null 2>&1; then
   # Check if there are any changes not yet described (working copy has modifications)
   # In jj, the working copy is always a commit, so we check if the current change
   # has been described and if bookmarks are pushed
-  current_desc=$(jj log -r @ --no-graph -T 'description' 2>/dev/null)
-  if [[ -z "$current_desc" || "$current_desc" == "(no description set)" ]]; then
-    # Working copy has no description — check if it has actual changes
-    has_diff=$(jj diff --stat 2>/dev/null)
-    if [[ -n "$has_diff" ]]; then
+  # Check if working copy has actual file changes that haven't been described/pushed
+  has_diff=$(jj diff --stat 2>/dev/null)
+  if [[ -n "$has_diff" ]]; then
+    current_desc=$(jj log -r @ --no-graph -T 'description' 2>/dev/null)
+    if [[ -z "$current_desc" || "$current_desc" == "(no description set)" ]]; then
       echo "There are undescribed changes in the jj working copy. Please describe and push your changes." >&2
       exit 2
     fi
