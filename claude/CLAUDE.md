@@ -26,6 +26,11 @@ Use the `jj-master` plugin skills and agents automatically as needed:
 - `jj-workspace` agent — Creates workspaces under `~/wkspace/worktree/<type>/`
 - `jj-github` agent — Creates PRs from jj repos
 
+### Editor Safety
+
+- **Always pass `-m`** to `jj squash`, `jj describe`, and any command that opens an editor
+- Without `-m`, jj spawns `$EDITOR` (nvim) which hangs forever in non-interactive shells
+
 ### Workflow
 
 - **New task**: Use `jj-workspace` agent to create a workspace

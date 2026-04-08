@@ -76,7 +76,7 @@ jj diff -r @-          # Parent's changes
 
 ```bash
 jj edit <id>           # Edit past commit
-jj squash              # Combine with parent
+jj squash -m "msg"     # Combine with parent (always use -m!)
 jj split               # Break commit apart
 jj rebase -d trunk()   # Update to latest
 jj absorb              # Smart change distribution
@@ -110,6 +110,11 @@ jj resolve <file>      # Interactive resolve
 jj resolve --tool=:ours   # Use our version
 jj resolve --tool=:theirs # Use their version
 ```
+
+### Editor Safety
+
+**IMPORTANT**: Always pass `-m` to commands that open an editor (`squash`, `describe`, `split`, `commit`).
+Without `-m`, jj spawns `$EDITOR` which hangs in non-interactive shells.
 
 ### Advanced Operations
 

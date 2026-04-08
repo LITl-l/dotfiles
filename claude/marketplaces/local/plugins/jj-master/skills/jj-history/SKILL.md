@@ -16,21 +16,23 @@ No need for `git rebase --continue` - jj handles it.
 
 ## Squash (Combine Commits)
 
+**IMPORTANT**: Always pass `-m` to avoid opening an interactive editor (hangs in non-interactive shells).
+
 ```bash
 # Squash current into parent
-jj squash
+jj squash -m "message"
 
 # Squash specific commit into its parent
-jj squash -r <change-id>
+jj squash -r <change-id> -m "message"
 
 # Squash into specific destination
-jj squash --into <dest>
+jj squash --into <dest> -m "message"
 
 # Squash only specific files
-jj squash <file1> <file2>
+jj squash <file1> <file2> -m "message"
 
 # Interactive squash (select hunks)
-jj squash -i
+jj squash -i -m "message"
 ```
 
 ## Split (Break Apart Commits)
@@ -137,10 +139,9 @@ jj describe -m "new message"
 
 # Change specific commit message
 jj describe -r <change-id> -m "new message"
-
-# Open editor for message
-jj describe
 ```
+
+**Never** run `jj describe` without `-m` — it opens `$EDITOR` which hangs in non-interactive shells.
 
 ## Common Workflows
 
@@ -148,7 +149,7 @@ jj describe
 
 ```bash
 # Squash all WIP into one
-jj squash -r 'description(glob:"wip*")' --into @-
+jj squash -r 'description(glob:"wip*")' --into @- -m "combined WIP"
 ```
 
 ### Reorder Commits
