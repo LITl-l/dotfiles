@@ -35,13 +35,31 @@ REMOTE=$(jj git remote list | grep origin | awk '{print $2}')
 OWNER_REPO=$(echo "$REMOTE" | sed 's|.*github.com/||' | sed 's|\.git$||')
 ```
 
-## Get Branch Name
+## Bookmark Naming
 
-After `jj git push --change @`, jj creates a bookmark like `push-<change-id>`.
+**Always create a conventional bookmark before pushing.** Do not rely on
+`jj git push --change @`, which produces non-conventional names like
+`push-<change-id>`.
+
+**Format**: `<type>/<short-name>` (e.g. `feature/login`, `fix/auth-timeout`,
+`refactor/db-queries`, `docs/readme`). Match `<type>` to the change kind so it
+aligns with the PR title's conventional-commit type.
 
 ```bash
-# Get current change's bookmark
-jj log -r @ --no-graph -T 'bookmarks'
+# Skip if @ already has a non-push-* bookmark
+EXISTING=$(jj log -r @ --no-graph -T 'bookmarks' | tr ' ' '\n' | grep -v '^push-' | grep -v '^$' | head -1)
+if [ -z "$EXISTING" ]; then
+  BRANCH="<type>/<short-name>"
+  jj bookmark create "$BRANCH" -r @
+else
+  BRANCH="$EXISTING"
+fi
+```
+
+## Push
+
+```bash
+jj git push --bookmark "$BRANCH"
 ```
 
 ## Create PR via API
