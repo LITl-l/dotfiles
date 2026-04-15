@@ -60,12 +60,36 @@ jj rebase -r <rev> -d <dest>
 # Rebase revision and descendants
 jj rebase -s <source> -d <dest>
 
+# Rebase a whole branch (revision + all descendants, like git's branch rebase)
+jj rebase -b <rev> -d <dest>
+
 # Rebase onto multiple parents (merge)
 jj rebase -d <parent1> -d <parent2>
 
 # Rebase onto trunk (update to latest)
 jj rebase -d trunk()
 ```
+
+**`-r` vs `-s` vs `-b`:**
+- `-r <rev>` — move only that single revision (descendants stay put, gap is closed)
+- `-s <rev>` — move revision + all its descendants
+- `-b <rev>` — move the whole branch containing `<rev>` (everything from trunk up to its heads)
+
+## Insert a Commit Before `@` (`-B`)
+
+When you realize mid-work that a prerequisite commit belongs *before* your
+current change, insert it without rewriting `@` manually:
+
+```bash
+# Insert empty commit before @, rebasing @ onto it automatically
+jj new -B @ -m "prep: refactor for upcoming change"
+
+# Make the prerequisite edits, then return to the original work:
+jj next --edit
+```
+
+`jj next --edit` moves `@` to the child change (vs. plain `jj next`, which
+creates a new child on top). Use `jj prev --edit` for the reverse.
 
 ## Edit (Modify Past Commits)
 

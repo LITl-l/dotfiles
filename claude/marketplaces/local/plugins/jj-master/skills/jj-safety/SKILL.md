@@ -93,6 +93,10 @@ side 2 content
 >>>>>>>
 ```
 
+Unlike git markers, the `%%%%%%%` section is a **diff** (base→side #1), not a
+full snapshot. The `+++++++` section is a full snapshot of side #2. To
+resolve, apply the diff's intent to side #2 (or vice versa).
+
 ## Workspace Safety
 
 ```bash

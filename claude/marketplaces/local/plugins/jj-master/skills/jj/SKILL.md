@@ -60,6 +60,45 @@ jj git push --bookmark <type>/<name>
 # Create PR via gh api (see /jj-pr)
 ```
 
+## Updating Trunk from Upstream
+
+Bookmarks do **not** auto-follow `@` as git branches do. Update trunk explicitly.
+
+```bash
+# Fetch latest
+jj git fetch
+
+# Start new work on top of updated trunk
+jj new trunk()
+
+# Or rebase current stack onto new trunk
+jj rebase -d trunk()
+
+# Rebase all local branches at once (all:roots() handles multiple heads)
+jj rebase -s 'all:roots(trunk()..@)' -d 'trunk()'
+```
+
+## Bookmark: `create` vs `set`
+
+- `jj bookmark create <name> -r @` — create a new bookmark (fails if it exists)
+- `jj bookmark set <name> -r @` — move an existing bookmark (used when updating a PR)
+- `jj bookmark set <name> -r @ --allow-backwards` — required to move a bookmark to an ancestor
+
+## Squash vs Edit Workflow
+
+Two idiomatic patterns for building up a commit. Pick intentionally.
+
+**Squash workflow** (this project's default — mimics git's index):
+1. `jj describe -m "..."` on an empty `@` to name the work
+2. `jj new` to create a scratch commit above it
+3. Edit files, then `jj squash` (or `jj squash -i`) to move hunks into the described parent
+4. `@` stays empty; the parent accumulates the work
+
+**Edit workflow** (commits emerge as you go):
+1. `jj new -m "..."` — start work directly in `@`
+2. Mid-task, insert a prerequisite: `jj new -B @ -m "prep"` creates a commit *before* `@`; descendants auto-rebase
+3. `jj next --edit` to move back up the stack into the original commit
+
 ## Quick Reference
 
 ### Navigation & Viewing
