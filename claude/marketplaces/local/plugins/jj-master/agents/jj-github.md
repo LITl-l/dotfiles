@@ -59,8 +59,19 @@ fi
 ## Push
 
 ```bash
+# New bookmark: already created above, just push
+# Existing bookmark (updating a PR): move it first
+if jj log -r "$BRANCH" --no-graph -T 'change_id' >/dev/null 2>&1 \
+    && [ "$(jj log -r "$BRANCH" --no-graph -T 'change_id')" != "$(jj log -r @ --no-graph -T 'change_id')" ]; then
+  # Bookmark exists but points elsewhere — move it to @
+  jj bookmark set "$BRANCH" -r @ --allow-backwards
+fi
+
 jj git push --bookmark "$BRANCH"
 ```
+
+`jj git push` silently no-ops if no bookmark points at your new commits.
+Always verify with `jj log -r "$BRANCH"` before pushing.
 
 ## Create PR via API
 
