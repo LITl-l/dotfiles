@@ -67,7 +67,7 @@
       };
 
       credential = {
-        helper = "cache --timeout=3600";
+        helper = "!${pkgs.gh}/bin/gh auth git-credential";
       };
 
       include = {

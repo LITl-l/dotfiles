@@ -141,7 +141,7 @@
             buildInputs = with pkgs; [
               nixpkgs-fmt
               nil # Nix LSP
-              home-manager
+              pkgs.home-manager
             ];
           };
         });

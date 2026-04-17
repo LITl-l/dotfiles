@@ -3,6 +3,7 @@
   "permissions": {
     "allow": [
       "Read",
+      "Write",
       "Explorer",
       "WebFetch",
       "WebSearch",
