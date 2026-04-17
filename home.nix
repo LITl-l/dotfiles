@@ -61,9 +61,6 @@ in
     nixpkgs-fmt # Nix formatter
     nil        # Nix LSP
     nix-manager # Custom nix-manager command
-  ] ++ lib.optionals pkgs.stdenv.isLinux [
-    # WSL utilities (Linux only)
-    wslu       # WSL utilities for Windows integration
   ];
 
   # Environment variables
@@ -72,7 +69,7 @@ in
     VISUAL = "nvim";
     PAGER = "less";
     LESS = "-R";
-    BROWSER = "wslview";  # Use wslview to open URLs in Windows default browser
+    BROWSER = "xdg-open";
 
     # XDG directories
     XDG_CONFIG_HOME = "${config.home.homeDirectory}/.config";
