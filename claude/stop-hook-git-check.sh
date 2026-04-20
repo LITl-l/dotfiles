@@ -24,8 +24,12 @@ if jj workspace root >/dev/null 2>&1; then
     fi
   fi
 
-  # Check for unpushed bookmarks
-  unpushed=$(jj log -r 'bookmarks() ~ remote_bookmarks()' --no-graph -T 'change_id ++ "\n"' 2>/dev/null | head -5)
+  # Check for unpushed bookmarks on the current workspace's active stack only
+  # (commits between trunk and @). Stale bookmarks from merged PRs live either
+  # in ::trunk() (merged without squash) or on orphan parallel history
+  # (squash-merged) — neither belongs to `trunk()..@`, so both are correctly
+  # ignored here. They're cleanup candidates, not push candidates.
+  unpushed=$(jj log -r 'trunk()..@ & bookmarks() ~ remote_bookmarks()' --no-graph -T 'change_id ++ "\n"' 2>/dev/null | head -5)
   if [[ -n "$unpushed" ]]; then
     echo "There are unpushed bookmarks. Please push your changes to the remote." >&2
     exit 2
