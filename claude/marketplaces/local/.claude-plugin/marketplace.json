@@ -9,6 +9,11 @@
       "name": "jj-master",
       "description": "Jujutsu (jj) workflow automation with workspace management",
       "source": "./plugins/jj-master"
+    },
+    {
+      "name": "architect",
+      "description": "Architecture decision discipline — verified recommendations, decide-or-defer ADRs, cross-decision consistency",
+      "source": "./plugins/architect"
     }
   ]
 }

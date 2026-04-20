@@ -1,0 +1,8 @@
+{
+  "name": "architect",
+  "version": "0.1.0",
+  "description": "Architecture decision discipline — verified recommendations, decide-or-defer ADRs, cross-decision consistency",
+  "author": {
+    "name": "dotfiles"
+  }
+}

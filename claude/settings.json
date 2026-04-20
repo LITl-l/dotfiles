@@ -82,6 +82,7 @@
   },
   "enabledPlugins": {
     "jj-master@local": true,
+    "architect@local": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
