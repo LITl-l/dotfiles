@@ -1,6 +1,6 @@
 ---
 name: jj-history
-description: Jujutsu history editing - squash, split, rebase, absorb
+description: Jujutsu history editing — squash, split, rebase (-r/-s/-b), insert-before (-B), edit, absorb, diffedit, abandon, duplicate, describe. Covers common workflows (reorder, insert-in-middle, fix old commit, clean WIP) and the mandatory -m editor-safety rule.
 argument-hint: operation type or empty for reference
 disable-model-invocation: true
 ---

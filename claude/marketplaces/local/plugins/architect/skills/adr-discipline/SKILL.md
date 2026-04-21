@@ -29,7 +29,8 @@ An ADR must **decide** or **explicitly defer with trigger conditions**. An ADR t
 | Adding a new store/service when the existing one could serve | Default question: *can Postgres do this? can the existing queue handle this?* Prove the existing tool is insufficient before adding a new one |
 | Writing ADRs that enumerate options without deciding | Decide — or write a **deferred-adoption ADR** with explicit trigger conditions |
 | Missing cross-ADR consistency | Re-read prior committed ADRs before writing a new one. Proposing Langfuse right after committing to Postgres-only is a contradiction to catch |
-| Narrating internal process inside the ADR body | Let the **commit message** carry the reasoning trail. The ADR records *what was decided* and *why*, not *how you arrived there* |
+| Narrating internal process inside the ADR body | Let the **commit message** carry the reasoning trail. The ADR records *what was decided* and *why*, not *how you arrived there*. First-pass red flags: "we considered…", "after evaluating…", "we searched for…", "the options were…". These belong in the commit message, not the ADR. |
+| Skipping current-session verification because it feels costly | Verification is non-negotiable. If live verification is literally blocked (offline context, tools disabled, tight time-box), do **not** write a decision on unverified premises. Defer the ADR with an explicit `verification-pending` status and list the exact checks owed — release cadence, maintenance status, store requirements, named CVEs. Training-data recall is not verification. |
 
 ## Honest Recalibration
 
