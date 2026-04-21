@@ -1,6 +1,6 @@
 ---
 name: jj-safety
-description: Jujutsu safety operations - undo, redo, operation log
+description: Jujutsu safety and recovery — undo/redo, operation log, op-restore, conflict handling (including jj's diff-style conflict markers), workspace listing/forget, immutable-commits config, and recovery scenarios (abandoned commits, bad rebase, lost work, fetch overwrote local).
 argument-hint: operation or empty for reference
 disable-model-invocation: true
 ---

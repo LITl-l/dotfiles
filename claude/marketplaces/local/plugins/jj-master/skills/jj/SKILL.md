@@ -1,6 +1,6 @@
 ---
 name: jj
-description: Jujutsu workspace workflow - auto-creates workspace before tasks
+description: Jujutsu (jj) workflow — workspace setup, bookmark management, squash/edit patterns, trunk updates, and a quick reference for navigation, history editing, conflict resolution, and safety. Use for any jj task; /jj-history, /jj-safety, /jj-revsets, /jj-pr, /jj-submodules cover those areas in depth.
 argument-hint: task description
 ---
 
@@ -16,11 +16,18 @@ Before starting any task, ensure a jj workspace exists.
 
 ## Auto-Create Workspace
 
+This project defaults to the **squash workflow** (see "Squash vs Edit Workflow" below). The setup below leaves `@` as an empty scratch commit above a described parent, ready for squashing hunks down.
+
 ```bash
 jj workspace add --name <name> ~/wkspace/worktree/<type>/<name>
 cd ~/wkspace/worktree/<type>/<name>
-jj new -m "<type>: <description>"
+
+# Describe the current empty @ with the initial message, then add scratch @ above it.
+jj describe -m ":emoji: <type>(<scope>): <description>"
+jj new   # empty scratch; edits happen here and get squashed down
 ```
+
+For the edit workflow (commits accumulate directly on `@`), replace the two lines above with `jj new -m ":emoji: <type>(<scope>): <description>"` and edit in-place.
 
 ## Task: $ARGUMENTS
 
@@ -35,9 +42,16 @@ jj new -m "<type>: <description>"
 
 Format: `<type>/<short-name>` (e.g., `feature/jj-rules`, `fix/auth-bug`)
 
+**Anchor revision** depends on workflow:
+- Squash workflow (project default): the described work is `@-`; `@` is empty scratch. Anchor `-r @-`.
+- Edit workflow: the described work is `@` itself. Anchor `-r @`.
+
 ```bash
-# Create bookmark with conventional name
-jj bookmark create <type>/<name> -r @
+# Squash-workflow default (anchor the bookmark on the described parent, NOT the empty scratch):
+jj bookmark create <type>/<name> -r @-
+
+# Edit-workflow variant:
+# jj bookmark create <type>/<name> -r @
 
 # Push with the named bookmark
 jj git push --bookmark <type>/<name>
@@ -47,18 +61,24 @@ jj git push --bookmark <type>/<name>
 
 ## Completing Work
 
-```bash
-# Describe changes
-jj describe -m ":emoji: type(scope): description"
+Squash workflow (default):
 
-# Create conventional bookmark
-jj bookmark create <type>/<name> -r @
+```bash
+# Fold the scratch @ hunks into the described parent
+jj squash -m ":emoji: type(scope): description"
+
+# Create the conventional bookmark on the described commit (@- is the parent
+# since the described commit was @ before the squash moved hunks into it; after
+# squash @ is the new empty scratch, and the described commit is @-)
+jj bookmark create <type>/<name> -r @-
 
 # Push
 jj git push --bookmark <type>/<name>
 
 # Create PR via gh api (see /jj-pr)
 ```
+
+Edit workflow: replace `jj squash -m` with `jj describe -m` (to finalize the message on `@`) and anchor the bookmark on `-r @`.
 
 ## Updating Trunk from Upstream
 
@@ -117,7 +137,7 @@ jj diff -r @-          # Parent's changes
 jj edit <id>           # Edit past commit
 jj squash -m "msg"     # Combine with parent (always use -m!)
 jj split               # Break commit apart
-jj rebase -d trunk()   # Update to latest
+jj rebase -d trunk()   # Move ONLY @ to trunk (see "Updating Trunk" for whole-stack form)
 jj absorb              # Smart change distribution
 ```
 
