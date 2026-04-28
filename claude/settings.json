@@ -17,6 +17,7 @@
       "Bash(env)",
       "Bash(tree:*)",
       "Bash(wc:*)",
+      "Bash(ast-grep:*)",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
