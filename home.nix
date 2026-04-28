@@ -37,6 +37,7 @@ in
     yazi       # Terminal file manager
     fd         # Modern find replacement
     ripgrep    # Modern grep replacement
+    ast-grep   # AST-aware structural code search
     fzf        # Fuzzy finder
     bat        # Better cat
     delta      # Better git diff
