@@ -58,6 +58,9 @@ in
     ghq        # Git repository manager
     claude-code # Claude AI coding assistant (native binary via ryoppippi/claude-code-overlay)
 
+    # Containers
+    podman     # Daemonless container engine (docker-compatible CLI)
+
     # Nix tools
     nixpkgs-fmt # Nix formatter
     nil        # Nix LSP
