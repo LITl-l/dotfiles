@@ -54,5 +54,14 @@
     seatd
   ];
 
+  # Podman: rootless container engine with docker CLI compatibility.
+  # dockerCompat aliases `docker` -> podman and exposes /var/run/docker.sock.
+  # dns_enabled is required for inter-container name resolution under compose.
+  virtualisation.podman = {
+    enable = true;
+    dockerCompat = true;
+    defaultNetwork.settings.dns_enabled = true;
+  };
+
   system.stateVersion = "25.05";
 }
