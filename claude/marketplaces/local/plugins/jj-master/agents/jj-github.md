@@ -73,7 +73,24 @@ jj git push --bookmark "$BRANCH"
 `jj git push` silently no-ops if no bookmark points at your new commits.
 Always verify with `jj log -r "$BRANCH"` before pushing.
 
-## Create PR via API
+## Check for Existing PR (REQUIRED before creating)
+
+A bookmark may already have an open PR from a prior run. Creating a duplicate
+fails with a 422 from the API. Always check first:
+
+```bash
+# Works without .git because --repo bypasses local repo detection
+EXISTING_PR=$(gh pr list --repo "$OWNER_REPO" --head "$BRANCH" --state open \
+  --json url --jq '.[0].url // empty')
+
+if [ -n "$EXISTING_PR" ]; then
+  echo "PR already exists for $BRANCH: $EXISTING_PR"
+  echo "Push above updated it with the new commits — no creation needed."
+  exit 0
+fi
+```
+
+## Create PR via API (only if no existing PR)
 
 ```bash
 gh api repos/$OWNER_REPO/pulls \
@@ -85,4 +102,5 @@ gh api repos/$OWNER_REPO/pulls \
 
 ## Output
 
-Return the PR URL from the API response.
+Return the PR URL — either the freshly created one, or the existing one
+detected above (mark it as `(updated)` so the caller knows it wasn't new).

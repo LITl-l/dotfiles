@@ -32,7 +32,21 @@ disable-model-invocation: true
    OWNER_REPO=$(echo "$REMOTE" | sed 's|.*github.com[:/]||' | sed 's|\.git$||')
    ```
 
-5. **Create PR via API**
+5. **Check for existing PR** (skip creation if one already exists)
+   ```bash
+   EXISTING_PR=$(gh pr list --repo "$OWNER_REPO" --head "<type>/<name>" \
+     --state open --json url --jq '.[0].url // empty')
+
+   if [ -n "$EXISTING_PR" ]; then
+     echo "PR already exists: $EXISTING_PR (updated by push above)"
+     # Done — no need to create
+   fi
+   ```
+
+   `gh pr list --repo …` works without `.git`, so this is safe in pure jj
+   workspaces. If `$EXISTING_PR` is empty, fall through to step 6.
+
+6. **Create PR via API** (only if no existing PR)
    ```bash
    gh api repos/$OWNER_REPO/pulls \
      -f title="$TITLE" \
