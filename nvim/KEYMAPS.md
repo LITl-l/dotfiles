@@ -42,6 +42,7 @@ Leader key: `<Space>`
 | `<leader>fc` | n | Find commands |
 | `<leader>fm` | n | Find marks |
 | `<leader>fo` | n | Find options |
+| `<leader>fC` | n | Pick colorscheme |
 
 ## LSP
 
@@ -113,6 +114,7 @@ Leader key: `<Space>`
 | `<leader>ul` | n | Toggle list chars |
 | `<leader>un` | n | Toggle line numbers |
 | `<leader>ur` | n | Toggle relative numbers |
+| `<leader>uc` | n | Cycle colorscheme (mono light → mono dark → catppuccin) |
 
 ## Treesitter (Incremental Selection)
 

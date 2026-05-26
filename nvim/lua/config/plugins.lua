@@ -201,7 +201,31 @@ M.setup_colorscheme = function()
       },
     },
   })
-  vim.cmd.colorscheme('catppuccin')
+  -- Active scheme: monochrome-light-cool-gray (see nvim/colors/).
+  -- Catppuccin is still configured above and can be activated with
+  -- `:colorscheme catppuccin`.
+  vim.cmd.colorscheme('monochrome-light-cool-gray')
+
+  -- Cycle through the curated colorscheme list with <leader>uc.
+  local schemes = {
+    'monochrome-light-cool-gray',
+    'monochrome-dark-cool-gray',
+    'catppuccin',
+  }
+  vim.keymap.set('n', '<leader>uc', function()
+    local current = vim.g.colors_name
+    local next_idx = 1
+    for i, s in ipairs(schemes) do
+      if s == current then next_idx = (i % #schemes) + 1 break end
+    end
+    vim.cmd.colorscheme(schemes[next_idx])
+    vim.notify('colorscheme: ' .. schemes[next_idx])
+  end, { desc = 'Cycle colorscheme' })
+
+  -- Live-preview picker over every installed colorscheme.
+  vim.keymap.set('n', '<leader>fC', function()
+    require('mini.extra').pickers.colorschemes()
+  end, { desc = 'Pick colorscheme' })
 end
 
 -- Setup treesitter
