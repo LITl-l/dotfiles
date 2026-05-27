@@ -151,10 +151,17 @@ autocmd("LspAttach", {
     map('<leader>ci', '<cmd>Lspsaga incoming_calls<cr>', 'Incoming Calls')
     map('<leader>co', '<cmd>Lspsaga outgoing_calls<cr>', 'Outgoing Calls')
 
-    -- Mini.pick for symbols
-    map('<leader>D', require('mini.pick').builtin.lsp({ scope = 'type_definition' }), 'Type Definition')
-    map('<leader>ds', require('mini.pick').builtin.lsp({ scope = 'document_symbol' }), 'Document Symbols')
-    map('<leader>ws', require('mini.pick').builtin.lsp({ scope = 'workspace_symbol' }), 'Workspace Symbols')
+    -- Mini.extra pickers for LSP symbols
+    -- (wrapped in functions so the picker is invoked on keypress, not at LspAttach)
+    map('<leader>D', function()
+      require('mini.extra').pickers.lsp({ scope = 'type_definition' })
+    end, 'Type Definition')
+    map('<leader>ds', function()
+      require('mini.extra').pickers.lsp({ scope = 'document_symbol' })
+    end, 'Document Symbols')
+    map('<leader>ws', function()
+      require('mini.extra').pickers.lsp({ scope = 'workspace_symbol' })
+    end, 'Workspace Symbols')
 
     -- Workspace folder management
     map('<leader>wa', vim.lsp.buf.add_workspace_folder, 'Workspace Add Folder')

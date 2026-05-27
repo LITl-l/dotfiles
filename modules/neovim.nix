@@ -14,19 +14,22 @@
       lua-language-server
       nil # Nix LSP
       bash-language-server
-      typescript-language-server
+      vtsls # TypeScript/JavaScript LSP (VSCode's tsserver wrapper)
       vscode-langservers-extracted # HTML, CSS, JSON, ESLint
       yaml-language-server
-      python3Packages.python-lsp-server
+      basedpyright # Python LSP (pyright fork with stricter defaults)
+      ruff # Python linter + formatter (native LSP via `ruff server`)
       rust-analyzer
       gopls
 
       # Formatters
-      nixpkgs-fmt
+      nixfmt # Official Nix formatter (RFC 166) — was nixfmt-rfc-style, now aliased
       shfmt
-      prettierd
-      black
+      oxfmt # JS/TS/JSON formatter (Rust, prettier-compatible output → zero style churn)
+      prettierd # Used for CSS/SCSS/HTML/YAML/Markdown (oxfmt doesn't cover those yet)
+      gofumpt # Stricter superset of gofmt
       rustfmt
+      stylua # Lua formatter (used by conform)
 
       # Tools
       ripgrep
