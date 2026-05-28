@@ -29,7 +29,7 @@ local server_configs = {
     settings = {
       ['nil'] = {
         formatting = {
-          command = { 'nixpkgs-fmt' },
+          command = { 'nixfmt' },
         },
         nix = {
           flake = {
@@ -40,15 +40,37 @@ local server_configs = {
     },
   },
 
-  -- Python
-  pyright = {
+  -- Python: basedpyright handles type checking, completion, navigation
+  basedpyright = {
+    cmd = { 'basedpyright-langserver', '--stdio' },
+    filetypes = { 'python' },
+    root_markers = { 'pyproject.toml', 'setup.py', 'setup.cfg', 'requirements.txt', 'Pipfile', 'pyrightconfig.json', '.git' },
     settings = {
-      python = {
+      basedpyright = {
         analysis = {
           typeCheckingMode = 'basic',
           autoSearchPaths = true,
           useLibraryCodeForTypes = true,
+          diagnosticMode = 'openFilesOnly',
+          -- Defer linting to ruff to avoid duplicate diagnostics
+          diagnosticSeverityOverrides = {
+            reportUnusedImport = 'none',
+            reportUnusedVariable = 'none',
+          },
         },
+      },
+    },
+  },
+
+  -- Python: ruff provides fast linting + organize imports via LSP
+  ruff = {
+    cmd = { 'ruff', 'server' },
+    filetypes = { 'python' },
+    root_markers = { 'pyproject.toml', 'ruff.toml', '.ruff.toml', '.git' },
+    init_options = {
+      settings = {
+        -- Disable hover from ruff so basedpyright owns it
+        hover = { enable = false },
       },
     },
   },
@@ -67,8 +89,38 @@ local server_configs = {
     },
   },
 
-  -- TypeScript/JavaScript
-  ts_ls = {},
+  -- TypeScript/JavaScript: vtsls = VSCode's TS LSP wrapper
+  -- (richer auto-imports, code actions, organize-imports vs ts_ls)
+  vtsls = {
+    cmd = { 'vtsls', '--stdio' },
+    filetypes = { 'javascript', 'javascriptreact', 'javascript.jsx', 'typescript', 'typescriptreact', 'typescript.tsx' },
+    root_markers = { 'tsconfig.json', 'jsconfig.json', 'package.json', '.git' },
+    settings = {
+      typescript = {
+        updateImportsOnFileMove = { enabled = 'always' },
+        suggest = { completeFunctionCalls = true },
+        inlayHints = {
+          parameterNames = { enabled = 'literals' },
+          parameterTypes = { enabled = true },
+          variableTypes = { enabled = false },
+          propertyDeclarationTypes = { enabled = true },
+          functionLikeReturnTypes = { enabled = true },
+          enumMemberValues = { enabled = true },
+        },
+      },
+      javascript = {
+        updateImportsOnFileMove = { enabled = 'always' },
+        suggest = { completeFunctionCalls = true },
+      },
+      vtsls = {
+        enableMoveToFileCodeAction = true,
+        autoUseWorkspaceTsdk = true,
+        experimental = {
+          completion = { enableServerSideFuzzyMatch = true },
+        },
+      },
+    },
+  },
 
   -- Go
   gopls = {
@@ -121,9 +173,10 @@ local server_configs = {
 local server_executables = {
   lua_ls = 'lua-language-server',
   nil_ls = 'nil',
-  pyright = 'pyright-langserver',
+  basedpyright = 'basedpyright-langserver',
+  ruff = 'ruff',
   rust_analyzer = 'rust-analyzer',
-  ts_ls = 'typescript-language-server',
+  vtsls = 'vtsls',
   gopls = 'gopls',
   bashls = 'bash-language-server',
   jsonls = 'vscode-json-language-server',

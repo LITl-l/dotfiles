@@ -15,8 +15,8 @@ M.setup = function()
       -- Lua
       lua = { 'stylua' },
 
-      -- Nix
-      nix = { 'nixpkgs_fmt' },
+      -- Nix (official RFC 166 formatter)
+      nix = { 'nixfmt' },
 
       -- Shell
       sh = { 'shfmt' },
@@ -24,27 +24,27 @@ M.setup = function()
       zsh = { 'shfmt' },
       fish = { 'fish_indent' },
 
-      -- Python
-      python = { 'black' },
+      -- Python (ruff handles both linting and formatting)
+      python = { 'ruff_organize_imports', 'ruff_format' },
 
       -- Rust
       rust = { 'rustfmt' },
 
-      -- Go
-      go = { 'gofmt', 'goimports' },
+      -- Go (gofumpt = strict superset of gofmt; goimports for import sorting)
+      go = { 'gofumpt', 'goimports' },
 
-      -- JavaScript/TypeScript
-      javascript = { 'prettier' },
-      typescript = { 'prettier' },
-      javascriptreact = { 'prettier' },
-      typescriptreact = { 'prettier' },
+      -- JavaScript/TypeScript (oxfmt = prettier-compatible output, Rust-fast)
+      javascript = { 'oxfmt' },
+      typescript = { 'oxfmt' },
+      javascriptreact = { 'oxfmt' },
+      typescriptreact = { 'oxfmt' },
 
-      -- Web
-      html = { 'prettier' },
+      -- Web (oxfmt covers JSON; prettier covers CSS/SCSS/HTML/YAML/MD)
+      json = { 'oxfmt' },
+      jsonc = { 'oxfmt' },
       css = { 'prettier' },
       scss = { 'prettier' },
-      json = { 'prettier' },
-      jsonc = { 'prettier' },
+      html = { 'prettier' },
       yaml = { 'prettier' },
       markdown = { 'prettier' },
 
