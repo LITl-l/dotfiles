@@ -55,6 +55,7 @@ in
     # Development tools
     git-lfs    # Git Large File Storage
     gh         # GitHub CLI
+    gh-dash    # TUI dashboard for GitHub PRs and issues
     ghq        # Git repository manager
     claude-code # Claude AI coding assistant (native binary via ryoppippi/claude-code-overlay)
 
