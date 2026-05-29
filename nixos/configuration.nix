@@ -10,6 +10,11 @@
   wsl.enable = true;
   wsl.defaultUser = "nixos";
 
+  # Explicitly register the WSLInterop binfmt handler so Windows .exe files
+  # (powershell.exe, clip.exe, etc.) are directly executable from bash.
+  # Required for the `wsl-clipboard-image-hook.sh` Windows→WSL image bridge.
+  wsl.interop.register = true;
+
   # vkms kernel module (requires custom WSL2 kernel with CONFIG_DRM_VKMS=m)
   boot.kernelModules = [ "vkms" ];
 

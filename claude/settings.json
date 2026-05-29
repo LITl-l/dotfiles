@@ -77,6 +77,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/wsl-clipboard-image-hook.sh"
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {
