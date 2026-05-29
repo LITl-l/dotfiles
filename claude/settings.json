@@ -1,8 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "high"
-  },
+  "env": {},
   "permissions": {
     "allow": [
       "Read",
@@ -102,11 +100,9 @@
     "context7@claude-plugins-official": true
   },
   "showThinkingSummaries": true,
-  "skipAutoPermissionPrompt": true,
-  "additionalDirectories": [
-    "~/wkspace/**",
-    "~/.config/dotfiles/**"
-  ],
   "theme": "light",
-  "editorMode": "vim"
+  "editorMode": "vim",
+  "skipAutoPermissionPrompt": true,
+  "additionalDirectories": ["~/wkspace/**", "~/.config/dotfiles/**"],
+  "effortLevel": "xhigh"
 }
