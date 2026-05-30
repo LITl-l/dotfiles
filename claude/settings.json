@@ -110,10 +110,13 @@
     "learning-output-style@claude-plugins-official": true,
     "context7@claude-plugins-official": true
   },
+  "effortLevel": "xhigh",
   "showThinkingSummaries": true,
   "theme": "light",
   "editorMode": "vim",
   "skipAutoPermissionPrompt": true,
-  "additionalDirectories": ["~/wkspace/**", "~/.config/dotfiles/**"],
-  "effortLevel": "xhigh"
+  "additionalDirectories": [
+    "~/wkspace/**",
+    "~/.config/dotfiles/**"
+  ]
 }
