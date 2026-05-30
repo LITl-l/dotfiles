@@ -58,6 +58,7 @@ in
     gh-dash    # TUI dashboard for GitHub PRs and issues
     ghq        # Git repository manager
     claude-code # Claude AI coding assistant (native binary via ryoppippi/claude-code-overlay)
+    pi-coding-agent # Pi coding agent (native binary via lukasl-dev/pi.nix; Codex/Claude/Copilot subscription login)
 
     # Containers
     podman     # Daemonless container engine (docker-compatible CLI)
@@ -96,8 +97,8 @@ in
       experimental-features = nix-command flakes
       warn-dirty = false
       accept-flake-config = true
-      extra-substituters = https://ryoppippi.cachix.org
-      extra-trusted-public-keys = ryoppippi.cachix.org-1:b2LbtWNvJeL/qb1B6TYOMK+apaCps4SCbzlPRfSQIms=
+      extra-substituters = https://ryoppippi.cachix.org https://pi.cachix.org
+      extra-trusted-public-keys = ryoppippi.cachix.org-1:b2LbtWNvJeL/qb1B6TYOMK+apaCps4SCbzlPRfSQIms= pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk=
       !include ${config.home.homeDirectory}/.config/nix/nix.local.conf
     '';
   };

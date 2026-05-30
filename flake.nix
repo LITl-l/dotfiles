@@ -24,6 +24,11 @@
     claude-code = {
       url = "github:ryoppippi/claude-code-overlay";
     };
+
+    # Pi coding agent (native binary with Cachix)
+    pi = {
+      url = "github:lukasl-dev/pi.nix";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, ... }@inputs:
@@ -40,6 +45,7 @@
         config.allowUnfree = true;
         overlays = [
           inputs.claude-code.overlays.default
+          inputs.pi.overlays.default
         ];
       });
     in
