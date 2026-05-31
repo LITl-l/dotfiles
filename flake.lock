@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1780030383,
-        "narHash": "sha256-vininGIqTM3wYHDejG3c/cfHgVQch4T8e2heXHP5emA=",
+        "lastModified": 1780109978,
+        "narHash": "sha256-MJU0BV9Ihh8hbH7gVVNJR9W9sHbPLEEl2wcH7ZHsVGc=",
         "owner": "ryoppippi",
         "repo": "claude-code-overlay",
-        "rev": "02fce910bfd96f2dc9e2df734bd53fbe198b2eb0",
+        "rev": "279cb23826e0cf43de5036dda1ba34a68599e171",
         "type": "github"
       },
       "original": {
@@ -57,11 +57,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779969295,
-        "narHash": "sha256-HwIJ3tOcwSMiV75L7KqJXciXR9UfT+d7rwOZMX7cTnA=",
+        "lastModified": 1780099287,
+        "narHash": "sha256-efIPwVGtIWIjWcznhaop6XN6HxnOL8800hF6CBNvlqQ=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "61e2c9659324181e0f0ed911958c536333b1d4f6",
+        "rev": "7d8127d308c3fb9664f7e643eec944be74ebb37d",
         "type": "github"
       },
       "original": {
@@ -124,11 +124,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1780013802,
-        "narHash": "sha256-C07d2jJozCZWJrC8cRohsMqWN9ZSl0Fn4M7tqfe21TI=",
+        "lastModified": 1780125618,
+        "narHash": "sha256-PGHDdAA+s8LPcj3fYzI1SMMGdNe9CZF08Qf25mLYiAc=",
         "owner": "lukasl-dev",
         "repo": "pi.nix",
-        "rev": "bbb7cc006676d6812283f41b8807a588c3d1554d",
+        "rev": "54c90546e12ddb900fa0e90c12fb1a8c011aee3d",
         "type": "github"
       },
       "original": {
