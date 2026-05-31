@@ -15,6 +15,7 @@ in
     ./modules/yazi.nix
     ./modules/common.nix
     ./modules/claude-code.nix
+    ./modules/pi.nix
     ./modules/hyprland.nix
   ];
 
@@ -33,39 +34,39 @@ in
   # Essential packages
   home.packages = with pkgs; [
     # Modern CLI tools
-    eza        # Modern ls replacement
-    yazi       # Terminal file manager
-    fd         # Modern find replacement
-    ripgrep    # Modern grep replacement
-    ast-grep   # AST-aware structural code search
-    fzf        # Fuzzy finder
-    bat        # Better cat
-    delta      # Better git diff
-    lazygit    # Terminal UI for git
-    jq         # JSON processor
-    yq-go      # YAML processor
-    htop       # Process viewer
-    tree       # Directory tree viewer
-    curl       # HTTP client
-    wget       # File downloader
-    unzip      # Archive extractor
-    gzip       # Compression tool
-    rsync      # File sync
+    eza # Modern ls replacement
+    yazi # Terminal file manager
+    fd # Modern find replacement
+    ripgrep # Modern grep replacement
+    ast-grep # AST-aware structural code search
+    fzf # Fuzzy finder
+    bat # Better cat
+    delta # Better git diff
+    lazygit # Terminal UI for git
+    jq # JSON processor
+    yq-go # YAML processor
+    htop # Process viewer
+    tree # Directory tree viewer
+    curl # HTTP client
+    wget # File downloader
+    unzip # Archive extractor
+    gzip # Compression tool
+    rsync # File sync
 
     # Development tools
-    git-lfs    # Git Large File Storage
-    gh         # GitHub CLI
-    gh-dash    # TUI dashboard for GitHub PRs and issues
-    ghq        # Git repository manager
+    git-lfs # Git Large File Storage
+    gh # GitHub CLI
+    gh-dash # TUI dashboard for GitHub PRs and issues
+    ghq # Git repository manager
     claude-code # Claude AI coding assistant (native binary via ryoppippi/claude-code-overlay)
     pi-coding-agent # Pi coding agent (native binary via lukasl-dev/pi.nix; Codex/Claude/Copilot subscription login)
 
     # Containers
-    podman     # Daemonless container engine (docker-compatible CLI)
+    podman # Daemonless container engine (docker-compatible CLI)
 
     # Nix tools
     nixpkgs-fmt # Nix formatter
-    nil        # Nix LSP
+    nil # Nix LSP
     nix-manager # Custom nix-manager command
   ];
 
