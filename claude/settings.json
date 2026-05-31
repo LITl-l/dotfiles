@@ -63,6 +63,17 @@
     "defaultMode": "auto"
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/ast-grep-nudge-hook.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",
