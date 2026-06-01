@@ -2,7 +2,10 @@
   description = "Cross-platform dotfiles with Home Manager";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # nixpkgs-unstable (not nixos-unstable): faster-moving Hydra channel that
+    # stays version-aligned with home-manager's master branch. nixos-unstable
+    # lags around release time and triggers HM's version-mismatch warning.
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
     home-manager = {
       url = "github:nix-community/home-manager";
