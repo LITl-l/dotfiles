@@ -140,7 +140,26 @@
 
       # Test checks
       checks = forAllSystems (system:
-        let pkgs = nixpkgsFor.${system};
+        let
+          pkgs = nixpkgsFor.${system};
+          linuxChecks = if system == "x86_64-linux" then {
+            nvim-config-tests = pkgs.runCommand "nvim-config-tests"
+              {
+                src = self;
+                nativeBuildInputs = [ self.homeConfigurations."nixos@wsl".config.programs.neovim.finalPackage ];
+              } ''
+              cp -R "$src" source
+              chmod -R u+w source
+              cd source
+              export XDG_CONFIG_HOME="$PWD"
+              export XDG_DATA_HOME="$TMPDIR/data"
+              export XDG_STATE_HOME="$TMPDIR/state"
+              export XDG_CACHE_HOME="$TMPDIR/cache"
+              nvim --headless +'luafile nvim/tests/leader_e_minifiles.lua' +'qa!'
+              nvim --headless nvim/init.lua +'lua assert(vim.fn.exists(":LspServers") == 2, "LspServers command missing"); local cfg = vim.lsp.config.lua_ls; assert(cfg and type(cfg.cmd) == "table" and #cfg.cmd > 0, "lua_ls cmd missing"); assert(vim.fn.maparg("<leader>l", "n") == "", "<leader>l maps to missing Lazy command")' +'qa!'
+              touch "$out"
+            '';
+          } else { };
         in {
           pi-goal-tests = pkgs.runCommand "pi-goal-tests"
             {
@@ -165,7 +184,7 @@
             node --test pi/subagents/core.test.ts
             touch "$out"
           '';
-        });
+        } // linuxChecks);
 
       # Development shell for testing
       devShells = forAllSystems (system:

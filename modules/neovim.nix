@@ -40,6 +40,9 @@
 
     # Plugins
     plugins = with pkgs.vimPlugins; [
+      # Mini.nvim core modules
+      mini-nvim
+
       # Treesitter for syntax highlighting
       # Use specific grammars instead of all for better performance
       (nvim-treesitter.withPlugins (p: [
@@ -69,28 +72,30 @@
         p.json
       ]))
 
-      # Color scheme
-      catppuccin-nvim
+      # Color scheme (loaded on demand)
+      { plugin = catppuccin-nvim; optional = true; }
 
-      # Snippet engine
-      luasnip
-      friendly-snippets
+      # Snippet engine (loaded on InsertEnter)
+      { plugin = luasnip; optional = true; }
+      { plugin = friendly-snippets; optional = true; }
 
-      # Formatter
-      conform-nvim
+      # Formatter (loaded when editing files)
+      { plugin = conform-nvim; optional = true; }
 
-      # Debugger
-      nvim-dap
-      nvim-dap-ui
-      nvim-dap-virtual-text
+      # Debugger (loaded from <leader>d mappings)
+      { plugin = nvim-nio; optional = true; }
+      { plugin = nvim-dap; optional = true; }
+      { plugin = nvim-dap-ui; optional = true; }
+      { plugin = nvim-dap-virtual-text; optional = true; }
 
-      # Keybinding helper
-      which-key-nvim
+      # Keybinding helper (loaded after first paint)
+      { plugin = which-key-nvim; optional = true; }
 
-      # LSP UI enhancement
-      lspsaga-nvim
+      # LSP defaults and UI enhancement (loaded when editing files)
+      { plugin = nvim-lspconfig; optional = true; }
+      { plugin = lspsaga-nvim; optional = true; }
 
-      # Mini.nvim will be bootstrapped in init.lua
+      # init.lua keeps a standalone mini.nvim bootstrap fallback for non-Nix use
     ];
   };
 

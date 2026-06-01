@@ -57,9 +57,6 @@ map({ "i", "x", "n", "s" }, "<C-s>", "<cmd>w<cr><esc>", { desc = "Save file" })
 map("v", "<", "<gv")
 map("v", ">", ">gv")
 
--- Lazy
-map("n", "<leader>l", "<cmd>Lazy<cr>", { desc = "Lazy" })
-
 -- New file
 map("n", "<leader>fn", "<cmd>enew<cr>", { desc = "New File" })
 
@@ -115,5 +112,5 @@ map("i", ";", ";<c-g>u")
 -- Search and replace
 map("n", "<leader>sr", ":%s/\\<<C-r><C-w>\\>/<C-r><C-w>/gI<Left><Left><Left>", { desc = "Search and replace word under cursor" })
 
--- Diagnostic keymaps (lspsaga will override [d, ]d, <leader>e when LSP is attached)
-map("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostics list" })
+-- Diagnostic keymaps (Lspsaga adds enhanced diagnostic navigation when LSP is attached)
+map("n", "<leader>cl", vim.diagnostic.setloclist, { desc = "Open diagnostics list" })

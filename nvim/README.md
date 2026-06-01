@@ -39,9 +39,9 @@ If you need just neovim configuration without the full Nix setup:
 
 ### Plugin management
 - **Mini.deps**: Automatic plugin management
-- **Lazy loading**: Plugins load when needed
-- **Bootstrap**: Auto-installs mini.nvim on first run
-- **No external dependencies**: Self-contained setup
+- **Lazy loading**: Heavy plugins load on first relevant event or keypress
+- **Bootstrap**: Nix provides mini.nvim; standalone installs still auto-bootstrap it
+- **Nix-managed dependencies**: Home Manager provides plugins/tools; heavy plugins are installed optional and loaded on demand
 
 ### LSP servers supported
 - **lua_ls**: Lua language server
@@ -73,6 +73,10 @@ If you need just neovim configuration without the full Nix setup:
 - `<leader>fm`: Find marks
 - `<leader>fo`: Find options
 
+**LSP diagnostics:**
+- `<leader>cd`: Show line diagnostics
+- `<leader>cl`: Open diagnostics list
+
 ### Configuration structure
 
 ```
@@ -102,6 +106,7 @@ nvim/
 - **mini.icons**: File type icons
 
 ### Code features
+- **nvim-lspconfig**: Language server defaults
 - **LSP**: Language server integration
 - **Diagnostics**: Error and warning display
 - **Formatting**: Code formatting support
