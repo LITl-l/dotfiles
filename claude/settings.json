@@ -9,6 +9,7 @@
       "WebFetch",
       "WebSearch",
       "Skill",
+      "mcp__context7",
       "Bash(ls:*)",
       "Bash(pwd:*)",
       "Bash(which:*)",
@@ -113,13 +114,13 @@
     "claude-md-management@claude-plugins-official": true,
     "ralph-loop@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true,
     "explanatory-output-style@claude-plugins-official": true,
     "playground@claude-plugins-official": true,
     "learning-output-style@claude-plugins-official": true,
-    "context7@claude-plugins-official": true
+    "context7@claude-plugins-official": false
   },
   "effortLevel": "xhigh",
   "showThinkingSummaries": true,
