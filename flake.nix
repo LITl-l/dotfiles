@@ -153,6 +153,18 @@
             node --test pi/goal/core.test.ts pi/goal/index.test.ts
             touch "$out"
           '';
+
+          pi-subagents-tests = pkgs.runCommand "pi-subagents-tests"
+            {
+              src = self;
+              nativeBuildInputs = [ pkgs.nodejs ];
+            } ''
+            cp -R "$src" source
+            chmod -R u+w source
+            cd source
+            node --test pi/subagents/core.test.ts
+            touch "$out"
+          '';
         });
 
       # Development shell for testing

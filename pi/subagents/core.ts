@@ -54,6 +54,15 @@ export interface SubagentRunResult {
   error?: string;
 }
 
+export type SubagentProgressState = "queued" | "running" | "ok" | "error";
+
+export interface SubagentProgressEntry {
+  id: string;
+  domain: string;
+  task: string;
+  state: SubagentProgressState;
+}
+
 const CONTEXT_MODES = new Set<SubagentContextMode>(["none", "brief", "recent", "files"]);
 
 const DOMAIN_INSTRUCTIONS: Record<string, string> = {
@@ -212,6 +221,74 @@ export function formatCombinedReport(results: SubagentRunResult[]): string {
   }
 
   return lines.join("\n").trimEnd() + "\n";
+}
+
+export function formatSubagentProgressStatus(entries: SubagentProgressEntry[], maxLength = 120): string {
+  const summary = formatSubagentProgressSummary(entries);
+  const running = entries.filter((entry) => entry.state === "running");
+  const queued = entries.filter((entry) => entry.state === "queued");
+  const labelEntries = running.length > 0 ? running : queued;
+  const labels = labelEntries.map(formatSubagentStatusLabel);
+  const labelSuffix = labels.length > 0 ? ` — ${labels.join("; ")}` : "";
+
+  return truncateSingleLine(`subagents: ${summary}${labelSuffix}`, maxLength);
+}
+
+export function formatSubagentProgressUpdate(entries: SubagentProgressEntry[]): string {
+  const lines = [`Subagents: ${formatSubagentProgressSummary(entries)}`, ""];
+
+  for (const entry of entries) {
+    lines.push(`${progressIcon(entry.state)} ${entry.id} (${entry.domain}) — ${compactSingleLine(entry.task)}`);
+  }
+
+  return lines.join("\n").trimEnd();
+}
+
+function formatSubagentProgressSummary(entries: SubagentProgressEntry[]): string {
+  const total = entries.length;
+  const running = entries.filter((entry) => entry.state === "running").length;
+  const queued = entries.filter((entry) => entry.state === "queued").length;
+  const failed = entries.filter((entry) => entry.state === "error").length;
+  const completed = entries.filter((entry) => entry.state === "ok" || entry.state === "error").length;
+  const parts = [`${completed}/${total} done`];
+
+  if (running > 0) parts.push(countStatus(running, "running"));
+  if (queued > 0) parts.push(countStatus(queued, "queued"));
+  if (failed > 0) parts.push(countStatus(failed, "failed"));
+
+  return parts.join(", ");
+}
+
+function formatSubagentStatusLabel(entry: SubagentProgressEntry): string {
+  const task = truncateSingleLine(compactSingleLine(entry.task), 44);
+  return `${entry.id}: ${task}`;
+}
+
+function progressIcon(state: SubagentProgressState): string {
+  switch (state) {
+    case "ok":
+      return "✓";
+    case "error":
+      return "✗";
+    case "running":
+      return "⏳";
+    case "queued":
+      return "○";
+  }
+}
+
+function compactSingleLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function truncateSingleLine(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  if (maxLength <= 1) return text.slice(0, Math.max(0, maxLength));
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function countStatus(count: number, label: string): string {
+  return `${count} ${label}`;
 }
 
 function normalizeTask(raw: RawSubagentTask, index: number): NormalizedSubagentTask {

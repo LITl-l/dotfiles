@@ -4,7 +4,8 @@
  *
  * This extension intentionally avoids tmux/pane orchestration. The parent pi
  * session gets one LLM-callable `subagent_many` tool that creates hidden,
- * in-memory child AgentSessions and returns only their final summaries.
+ * in-memory child AgentSessions, publishes compact progress to the TUI, and
+ * returns final summaries to the parent model.
  */
 
 import {
@@ -20,10 +21,13 @@ import {
   buildSubagentPrompt,
   extractFinalAssistantText,
   formatCombinedReport,
+  formatSubagentProgressStatus,
+  formatSubagentProgressUpdate,
   normalizeSubagentInput,
 } from "@PI_SUBAGENTS_CORE@";
 
 const READ_ONLY_TOOLS = ["read", "grep", "find", "ls"];
+const STATUS_KEY = "subagents";
 
 const taskSchema = Type.Object({
   id: Type.Optional(Type.String({ description: "Stable label for this subagent result, for example security-review." })),
@@ -75,32 +79,51 @@ export default function (pi) {
         };
       }
 
-      emitUpdate(onUpdate, `Starting ${normalized.tasks.length} subagent(s), max_parallel=${normalized.maxParallel}...`);
+      const progressEntries = normalized.tasks.map((task) => ({
+        id: task.id,
+        domain: task.domain,
+        task: task.task,
+        state: "queued",
+      }));
+
+      const setProgress = (index, state) => {
+        progressEntries[index] = { ...progressEntries[index], state };
+        emitProgressUpdate(onUpdate, progressEntries);
+        setSubagentStatus(ctx, progressEntries);
+      };
+
+      emitProgressUpdate(onUpdate, progressEntries);
+      setSubagentStatus(ctx, progressEntries);
 
       const startedAt = Date.now();
-      const results = await runWithConcurrency(normalized.tasks, normalized.maxParallel, async (task) => {
-        emitUpdate(onUpdate, `Running ${task.id} (${task.domain})...`);
-        const result = await runSubagent({ task, normalized, parentModel, parentPi: pi, parentCtx: ctx, signal });
-        emitUpdate(onUpdate, `Finished ${task.id}: ${result.status}.`);
-        return result;
-      });
 
-      const report = formatCombinedReport(results);
-      const details = {
-        toolCallId,
-        cwd: ctx.cwd,
-        model: `${parentModel.provider}/${parentModel.id}`,
-        durationMs: Date.now() - startedAt,
-        tasks: normalized.tasks,
-        results,
-      };
+      try {
+        const results = await runWithConcurrency(normalized.tasks, normalized.maxParallel, async (task, index) => {
+          setProgress(index, "running");
+          const result = await runSubagent({ task, normalized, parentModel, parentPi: pi, parentCtx: ctx, signal });
+          setProgress(index, result.status);
+          return result;
+        });
 
-      pi.appendEntry("subagent_many_report", details);
+        const report = formatCombinedReport(results);
+        const details = {
+          toolCallId,
+          cwd: ctx.cwd,
+          model: `${parentModel.provider}/${parentModel.id}`,
+          durationMs: Date.now() - startedAt,
+          tasks: normalized.tasks,
+          results,
+        };
 
-      return {
-        content: [{ type: "text", text: report }],
-        details,
-      };
+        pi.appendEntry("subagent_many_report", details);
+
+        return {
+          content: [{ type: "text", text: report }],
+          details,
+        };
+      } finally {
+        clearSubagentStatus(ctx);
+      }
     },
   });
 }
@@ -233,8 +256,18 @@ function truncateText(text, maxLength) {
   return `${text.slice(0, Math.max(0, maxLength - 14)).trimEnd()}\n[...truncated]`;
 }
 
-function emitUpdate(onUpdate, message) {
-  onUpdate?.({ content: [{ type: "text", text: message }] });
+function emitProgressUpdate(onUpdate, progressEntries) {
+  onUpdate?.({ content: [{ type: "text", text: formatSubagentProgressUpdate(progressEntries) }] });
+}
+
+function setSubagentStatus(ctx, progressEntries) {
+  if (!ctx.hasUI || !ctx.ui?.setStatus) return;
+  ctx.ui.setStatus(STATUS_KEY, formatSubagentProgressStatus(progressEntries));
+}
+
+function clearSubagentStatus(ctx) {
+  if (!ctx.hasUI || !ctx.ui?.setStatus) return;
+  ctx.ui.setStatus(STATUS_KEY, undefined);
 }
 
 function throwIfAborted(signal) {
