@@ -138,6 +138,23 @@
         };
       };
 
+      # Test checks
+      checks = forAllSystems (system:
+        let pkgs = nixpkgsFor.${system};
+        in {
+          pi-goal-tests = pkgs.runCommand "pi-goal-tests"
+            {
+              src = self;
+              nativeBuildInputs = [ pkgs.nodejs ];
+            } ''
+            cp -R "$src" source
+            chmod -R u+w source
+            cd source
+            node --test pi/goal/core.test.ts pi/goal/index.test.ts
+            touch "$out"
+          '';
+        });
+
       # Development shell for testing
       devShells = forAllSystems (system:
         let pkgs = nixpkgsFor.${system};
