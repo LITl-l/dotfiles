@@ -6,8 +6,11 @@ import {
   buildSubagentPrompt,
   extractFinalAssistantText,
   formatCombinedReport,
+  formatSubagentProgressStatus,
+  formatSubagentProgressUpdate,
   normalizeSubagentInput,
   supportsNativeWebSearch,
+  type SubagentProgressEntry,
 } from "./core.ts";
 
 const anthropicModel = {
@@ -142,6 +145,37 @@ test("extracts the final assistant text block from a child session", () => {
   ]);
 
   assert.equal(text, "final\nanswer");
+});
+
+test("formats subagent progress status with running purpose labels", () => {
+  const entries: SubagentProgressEntry[] = [
+    { id: "code-1", domain: "code", task: "Map the auth flow.", state: "ok" },
+    { id: "test-2", domain: "test", task: "Find relevant test commands.", state: "running" },
+    { id: "docs-3", domain: "docs", task: "Check user-facing docs.", state: "queued" },
+    { id: "security-4", domain: "security", task: "Review token handling.", state: "error" },
+  ];
+
+  assert.equal(
+    formatSubagentProgressStatus(entries, 200),
+    "subagents: 2/4 done, 1 running, 1 queued, 1 failed — test-2: Find relevant test commands.",
+  );
+});
+
+test("formats subagent progress updates with every task status", () => {
+  const entries: SubagentProgressEntry[] = [
+    { id: "code-1", domain: "code", task: "Map the auth flow.", state: "ok" },
+    { id: "test-2", domain: "test", task: "Find relevant test commands.", state: "running" },
+    { id: "docs-3", domain: "docs", task: "Check user-facing docs.", state: "queued" },
+    { id: "security-4", domain: "security", task: "Review token handling.", state: "error" },
+  ];
+
+  const update = formatSubagentProgressUpdate(entries);
+
+  assert.match(update, /Subagents: 2\/4 done, 1 running, 1 queued, 1 failed/);
+  assert.match(update, /✓ code-1 \(code\) — Map the auth flow\./);
+  assert.match(update, /⏳ test-2 \(test\) — Find relevant test commands\./);
+  assert.match(update, /○ docs-3 \(docs\) — Check user-facing docs\./);
+  assert.match(update, /✗ security-4 \(security\) — Review token handling\./);
 });
 
 test("formats consolidated reports with successes and per-agent failures", () => {
