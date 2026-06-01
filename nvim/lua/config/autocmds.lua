@@ -138,7 +138,7 @@ autocmd("LspAttach", {
     -- Lspsaga diagnostics
     map('[d', '<cmd>Lspsaga diagnostic_jump_prev<cr>', 'Prev Diagnostic')
     map(']d', '<cmd>Lspsaga diagnostic_jump_next<cr>', 'Next Diagnostic')
-    map('<leader>e', '<cmd>Lspsaga show_line_diagnostics<cr>', 'Line Diagnostics')
+    map('<leader>cd', '<cmd>Lspsaga show_line_diagnostics<cr>', 'Line Diagnostics')
 
     -- Lspsaga code actions and rename
     map('<leader>ca', '<cmd>Lspsaga code_action<cr>', 'Code Action')
@@ -154,13 +154,13 @@ autocmd("LspAttach", {
     -- Mini.extra pickers for LSP symbols
     -- (wrapped in functions so the picker is invoked on keypress, not at LspAttach)
     map('<leader>D', function()
-      require('mini.extra').pickers.lsp({ scope = 'type_definition' })
+      require('config.plugins').pick_lsp('type_definition')
     end, 'Type Definition')
     map('<leader>ds', function()
-      require('mini.extra').pickers.lsp({ scope = 'document_symbol' })
+      require('config.plugins').pick_lsp('document_symbol')
     end, 'Document Symbols')
     map('<leader>ws', function()
-      require('mini.extra').pickers.lsp({ scope = 'workspace_symbol' })
+      require('config.plugins').pick_lsp('workspace_symbol')
     end, 'Workspace Symbols')
 
     -- Workspace folder management

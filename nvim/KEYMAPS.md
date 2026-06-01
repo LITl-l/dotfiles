@@ -58,6 +58,7 @@ Leader key: `<Space>`
 | `<leader>ws` | n | Workspace symbols |
 | `<leader>rn` | n | Rename symbol |
 | `<leader>ca` | n | Code action |
+| `<leader>cd` | n | Line diagnostics |
 | `<leader>cf` | n, v | Code format |
 | `<leader>wa` | n | Add workspace folder |
 | `<leader>wr` | n | Remove workspace folder |
@@ -69,8 +70,8 @@ Leader key: `<Space>`
 |-----|------|-------------|
 | `[d` | n | Previous diagnostic |
 | `]d` | n | Next diagnostic |
-| `<leader>e` | n | Open floating diagnostic |
-| `<leader>q` | n | Open diagnostics list |
+| `<leader>cd` | n | Open floating diagnostic |
+| `<leader>cl` | n | Open diagnostics list |
 
 ## Editing
 

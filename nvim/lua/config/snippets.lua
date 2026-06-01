@@ -4,6 +4,9 @@
 local M = {}
 
 M.setup = function()
+  pcall(vim.cmd, 'packadd luasnip')
+  pcall(vim.cmd, 'packadd friendly-snippets')
+
   local ok, luasnip = pcall(require, 'luasnip')
   if not ok then
     return
