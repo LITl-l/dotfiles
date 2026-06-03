@@ -16,6 +16,8 @@
   home.file.".pi/agent/extensions/assistant-insight/core.ts".source = ../pi/assistant-insight/core.ts;
   home.file.".pi/agent/extensions/goal/index.ts".source = ../pi/goal/index.ts;
   home.file.".pi/agent/extensions/goal/core.ts".source = ../pi/goal/core.ts;
+  home.file.".pi/agent/extensions/auto-model-router/index.ts".source = ../pi/auto-model-router/index.ts;
+  home.file.".pi/agent/extensions/auto-model-router/core.ts".source = ../pi/auto-model-router/core.ts;
   home.file.".pi/agent/extensions/subagents/index.ts".text = builtins.replaceStrings
     [ "@PI_NODE_MODULES@" "@PI_SUBAGENTS_CORE@" ]
     [ "${pkgs.pi-coding-agent}/lib/node_modules" "${../pi/subagents/core.ts}" ]

@@ -154,25 +154,27 @@
       checks = forAllSystems (system:
         let
           pkgs = nixpkgsFor.${system};
-          linuxChecks = if system == "x86_64-linux" then {
-            nvim-config-tests = pkgs.runCommand "nvim-config-tests"
-              {
-                src = self;
-                nativeBuildInputs = [ self.homeConfigurations."nixos@wsl".config.programs.neovim.finalPackage ];
-              } ''
-              cp -R "$src" source
-              chmod -R u+w source
-              cd source
-              export XDG_CONFIG_HOME="$PWD"
-              export XDG_DATA_HOME="$TMPDIR/data"
-              export XDG_STATE_HOME="$TMPDIR/state"
-              export XDG_CACHE_HOME="$TMPDIR/cache"
-              nvim --headless +'luafile nvim/tests/leader_e_minifiles.lua' +'qa!'
-              nvim --headless nvim/init.lua +'lua assert(vim.fn.exists(":LspServers") == 2, "LspServers command missing"); local cfg = vim.lsp.config.lua_ls; assert(cfg and type(cfg.cmd) == "table" and #cfg.cmd > 0, "lua_ls cmd missing"); assert(vim.fn.maparg("<leader>l", "n") == "", "<leader>l maps to missing Lazy command")' +'qa!'
-              touch "$out"
-            '';
-          } else { };
-        in {
+          linuxChecks =
+            if system == "x86_64-linux" then {
+              nvim-config-tests = pkgs.runCommand "nvim-config-tests"
+                {
+                  src = self;
+                  nativeBuildInputs = [ self.homeConfigurations."nixos@wsl".config.programs.neovim.finalPackage ];
+                } ''
+                cp -R "$src" source
+                chmod -R u+w source
+                cd source
+                export XDG_CONFIG_HOME="$PWD"
+                export XDG_DATA_HOME="$TMPDIR/data"
+                export XDG_STATE_HOME="$TMPDIR/state"
+                export XDG_CACHE_HOME="$TMPDIR/cache"
+                nvim --headless +'luafile nvim/tests/leader_e_minifiles.lua' +'qa!'
+                nvim --headless nvim/init.lua +'lua assert(vim.fn.exists(":LspServers") == 2, "LspServers command missing"); local cfg = vim.lsp.config.lua_ls; assert(cfg and type(cfg.cmd) == "table" and #cfg.cmd > 0, "lua_ls cmd missing"); assert(vim.fn.maparg("<leader>l", "n") == "", "<leader>l maps to missing Lazy command")' +'qa!'
+                touch "$out"
+              '';
+            } else { };
+        in
+        {
           pi-assistant-insight-tests = pkgs.runCommand "pi-assistant-insight-tests"
             {
               src = self;
@@ -239,6 +241,18 @@
             chmod -R u+w source
             cd source
             node --test pi/goal/core.test.ts pi/goal/index.test.ts
+            touch "$out"
+          '';
+
+          pi-auto-model-router-tests = pkgs.runCommand "pi-auto-model-router-tests"
+            {
+              src = self;
+              nativeBuildInputs = [ pkgs.nodejs ];
+            } ''
+            cp -R "$src" source
+            chmod -R u+w source
+            cd source
+            node --test pi/auto-model-router/core.test.ts pi/auto-model-router/index.test.ts
             touch "$out"
           '';
 
