@@ -27,11 +27,18 @@ in
   # `claude` is invoked by absolute store path because the new generation's bin/
   # is not on PATH during activation; `headroom` is registered as a *bare*
   # command (resolved from PATH when Claude launches it), which keeps the entry
-  # stable across headroom updates. Idempotent: `claude mcp get` exits non-zero
-  # when absent, so we add at most once; safe to re-run on every switch.
+  # stable across headroom updates.
+  #
+  # HEADROOM_TELEMETRY=off is baked into the registration to disable headroom's
+  # on-by-default Supabase telemetry beacon for this MCP server (it also inherits
+  # the session var from home.nix; this is belt-and-suspenders). The guard greps
+  # the entry's Environment for HEADROOM_TELEMETRY so an existing env-less
+  # registration (added before this change) is reconciled exactly once: when the
+  # var is absent we remove + re-add with it; when already present we no-op.
   home.activation.registerHeadroomMcp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if ! ${pkgs.claude-code}/bin/claude mcp get headroom >/dev/null 2>&1; then
-      ${pkgs.claude-code}/bin/claude mcp add headroom -s user -- headroom mcp serve >/dev/null 2>&1 || true
+    if ! ${pkgs.claude-code}/bin/claude mcp get headroom 2>/dev/null | grep -q HEADROOM_TELEMETRY; then
+      ${pkgs.claude-code}/bin/claude mcp remove headroom -s user >/dev/null 2>&1 || true
+      ${pkgs.claude-code}/bin/claude mcp add headroom -s user -e HEADROOM_TELEMETRY=off -- headroom mcp serve >/dev/null 2>&1 || true
     fi
   '';
 }
