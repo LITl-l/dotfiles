@@ -30,27 +30,6 @@
 
   home.file.".pi/agent/themes/claude-code.json".source = ../pi/claude-code-theme.json;
 
-  # Register headroom-ai's context-compression MCP server (stdio transport). Pi
-  # reads ~/.pi/agent/mcp.json. lifecycle "lazy" means Pi only spawns the server
-  # when a headroom_* tool is actually invoked. headroom is on PATH on Linux via
-  # home.packages (LITl-l/headroom-overlay).
-  #
-  # env HEADROOM_TELEMETRY=off disables headroom's on-by-default Supabase
-  # telemetry beacon for this server regardless of the inherited environment
-  # (mirrors the session var in home.nix and the Claude registration).
-  home.file.".pi/agent/mcp.json".text = ''
-    {
-      "mcpServers": {
-        "headroom": {
-          "command": "headroom",
-          "args": ["mcp", "serve"],
-          "env": { "HEADROOM_TELEMETRY": "off" },
-          "lifecycle": "lazy"
-        }
-      }
-    }
-  '';
-
   # Keep existing pi settings/auth intact, but select the Claude Code-like theme.
   home.activation.setPiClaudeCodeTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settings="$HOME/.pi/agent/settings.json"
