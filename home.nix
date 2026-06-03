@@ -68,11 +68,6 @@ in
     nixpkgs-fmt # Nix formatter
     nil # Nix LSP
     nix-manager # Custom nix-manager command
-  ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
-    # headroom-ai context-compression CLI + MCP server (via LITl-l/headroom-overlay).
-    # Linux-guarded: the overlay only publishes x86_64-linux. pkgs.headroom is
-    # fully qualified because this append is outside the `with pkgs;` scope above.
-    pkgs.headroom
   ];
 
   # Environment variables
@@ -82,16 +77,6 @@ in
     PAGER = "less";
     LESS = "-R";
     BROWSER = "xdg-open";
-
-    # Opt out of headroom-ai's on-by-default telemetry. Its TelemetryBeacon
-    # (site-packages/headroom/telemetry/beacon.py) otherwise POSTs anonymous
-    # aggregate stats — plus a SHA256(hostname) machine fingerprint — to a
-    # hardcoded Supabase endpoint every 5 minutes. This is headroom's documented
-    # kill-switch; collector.py honours it too (gates the /v1/telemetry report).
-    # Set at session scope so the `headroom` CLI *and* the MCP servers (which
-    # inherit this env) are covered; also baked into each MCP registration as
-    # defense-in-depth (see modules/claude-code.nix and modules/pi.nix).
-    HEADROOM_TELEMETRY = "off";
 
     # XDG directories
     XDG_CONFIG_HOME = "${config.home.homeDirectory}/.config";
@@ -115,9 +100,6 @@ in
       accept-flake-config = true
       extra-substituters = https://ryoppippi.cachix.org https://pi.cachix.org
       extra-trusted-public-keys = ryoppippi.cachix.org-1:b2LbtWNvJeL/qb1B6TYOMK+apaCps4SCbzlPRfSQIms= pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk=
-      # headroom-overlay cachix cache (deferred): once the cache + public key exist,
-      # append " https://headroom-overlay.cachix.org" to extra-substituters above and
-      # " headroom-overlay.cachix.org-1:<KEY>" to extra-trusted-public-keys above.
       !include ${config.home.homeDirectory}/.config/nix/nix.local.conf
     '';
   };
