@@ -83,6 +83,16 @@ in
     LESS = "-R";
     BROWSER = "xdg-open";
 
+    # Opt out of headroom-ai's on-by-default telemetry. Its TelemetryBeacon
+    # (site-packages/headroom/telemetry/beacon.py) otherwise POSTs anonymous
+    # aggregate stats — plus a SHA256(hostname) machine fingerprint — to a
+    # hardcoded Supabase endpoint every 5 minutes. This is headroom's documented
+    # kill-switch; collector.py honours it too (gates the /v1/telemetry report).
+    # Set at session scope so the `headroom` CLI *and* the MCP servers (which
+    # inherit this env) are covered; also baked into each MCP registration as
+    # defense-in-depth (see modules/claude-code.nix and modules/pi.nix).
+    HEADROOM_TELEMETRY = "off";
+
     # XDG directories
     XDG_CONFIG_HOME = "${config.home.homeDirectory}/.config";
     XDG_DATA_HOME = "${config.home.homeDirectory}/.local/share";
