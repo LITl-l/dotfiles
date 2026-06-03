@@ -32,6 +32,11 @@
     pi = {
       url = "github:lukasl-dev/pi.nix";
     };
+
+    # headroom context-compression MCP server (native binary via Cachix)
+    headroom = {
+      url = "github:LITl-l/headroom-overlay";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, ... }@inputs:
@@ -49,6 +54,10 @@
         overlays = [
           inputs.claude-code.overlays.default
           inputs.pi.overlays.default
+        ] ++ nixpkgs.lib.optionals (system == "x86_64-linux") [
+          # headroom-overlay only publishes x86_64-linux; gate it so the
+          # darwin/aarch64 configs (and `nix flake check`) still evaluate.
+          inputs.headroom.overlays.default
         ];
       });
     in

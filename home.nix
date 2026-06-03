@@ -68,6 +68,11 @@ in
     nixpkgs-fmt # Nix formatter
     nil # Nix LSP
     nix-manager # Custom nix-manager command
+  ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+    # headroom-ai context-compression CLI + MCP server (via LITl-l/headroom-overlay).
+    # Linux-guarded: the overlay only publishes x86_64-linux. pkgs.headroom is
+    # fully qualified because this append is outside the `with pkgs;` scope above.
+    pkgs.headroom
   ];
 
   # Environment variables
@@ -100,6 +105,9 @@ in
       accept-flake-config = true
       extra-substituters = https://ryoppippi.cachix.org https://pi.cachix.org
       extra-trusted-public-keys = ryoppippi.cachix.org-1:b2LbtWNvJeL/qb1B6TYOMK+apaCps4SCbzlPRfSQIms= pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk=
+      # headroom-overlay cachix cache (deferred): once the cache + public key exist,
+      # append " https://headroom-overlay.cachix.org" to extra-substituters above and
+      # " headroom-overlay.cachix.org-1:<KEY>" to extra-trusted-public-keys above.
       !include ${config.home.homeDirectory}/.config/nix/nix.local.conf
     '';
   };
