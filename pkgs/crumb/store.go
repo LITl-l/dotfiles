@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"time"
 )
 
 // ErrNotFound is returned when a hash has no stored blob (never stored, or gc'd).
@@ -105,4 +109,165 @@ func (s *Store) Get(hash string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+// Event is one row in events.jsonl.
+type Event struct {
+	TS      int64  `json:"ts"`
+	Op      string `json:"op"`
+	Hash    string `json:"hash"`
+	OrigTok int    `json:"orig_tok"`
+	StubTok int    `json:"stub_tok"`
+}
+
+// AppendEvent appends one event via O_APPEND (atomic for small writes on POSIX).
+func (s *Store) AppendEvent(e Event) error {
+	f, err := os.OpenFile(s.eventsLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	line, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	line = append(line, '\n')
+	_, err = f.Write(line)
+	return err
+}
+
+// Stats aggregates the event log plus on-disk usage.
+type Stats struct {
+	Compressions int
+	UniqueBlobs  int
+	OrigTokens   int
+	StubTokens   int
+	SavedTokens  int
+	StoreBytes   int64
+	Recent       []Event
+}
+
+// ReadStats folds events.jsonl into totals, keeping the last recentN events.
+func (s *Store) ReadStats(recentN int) (Stats, error) {
+	var st Stats
+	f, err := os.Open(s.eventsLog)
+	if err != nil {
+		if os.IsNotExist(err) {
+			st.StoreBytes, st.UniqueBlobs = s.diskUsage()
+			return st, nil
+		}
+		return st, err
+	}
+	defer f.Close()
+
+	var events []Event
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1024*1024), 64*1024*1024)
+	for sc.Scan() {
+		var e Event
+		if json.Unmarshal(sc.Bytes(), &e) != nil {
+			continue // skip a corrupt line rather than fail
+		}
+		events = append(events, e)
+		if e.Op == "compress" {
+			st.Compressions++
+			st.OrigTokens += e.OrigTok
+			st.StubTokens += e.StubTok
+		}
+	}
+	st.SavedTokens = st.OrigTokens - st.StubTokens
+	st.StoreBytes, st.UniqueBlobs = s.diskUsage()
+	if recentN > 0 && len(events) > recentN {
+		st.Recent = events[len(events)-recentN:]
+	} else {
+		st.Recent = events
+	}
+	return st, nil
+}
+
+func (s *Store) diskUsage() (int64, int) {
+	entries, err := os.ReadDir(s.blobsDir)
+	if err != nil {
+		return 0, 0
+	}
+	var total int64
+	n := 0
+	for _, e := range entries {
+		if e.IsDir() || e.Name()[0] == '.' {
+			continue // skip leftover .tmp-* files
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		total += info.Size()
+		n++
+	}
+	return total, n
+}
+
+// GCResult reports what GC removed.
+type GCResult struct {
+	Removed    int
+	FreedBytes int64
+}
+
+// GC removes blobs older than maxAge (when >0), then removes the oldest
+// remaining blobs until total size is under maxBytes (when >0). now is injected
+// so tests are deterministic.
+func (s *Store) GC(now time.Time, maxAge time.Duration, maxBytes int64) (GCResult, error) {
+	var res GCResult
+	entries, err := os.ReadDir(s.blobsDir)
+	if err != nil {
+		return res, err
+	}
+	type blob struct {
+		path string
+		size int64
+		mod  time.Time
+	}
+	var blobs []blob
+	for _, e := range entries {
+		if e.IsDir() || e.Name()[0] == '.' {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		blobs = append(blobs, blob{s.blobPath(e.Name()), info.Size(), info.ModTime()})
+	}
+
+	var remaining []blob
+	for _, b := range blobs {
+		if maxAge > 0 && now.Sub(b.mod) > maxAge {
+			if os.Remove(b.path) == nil {
+				res.Removed++
+				res.FreedBytes += b.size
+			}
+			continue
+		}
+		remaining = append(remaining, b)
+	}
+
+	if maxBytes > 0 {
+		var total int64
+		for _, b := range remaining {
+			total += b.size
+		}
+		if total > maxBytes {
+			sort.Slice(remaining, func(i, j int) bool { return remaining[i].mod.Before(remaining[j].mod) })
+			for _, b := range remaining {
+				if total <= maxBytes {
+					break
+				}
+				if os.Remove(b.path) == nil {
+					res.Removed++
+					res.FreedBytes += b.size
+					total -= b.size
+				}
+			}
+		}
+	}
+	return res, nil
 }
