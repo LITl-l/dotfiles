@@ -68,5 +68,22 @@
     defaultNetwork.settings.dns_enabled = true;
   };
 
+  # Automatic store garbage collection. On WSL2 the backing ext4.vhdx only ever
+  # grows to its high-water mark and never shrinks on its own, so unbounded
+  # /nix/store growth steadily fills the Windows host disk. A weekly sweep that
+  # drops generations older than 7 days keeps that high-water mark in check.
+  # (Reclaims old NixOS system generations; run `nix-collect-garbage -d` as your
+  # user to also expire standalone home-manager generations.)
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 7d";
+  };
+
+  # Deduplicate identical files in /nix/store via hardlinks. Applied inline as
+  # new paths are added; run `nix store optimise` once to dedupe what's already
+  # there. This is what actually shrinks the live store between GC sweeps.
+  nix.settings.auto-optimise-store = true;
+
   system.stateVersion = "25.05";
 }
