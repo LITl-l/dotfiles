@@ -1,5 +1,41 @@
 { config, pkgs, lib, ... }:
 
+let
+  # Renders the Jujutsu (jj) prompt segment: the workspace name (always shown),
+  # the nearest ancestor bookmark (jj's "branch"-like pointer), and state flags
+  # (◌ empty / ✖ conflict / ÷ divergent). A single read-only `jj` call per
+  # prompt: `--ignore-working-copy` so it never snapshots/mutates, and `jj`
+  # walks up to find the repo so it works in subdirectories too. Prints nothing
+  # outside a jj repo or on any error, which hides the module.
+  jjPrompt = pkgs.writeShellScript "starship-jj-prompt" ''
+    out=$(${pkgs.jujutsu}/bin/jj log \
+      -r '@ | heads(::@ & bookmarks())' \
+      --no-graph --ignore-working-copy --color never \
+      -T 'if(current_working_copy, "ws " ++ working_copies ++ "\n" ++ "bm " ++ bookmarks.join(",") ++ "\n" ++ if(empty, "st ◌\n") ++ if(conflict, "st ✖\n") ++ if(divergent, "st ÷\n"), "bm " ++ bookmarks.join(",") ++ "\n")' \
+      2>/dev/null) || exit 0
+    [ -n "$out" ] || exit 0
+
+    ws=""
+    bm=""
+    st=""
+    while IFS=' ' read -r key val; do
+      case "$key" in
+        ws) [ -n "$val" ] && ws=$val ;;
+        bm) [ -n "$val" ] && bm=$val ;;
+        st) st="$st $val" ;;
+      esac
+    done <<< "$out"
+
+    [ -n "$ws" ] || exit 0
+    # Nerd Font glyphs (U+F401 nf-oct-repo, U+F02E nf-fa-bookmark; swap to taste):
+    wsg=$(printf '')   # nf-oct-repo    (workspace)
+    bmg=$(printf '')   # nf-fa-bookmark (bookmark)
+    seg="$wsg $ws"
+    [ -n "$bm" ] && seg="$seg    $bmg $bm"
+    [ -n "$st" ] && seg="$seg$st"
+    printf '%s ' "$seg"
+  '';
+in
 {
   programs.starship = {
     enable = true;
@@ -21,6 +57,7 @@
         "$git_status"
         "$git_state"
         "$git_metrics"
+        "\${custom.jj}"
         "$fill"
         "$all"
         "$line_break"
@@ -103,6 +140,21 @@
         format = "([+$added]($added_style) )([-$deleted]($deleted_style) )";
         added_style = "bold #40a02b";
         deleted_style = "bold #d20f39";
+      };
+
+      # Jujutsu (jj): workspace name (always), nearest bookmark, and state flags.
+      # Coexists with the git_* modules above — in colocated repos you will see
+      # both the git branch and the jj bookmark, by design. The helper script
+      # (defined in the `let` block above) does its own repo detection, so no
+      # detect_folders is needed and it works in subdirectories like git does.
+      custom.jj = {
+        command = "${jjPrompt}";
+        shell = [ "${pkgs.bash}/bin/bash" "--noprofile" "--norc" ];
+        when = true;
+        use_stdin = false;
+        format = "[$output]($style)";
+        style = "bold #ea76cb";
+        ignore_timeout = true;
       };
 
       # Languages and tools
