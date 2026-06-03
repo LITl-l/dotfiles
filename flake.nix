@@ -164,6 +164,63 @@
             '';
           } else { };
         in {
+          pi-assistant-insight-tests = pkgs.runCommand "pi-assistant-insight-tests"
+            {
+              src = self;
+              nativeBuildInputs = [ pkgs.nodejs ];
+            } ''
+            cp -R "$src" source
+            chmod -R u+w source
+            cd source
+            node --test pi/assistant-insight/core.test.ts
+
+            export PI_NODE_MODULES="${pkgs.pi-coding-agent}/lib/node_modules"
+            export PI_ASSISTANT_INSIGHT_CORE="$PWD/pi/assistant-insight/core.ts"
+            node --input-type=module <<'NODE'
+            import assert from "node:assert/strict";
+            import { readFileSync, writeFileSync } from "node:fs";
+            import { tmpdir } from "node:os";
+            import { join } from "node:path";
+
+            const tmpIndex = join(tmpdir(), "assistant-insight-index.ts");
+            const source = readFileSync("pi/assistant-insight/index.ts", "utf8")
+              .replaceAll("@PI_NODE_MODULES@", process.env.PI_NODE_MODULES)
+              .replaceAll("@PI_ASSISTANT_INSIGHT_CORE@", process.env.PI_ASSISTANT_INSIGHT_CORE);
+
+            assert.equal(source.includes("@PI_"), false);
+            writeFileSync(tmpIndex, source);
+
+            const themeModule = await import(
+              "file://" + process.env.PI_NODE_MODULES + "/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js"
+            );
+            themeModule.initTheme("dark", false);
+
+            const extension = await import("file://" + tmpIndex);
+            extension.default();
+
+            const { AssistantMessageComponent } = await import(
+              "file://" + process.env.PI_NODE_MODULES + "/@earendil-works/pi-coding-agent/dist/modes/interactive/components/assistant-message.js"
+            );
+            const component = new AssistantMessageComponent({
+              role: "assistant",
+              content: [{ type: "text", text: "Useful insight.\n\nRemaining response." }],
+              stopReason: "stop",
+            });
+            const rendered = component.render(100).join("\n");
+
+            assert.equal(component.contentContainer.children.length, 4);
+            assert.equal(component.contentContainer.children[0].constructor.name, "Spacer");
+            assert.equal(component.contentContainer.children[1].constructor.name, "Box");
+            assert.equal(component.contentContainer.children[2].constructor.name, "Spacer");
+            assert.match(rendered, /Insight/);
+            assert.match(rendered, /Useful insight\./);
+            assert.match(rendered, /Remaining response\./);
+            assert.equal(rendered.match(/Useful insight\./g)?.length, 1);
+            NODE
+
+            touch "$out"
+          '';
+
           pi-goal-tests = pkgs.runCommand "pi-goal-tests"
             {
               src = self;

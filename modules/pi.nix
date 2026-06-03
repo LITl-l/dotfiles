@@ -9,6 +9,11 @@
     [ "${pkgs.pi-coding-agent}/lib/node_modules" ]
     (builtins.readFile ../pi/claude-vim.ts);
   home.file.".pi/agent/extensions/agent-compat.ts".source = ../pi/agent-compat.ts;
+  home.file.".pi/agent/extensions/assistant-insight/index.ts".text = builtins.replaceStrings
+    [ "@PI_NODE_MODULES@" "@PI_ASSISTANT_INSIGHT_CORE@" ]
+    [ "${pkgs.pi-coding-agent}/lib/node_modules" "${../pi/assistant-insight/core.ts}" ]
+    (builtins.readFile ../pi/assistant-insight/index.ts);
+  home.file.".pi/agent/extensions/assistant-insight/core.ts".source = ../pi/assistant-insight/core.ts;
   home.file.".pi/agent/extensions/goal/index.ts".source = ../pi/goal/index.ts;
   home.file.".pi/agent/extensions/goal/core.ts".source = ../pi/goal/core.ts;
   home.file.".pi/agent/extensions/subagents/index.ts".text = builtins.replaceStrings
