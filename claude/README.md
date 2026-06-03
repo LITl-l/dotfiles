@@ -38,7 +38,7 @@ Official plugins from `claude-plugins-official` are **installed automatically** 
 Some popular official plugins from `claude-plugins-official`:
 
 - `frontend-design` - UI/UX design assistance
-- `context7` - Context management
+- `context7` - Up-to-date docs lookup (disabled here — see [Disabled Plugins](#disabled-plugins))
 - `feature-dev` - Feature development workflows
 - `playwright` - Browser automation testing
 - `security-guidance` - Security best practices
@@ -270,6 +270,39 @@ claude plugin uninstall plugin-name@marketplace --scope user
 ```bash
 claude plugin validate ./path/to/marketplace
 ```
+
+## MCP Servers
+
+MCP servers are configured separately from plugins: they live in `~/.claude.json`
+at **user scope** and are managed with the `claude mcp` CLI (not `settings.json`).
+`setup-marketplace.sh` registers them idempotently, so a fresh machine reproduces
+them on the next `home-manager switch`.
+
+### context7 (remote HTTP)
+
+Up-to-date library documentation lookup. We use Context7's **remote** MCP at
+`https://mcp.context7.com/mcp` instead of the official `context7` plugin, which
+bundles a stdio MCP run via `npx -y @upstash/context7-mcp`. That npx server
+targets `context7.com`, which is unreachable from this network (TCP `:443` times
+out), so it hangs. The remote host responds and spawns no local Node process.
+
+- Works keyless at a lower rate limit.
+- For higher limits, `export CONTEXT7_API_KEY=...` before running
+  `./claude/setup-marketplace.sh --update`. The key is sent as a request header
+  and is **never** written to this repo.
+- Tools: `resolve-library-id`, `query-docs` — pre-approved in `settings.json`
+  via `permissions.allow` → `mcp__context7`.
+
+## Disabled Plugins
+
+These official plugins are set to `false` in `settings.json`:
+
+- `context7` — replaced by the remote MCP above (see [MCP Servers](#mcp-servers)).
+- `security-guidance` — its hooks (SessionStart / UserPromptSubmit / PostToolUse /
+  Stop) shell out to Python via `sg-python.sh`, and there is no `python3` in this
+  environment (language runtimes are not installed globally). With no interpreter,
+  every turn printed *"no working Python 3 interpreter found"*. On-demand security
+  review remains available via the built-in `/security-review`.
 
 ## Known Limitations
 
