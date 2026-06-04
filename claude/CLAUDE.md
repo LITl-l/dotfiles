@@ -51,6 +51,7 @@ Use the `jj-master` plugin skills and agents automatically as needed:
 - **Already in workspace**: Check with `jj workspace root` — skip creation if already in one
 - **Completing work**: Use `/jj-pr` or `jj-github` agent to push and create a PR
 - IMPORTANT: Whenever you change any files, you MUST complete the entire workflow including creating a PR
+- **Superpowers artifacts**: The `brainstorming` and `writing-plans` skills save specs/plans under `docs/superpowers/` (`specs/`, `plans/`). These are ephemeral planning notes, not deliverables — the directory is gitignored. Don't commit them (skip the skill's "commit the spec" step), and delete any that exist before merging.
 
 ### PR Title Convention
 
