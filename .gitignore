@@ -30,3 +30,6 @@ Desktop.ini
 *.log
 *.cache
 .cache/
+
+# Superpowers planning artifacts (ephemeral specs/plans, not deliverables)
+docs/superpowers/
