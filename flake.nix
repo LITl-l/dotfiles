@@ -49,6 +49,8 @@
         overlays = [
           inputs.claude-code.overlays.default
           inputs.pi.overlays.default
+          # crumb: in-repo context store-and-stub (pure-Go, builds on all platforms).
+          (final: _prev: { crumb = final.callPackage ./pkgs/crumb { }; })
         ];
       });
     in
@@ -258,6 +260,9 @@
             node --test pi/subagents/core.test.ts
             touch "$out"
           '';
+
+          # Build crumb (buildGoModule checkPhase runs `go test ./...`).
+          crumb-tests = pkgs.crumb;
         } // linuxChecks);
 
       # Development shell for testing
