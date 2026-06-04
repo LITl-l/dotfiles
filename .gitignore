@@ -2,6 +2,9 @@
 result
 result-*
 
+# Go build artifacts (crumb: `go build ./...` drops a binary beside the source)
+/pkgs/crumb/crumb
+
 # Nix temporary files
 .direnv/
 

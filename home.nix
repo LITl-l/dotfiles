@@ -68,6 +68,10 @@ in
     nixpkgs-fmt # Nix formatter
     nil # Nix LSP
     nix-manager # Custom nix-manager command
+
+    # crumb: in-repo, zero-dependency context store-and-stub (MCP server + CLI).
+    # Pure-Go static binary built from ./pkgs/crumb.
+    crumb
   ];
 
   # Environment variables

@@ -30,6 +30,22 @@
 
   home.file.".pi/agent/themes/claude-code.json".source = ../pi/claude-code-theme.json;
 
+  # Register crumb's context store-and-stub MCP server (stdio transport). Pi reads
+  # ~/.pi/agent/mcp.json. lifecycle "lazy" means Pi only spawns the server when a
+  # crumb tool is actually invoked. crumb is on PATH via home.packages and has no
+  # telemetry, so no opt-out env is needed.
+  home.file.".pi/agent/mcp.json".text = ''
+    {
+      "mcpServers": {
+        "crumb": {
+          "command": "crumb",
+          "args": ["mcp"],
+          "lifecycle": "lazy"
+        }
+      }
+    }
+  '';
+
   # Keep existing pi settings/auth intact, but select the Claude Code-like theme.
   home.activation.setPiClaudeCodeTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settings="$HOME/.pi/agent/settings.json"

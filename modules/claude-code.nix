@@ -19,4 +19,21 @@ in
       "${dotfilesClaudePath}/setup-marketplace.sh" --update 2>/dev/null || true
     fi
   '';
+
+  # Register crumb's stdio MCP server with Claude Code at user scope. MCP servers
+  # live in the stateful ~/.claude.json, so we delegate the file location/format to
+  # the `claude` CLI rather than managing it declaratively.
+  #
+  # `claude` is invoked by absolute store path because the new generation's bin/ is
+  # not on PATH during activation; `crumb` is registered as a *bare* command
+  # (resolved from PATH when Claude launches it), which keeps the entry stable
+  # across crumb updates. crumb has no telemetry, so no env is baked in.
+  #
+  # The guard adds `crumb` only when it is not already registered, so activation
+  # stays idempotent.
+  home.activation.registerCrumbMcp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if ! ${pkgs.claude-code}/bin/claude mcp get crumb >/dev/null 2>&1; then
+      ${pkgs.claude-code}/bin/claude mcp add crumb -s user -- crumb mcp >/dev/null 2>&1 || true
+    fi
+  '';
 }
