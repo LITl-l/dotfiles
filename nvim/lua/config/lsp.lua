@@ -187,9 +187,40 @@ local server_executables = {
   terraformls = 'terraform-ls',
 }
 
--- Check if executable exists in PATH
+-- Check if executable exists in PATH.
+--
+-- vim.fn.executable() scans every entry in $PATH. Under WSL the inherited
+-- Windows directories (/mnt/c/...) sit on a slow 9p mount, so a single missed
+-- lookup costs ~280ms; probing all ~14 language servers on the first file open
+-- froze Neovim for ~4 seconds before the buffer painted. Every server here is
+-- Nix-provided and never lives under /mnt, so we probe against a PATH with the
+-- /mnt entries stripped out (computed once) and cache each result.
+local fast_path
+local function get_fast_path()
+  if fast_path then return fast_path end
+  local kept = {}
+  for dir in string.gmatch(vim.env.PATH or '', '[^:]+') do
+    if not vim.startswith(dir, '/mnt/') then
+      kept[#kept + 1] = dir
+    end
+  end
+  fast_path = table.concat(kept, ':')
+  return fast_path
+end
+
+local exe_cache = {}
 local function executable_exists(name)
-  return vim.fn.executable(name) == 1
+  local cached = exe_cache[name]
+  if cached ~= nil then return cached end
+  -- Reuse Vim's own resolution over the /mnt-free PATH. The swap is fully
+  -- synchronous (nothing yields between set and restore), so no child process
+  -- or callback ever observes the temporary PATH.
+  local saved = vim.env.PATH
+  vim.env.PATH = get_fast_path()
+  local ok = vim.fn.executable(name) == 1
+  vim.env.PATH = saved
+  exe_cache[name] = ok
+  return ok
 end
 
 -- Setup a single LSP server

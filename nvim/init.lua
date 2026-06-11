@@ -67,6 +67,12 @@ vim.keymap.set('n', '<leader>fm', function() plugins.pick('marks') end, { desc =
 vim.keymap.set('n', '<leader>fo', function() plugins.pick('options') end, { desc = 'Find options' })
 vim.keymap.set('n', '<leader>fC', function() plugins.pick_colorschemes() end, { desc = 'Pick colorscheme' })
 
+-- Git blame: toggle inline per-line blame. Lazy-loads config.blame on first use.
+-- Works in jj workspaces with no `.git` (uses `jj file annotate`) and falls back
+-- to `git blame` elsewhere.
+vim.keymap.set('n', '<leader>gb', function() require('config.blame').toggle() end, { desc = 'Toggle inline blame' })
+vim.api.nvim_create_user_command('BlameToggle', function() require('config.blame').toggle() end, { desc = 'Toggle inline git/jj blame' })
+
 -- Debug keymaps lazy-load DAP on first use, then config.dap replaces these stubs.
 local function with_dap(callback)
   return function()
@@ -122,10 +128,21 @@ vim.api.nvim_create_autocmd({ 'BufReadPre', 'BufNewFile' }, {
   group = lazy_group,
   once = true,
   callback = function()
-    plugins.setup_editing()
-    plugins.setup_git()
-    plugins.setup_lsp()
-    plugins.setup_format()
+    -- Let the buffer paint first, then warm up editing/git/LSP/format on the
+    -- next loop tick. Starting the LSP client pulls in the vim.lsp.* runtime
+    -- (~0.7s on this WSL box) and must not block the file from appearing.
+    local buf = vim.api.nvim_get_current_buf()
+    vim.schedule(function()
+      plugins.setup_editing()
+      plugins.setup_git()
+      plugins.setup_lsp()
+      plugins.setup_format()
+      -- setup_lsp() enables the servers only now — after this buffer's FileType
+      -- already fired — so re-emit FileType to attach them to the open buffer.
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_exec_autocmds('FileType', { buffer = buf })
+      end
+    end)
   end,
 })
 
