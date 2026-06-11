@@ -120,10 +120,14 @@
     "explanatory-output-style@claude-plugins-official": true,
     "playground@claude-plugins-official": true,
     "learning-output-style@claude-plugins-official": true,
-    "context7@claude-plugins-official": false
+    "context7@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": true,
+    "plugin-dev@claude-plugins-official": true,
+    "sourcegraph@claude-plugins-official": true
   },
   "effortLevel": "xhigh",
   "showThinkingSummaries": true,
+  "skipWorkflowUsageWarning": true,
   "theme": "light",
   "editorMode": "vim",
   "skipAutoPermissionPrompt": true,
