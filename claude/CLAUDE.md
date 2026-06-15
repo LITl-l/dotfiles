@@ -2,7 +2,8 @@
 
 ## Thinking & Quality
 
-- Default to thorough analysis. For complex tasks, use plan mode first.
+- **Match effort to the task.** Act directly on clear or small tasks; reserve plan mode for work that is genuinely complex, ambiguous, or risky. Don't deliberate over a one-line change like a migration.
+- **Commit to a sound approach.** Once you have enough information to act, act — don't re-litigate a decision already made or re-derive facts already established. Reconsider on new evidence, not on doubt. (One first-rate plan beats three half-explored ones.)
 - IMPORTANT: Always read relevant files before editing. Never modify code you haven't read in this session.
 - Verify your work: run tests, check builds, compare outputs. Never claim completion without verification.
 - Fix root causes, not symptoms — no temporary workarounds.
@@ -11,9 +12,12 @@
 
 ## Context Management
 
-- /clear between unrelated tasks
-- Use subagents for codebase exploration to avoid bloating main context
-- For large investigations, scope narrowly — don't read everything
+Long, bloated context measurably degrades accuracy ("context rot") — keep it lean to avoid mistakes like editing a stale or unread file.
+
+- /clear between unrelated tasks — a fresh context beats a bloated one.
+- **Pipe large command output through crumb** to keep it out of context: `big-cmd | crumb compress` prints a small stub; pull back only what you need with `crumb retrieve <hash> --query "..."`. Use the CLI, not the MCP compress tool. Mind the gotcha: crumb passes through the command's exit code and stderr, so check those separately.
+- Use subagents for codebase exploration to avoid bloating main context — have them return conclusions, not file dumps.
+- For large investigations, scope narrowly — don't read everything.
 
 ## Research & Search
 
