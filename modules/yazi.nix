@@ -61,7 +61,7 @@
       # Rules for which opener to use based on file type
       open = {
         rules = [
-          { name = "*/"; use = "edit"; }          # Directories
+          { mime = "inode/directory"; use = "edit"; }  # Directories
           { mime = "text/*"; use = "edit"; }      # Text files
           { mime = "image/*"; use = "open"; }     # Images with system viewer
           { mime = "video/*"; use = "play"; }     # Videos in mpv
