@@ -97,6 +97,9 @@ M.setup_editing = function()
     -- Mini.ai (better text objects)
     require('mini.ai').setup()
 
+    -- Mini.jump2d (jump to any visible spot via on-screen labels; <CR> to start)
+    require('mini.jump2d').setup()
+
     -- Mini.splitjoin
     require('mini.splitjoin').setup()
 
