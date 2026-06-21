@@ -25,13 +25,17 @@ Claude Code supports three plugin sources:
 
 ## Adding Official Plugins
 
-Official plugins from `claude-plugins-official` are **installed automatically** - you just need to enable them in Claude Code.
+Enabling an official plugin in `settings.json` (`enabledPlugins`) only **toggles**
+it — it does not fetch it. The plugin must also be installed via
+`claude plugin install` for the toggle to point at anything. To keep a fresh
+machine reproducible, list every enabled official plugin in the
+`OFFICIAL_PLUGINS` array in `setup-marketplace.sh`, which installs them.
 
 ### Enabling Official Plugins
 
-1. Open Claude Code
-2. Use the `/plugin` command or settings menu
-3. Browse and enable plugins from the official marketplace
+1. Add `"plugin@claude-plugins-official": true` to `enabledPlugins` in `settings.json`
+2. Add `"plugin@claude-plugins-official"` to the `OFFICIAL_PLUGINS` array in `setup-marketplace.sh`
+3. Run `./claude/setup-marketplace.sh --update` (from a separate terminal, not inside Claude Code)
 
 ### Available Official Plugins
 
@@ -191,7 +195,9 @@ No JSON merging, no symlinks, no jq — the CLI handles all state management.
 1. Create your plugin under `marketplaces/local/plugins/your-plugin/`
 2. Add it to `marketplaces/local/.claude-plugin/marketplace.json`
 3. Add `"your-plugin@local"` to the `PLUGINS` array in `setup-marketplace.sh`
-4. Run `./claude/setup-marketplace.sh --update`
+   (use the `OFFICIAL_PLUGINS` array instead for `@claude-plugins-official` plugins)
+4. Enable it in `settings.json`'s `enabledPlugins`
+5. Run `./claude/setup-marketplace.sh --update`
 
 ## Installing Skills
 

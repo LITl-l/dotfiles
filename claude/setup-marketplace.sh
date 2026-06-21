@@ -22,9 +22,21 @@ info() { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
-# Plugins to install (add new plugins here)
+# Plugins to install from the local marketplace (add new plugins here).
+# Keep this in sync with the "@local" entries in claude/settings.json's
+# enabledPlugins.
 PLUGINS=(
   "jj-master@local"
+  "architect@local"
+)
+
+# Plugins to install from the official marketplace. settings.json's
+# enabledPlugins only TOGGLES these on/off -- it does not fetch them, so any
+# official plugin enabled there must also be listed here to actually install.
+# Keep this in sync with the enabled "@claude-plugins-official" entries.
+OFFICIAL_MARKETPLACE="anthropics/claude-plugins-official"
+OFFICIAL_PLUGINS=(
+  "sourcegraph@claude-plugins-official"
 )
 
 # Remote MCP servers registered at user scope (not bundled as plugins).
@@ -84,6 +96,14 @@ install() {
     claude plugin install "$plugin" --scope user
   done
 
+  info "Adding official marketplace: $OFFICIAL_MARKETPLACE"
+  claude plugin marketplace add "$OFFICIAL_MARKETPLACE" 2>/dev/null || true
+
+  for plugin in "${OFFICIAL_PLUGINS[@]}"; do
+    info "Installing plugin: $plugin"
+    claude plugin install "$plugin" --scope user
+  done
+
   setup_mcp
 
   echo ""
@@ -94,7 +114,7 @@ install() {
 uninstall() {
   check_claude
 
-  for plugin in "${PLUGINS[@]}"; do
+  for plugin in "${PLUGINS[@]}" "${OFFICIAL_PLUGINS[@]}"; do
     info "Removing plugin: $plugin"
     claude plugin uninstall "$plugin" --scope user 2>/dev/null || true
   done
@@ -117,6 +137,16 @@ update() {
   claude plugin marketplace update local
 
   for plugin in "${PLUGINS[@]}"; do
+    info "Reinstalling plugin: $plugin"
+    claude plugin uninstall "$plugin" --scope user 2>/dev/null || true
+    claude plugin install "$plugin" --scope user
+  done
+
+  info "Updating official marketplace..."
+  claude plugin marketplace add "$OFFICIAL_MARKETPLACE" 2>/dev/null || true
+  claude plugin marketplace update claude-plugins-official
+
+  for plugin in "${OFFICIAL_PLUGINS[@]}"; do
     info "Reinstalling plugin: $plugin"
     claude plugin uninstall "$plugin" --scope user 2>/dev/null || true
     claude plugin install "$plugin" --scope user
