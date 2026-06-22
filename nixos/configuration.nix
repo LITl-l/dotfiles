@@ -15,8 +15,10 @@
   # Required for the `wsl-clipboard-image-hook.sh` Windows→WSL image bridge.
   wsl.interop.register = true;
 
-  # vkms kernel module (requires custom WSL2 kernel with CONFIG_DRM_VKMS=m)
-  boot.kernelModules = [ "vkms" ];
+  # vkms kernel module (requires custom WSL2 kernel with CONFIG_DRM_VKMS=m).
+  # tun is needed so pasta can create its TAP device for rootless container
+  # networking; /dev/net/tun is otherwise absent on this WSL build.
+  boot.kernelModules = [ "vkms" "tun" ];
 
   # seatd for Wayland compositor device access
   services.seatd.enable = true;
@@ -57,6 +59,7 @@
     foot
     wayvnc
     seatd
+    passt
   ];
 
   # Podman: rootless container engine with docker CLI compatibility.
@@ -67,6 +70,11 @@
     dockerCompat = true;
     defaultNetwork.settings.dns_enabled = true;
   };
+
+  # Use pasta (from passt) for rootless container networking instead of the
+  # slirp4netns userspace stack. Faster, IPv6-capable, and the upstream default
+  # since podman 5; pinning it here keeps the choice declarative.
+  virtualisation.containers.containersConf.settings.network.default_rootless_network_cmd = "pasta";
 
   # Automatic store garbage collection. On WSL2 the backing ext4.vhdx only ever
   # grows to its high-water mark and never shrinks on its own, so unbounded
