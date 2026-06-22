@@ -46,6 +46,7 @@ in
     jq # JSON processor
     yq-go # YAML processor
     htop # Process viewer
+    btop # Modern resource monitor (htop successor)
     tree # Directory tree viewer
     curl # HTTP client
     wget # File downloader
