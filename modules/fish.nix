@@ -41,6 +41,10 @@
       set -g fish_pager_color_prefix 8caaee
       set -g fish_pager_color_completion c6d0f5
       set -g fish_pager_color_description 737994
+
+      # Point Docker clients at the rootful Podman socket
+      # (enabled by virtualisation.podman.dockerSocket in nixos/configuration.nix)
+      set -gx DOCKER_HOST unix:///run/podman/podman.sock
     '';
 
     # Interactive shell initialization
