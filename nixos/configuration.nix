@@ -1,7 +1,12 @@
 # NixOS system configuration for WSL2 + Hyprland
 # This file is a reference copy of /etc/nixos/configuration.nix
 # Apply with: sudo cp nixos/configuration.nix /etc/nixos/configuration.nix && sudo nixos-rebuild switch
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 {
   imports = [
     <nixos-wsl/modules>
@@ -18,11 +23,20 @@
   # vkms kernel module (requires custom WSL2 kernel with CONFIG_DRM_VKMS=m).
   # tun is needed so pasta can create its TAP device for rootless container
   # networking; /dev/net/tun is otherwise absent on this WSL build.
-  boot.kernelModules = [ "vkms" "tun" ];
+  boot.kernelModules = [
+    "vkms"
+    "tun"
+    "bridge"
+    "br_netfilter"
+  ];
 
   # seatd for Wayland compositor device access
   services.seatd.enable = true;
-  users.users.nixos.extraGroups = [ "seat" "video" ];
+  users.users.nixos.extraGroups = [
+    "seat"
+    "video"
+    "podman"
+  ];
 
   # nix-ld: run unpatched dynamic binaries on NixOS
   programs.nix-ld.enable = true;
@@ -68,6 +82,7 @@
   virtualisation.podman = {
     enable = true;
     dockerCompat = true;
+    dockerSocket.enable = true;
     defaultNetwork.settings.dns_enabled = true;
   };
 
