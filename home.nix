@@ -54,6 +54,9 @@ in
     gzip # Compression tool
     rsync # File sync
 
+    # Networking
+    wireguard-tools # WireGuard VPN CLI (wg, wg-quick)
+
     # Development tools
     git-lfs # Git Large File Storage
     gh # GitHub CLI
