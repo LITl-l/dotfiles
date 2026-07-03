@@ -17,8 +17,9 @@ function M.apply(config)
     config.default_prog = { shell.fish_path }
   end
 
-  -- Launch menu (platform-specific)
-  config.launch_menu = {}
+  -- Launch menu (platform-specific). Preserve any entries other modules
+  -- may have appended, so this apply() is load-order agnostic.
+  config.launch_menu = config.launch_menu or {}
 
   if platform.is_windows then
     table.insert(config.launch_menu, {
