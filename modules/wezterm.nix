@@ -14,6 +14,7 @@
   xdg.configFile."wezterm/fonts.lua".source = ../wezterm/fonts.lua;
   xdg.configFile."wezterm/keybindings.lua".source = ../wezterm/keybindings.lua;
   xdg.configFile."wezterm/mouse.lua".source = ../wezterm/mouse.lua;
+  xdg.configFile."wezterm/mux.lua".source = ../wezterm/mux.lua;
   xdg.configFile."wezterm/performance.lua".source = ../wezterm/performance.lua;
   xdg.configFile."wezterm/platform.lua".source = ../wezterm/platform.lua;
   xdg.configFile."wezterm/tabline.lua".source = ../wezterm/tabline.lua;
