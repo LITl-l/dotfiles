@@ -107,6 +107,17 @@ function M.apply(config)
     },
 
     -- ============================================
+    -- Remote mux (LEADER + key)
+    -- ============================================
+
+    -- Attach to the remote wezterm mux
+    {
+      key = 'm',
+      mods = 'LEADER',
+      action = wezterm.action.AttachDomain 'mux:wez-mux',
+    },
+
+    -- ============================================
     -- Utility operations (LEADER + key)
     -- ============================================
 

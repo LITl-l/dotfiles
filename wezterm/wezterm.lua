@@ -15,6 +15,7 @@ require('appearance').apply(config)
 require('keybindings').apply(config)
 require('mouse').apply(config)
 require('domains').apply(config)
+require('mux').apply(config)
 require('performance').apply(config)
 
 -- Load tabline plugin (must be loaded after other configurations)
