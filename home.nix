@@ -64,6 +64,7 @@ in
     ghq # Git repository manager
     claude-code # Claude AI coding assistant (native binary via ryoppippi/claude-code-overlay)
     pi-coding-agent # Pi coding agent (native binary via lukasl-dev/pi.nix; Codex/Claude/Copilot subscription login)
+    llama-cpp # Local LLM inference engine (llama-cli, llama-server for GGUF models)
 
     # Containers
     podman # Daemonless container engine (docker-compatible CLI)
