@@ -16,6 +16,7 @@ in
     ./modules/common.nix
     ./modules/claude-code.nix
     ./modules/pi.nix
+    ./modules/llama-cpp.nix
     ./modules/hyprland.nix
   ];
 
