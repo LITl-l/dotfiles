@@ -65,15 +65,19 @@
     fi
   '';
 
-  # Pi reads context-window metadata from models.json. The OpenAI Codex
-  # GPT-5.4/GPT-5.5 models default to 272K in pi's bundled metadata, but can use
-  # the experimental 1M-token context window. Merge the override so any existing
-  # custom providers or model settings remain intact.
+  # Pi reads context-window metadata and custom providers from models.json.
+  # Two overrides are merged here so they don't race on the same file:
+  #   1. Bump the OpenAI Codex GPT-5.4/GPT-5.5 context window from pi's default
+  #      272K to the experimental 1M-token window.
+  #   2. Register a `local-llama` provider that points at the llama-server user
+  #      service (see modules/llama-cpp.nix) serving Bonsai 27B as an
+  #      OpenAI-compatible endpoint on 127.0.0.1:8080.
+  # Existing custom providers or model settings are preserved.
   home.activation.setPiCodexContextWindow = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         models="$HOME/.pi/agent/models.json"
 
         if [ -n "''${DRY_RUN:-}" ]; then
-          echo "Would update $models with 1M OpenAI Codex context-window overrides"
+          echo "Would update $models with 1M OpenAI Codex context-window overrides and local-llama provider"
         else
           mkdir -p "$HOME/.pi/agent"
 
@@ -115,6 +119,18 @@
         contextWindow: 1000000,
       };
     }
+
+    const existingLocal = config.providers["local-llama"];
+    const localBase = (existingLocal && typeof existingLocal === "object" && !Array.isArray(existingLocal)) ? existingLocal : {};
+    const existingModels = Array.isArray(localBase.models) ? localBase.models : [];
+    const hasBonsai = existingModels.some((m) => m && typeof m === "object" && m.id === "bonsai-27b");
+    config.providers["local-llama"] = {
+      ...localBase,
+      api: "openai-completions",
+      apiKey: "local",
+      baseUrl: "http://127.0.0.1:8080/v1",
+      models: hasBonsai ? existingModels : [...existingModels, { id: "bonsai-27b" }],
+    };
 
     writeFileSync(modelsPath + ".tmp", JSON.stringify(config, null, 2) + "\n");
     NODE
