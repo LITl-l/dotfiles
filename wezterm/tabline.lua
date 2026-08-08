@@ -2,6 +2,7 @@
 -- Uses tabline.wez for enhanced tab bar with system information
 local wezterm = require 'wezterm'
 local tabline_theme = require 'tabline-theme'
+local sysinfo = require 'sysinfo'
 
 local M = {}
 
@@ -56,9 +57,13 @@ function M.apply(config)
         'index',
         { 'process', padding = { left = 0, right = 1 } }
       },
+      -- A plain function, not the bundled 'cpu'/'ram' components: those shell
+      -- out to `wmic` on every refresh and disable their own throttle when the
+      -- counter comes back empty. See sysinfo.lua for the full story.
       tabline_x = {
-        { 'ram', padding = 1 },
-        { 'cpu', padding = 1 },
+        function()
+          return sysinfo.status()
+        end,
       },
       tabline_y = {
         { 'datetime', padding = 1 },
