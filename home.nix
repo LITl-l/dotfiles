@@ -70,6 +70,9 @@ in
     # Containers
     podman # Daemonless container engine (docker-compatible CLI)
 
+    # Reverse engineering
+    ghidra # NSA reverse engineering suite (Swing GUI; works over WSLg)
+
     # Nix tools
     nixpkgs-fmt # Nix formatter
     nil # Nix LSP

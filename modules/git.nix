@@ -208,10 +208,15 @@
         showCommandLog = false;
       };
       git = {
-        pagers = [
+        # lazygit renamed git.pagers -> git.diffRenderers (and each entry's
+        # `pager` key -> `command`). The old names still work, but lazygit
+        # auto-migrates them and rewrites the config file on startup -- which
+        # fails here, because home-manager symlinks it into the read-only
+        # /nix/store. Staying on the current names avoids the migration.
+        diffRenderers = [
           {
             colorArg = "always";
-            pager = "delta --paging=never";
+            command = "delta --paging=never";
           }
         ];
       };
