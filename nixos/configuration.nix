@@ -91,6 +91,29 @@
   # since podman 5; pinning it here keeps the choice declarative.
   virtualisation.containers.containersConf.settings.network.default_rootless_network_cmd = "pasta";
 
+  # earlyoom: userspace OOM prevention. WSL2 gives this VM a fixed memory
+  # ceiling with no host-side pressure valve, so a single runaway allocation
+  # (a `uv lock` resolver blowup, a parallel cargo/nix build) exhausts RAM and
+  # swap and the whole VM thrashes for minutes before the kernel's OOM killer
+  # finally fires. By then every terminal session is already unusable, and
+  # losing the WSL client tears the VM down with it.
+  #
+  # earlyoom polls /proc/meminfo and SIGTERMs the largest consumer while the
+  # box is still responsive, turning a machine-wide freeze into one dead
+  # process.
+  #
+  # Both thresholds must be crossed before it acts, which makes the swap figure
+  # the one that actually decides when. Swap here is VHD-backed and slow, so
+  # waiting for it to fill is waiting for the freeze we are trying to avoid.
+  # At 90% the swap clause is satisfied once roughly 800 MB of the 8 GB in
+  # .wslconfig is in use, which lets the memory clause do the real work and
+  # fires while paging is still shallow.
+  services.earlyoom = {
+    enable = true;
+    freeMemThreshold = 10; # SIGTERM below ~2 GB free of 20 GB
+    freeSwapThreshold = 90; # ...once any meaningful paging has begun
+  };
+
   # Automatic store garbage collection. On WSL2 the backing ext4.vhdx only ever
   # grows to its high-water mark and never shrinks on its own, so unbounded
   # /nix/store growth steadily fills the Windows host disk. A weekly sweep that
