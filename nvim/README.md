@@ -13,6 +13,7 @@ Modern Neovim configuration using mini.nvim with LSP, completion, and Git integr
 - **Catppuccin theme** for consistent aesthetics
 - **Treesitter** for advanced syntax highlighting
 - **Vi mode everywhere** consistent with Fish and Tmux
+- **Built-in tutor** (`:Dojo`) that teaches and drills this config's own keymaps
 
 ## Installation
 
@@ -77,18 +78,43 @@ If you need just neovim configuration without the full Nix setup:
 - `<leader>cd`: Show line diagnostics
 - `<leader>cl`: Open diagnostics list
 
+### Tutor (`:Dojo`)
+
+A tutor for this config specifically, not for generic Vim.
+
+- `<leader>tt` -- chaptered lessons
+- `<leader>td` -- timed drills, weakest keymaps first
+- `<leader>ts` -- your keystroke-ratio stats
+
+Lesson chapters are generated from the live keymap table
+(`nvim_get_keymap` plus `nvim_buf_get_keymap` for the buffer-local LSP maps), so
+they cannot drift from the config. Drill exercises are authored, but each pins a
+keymap that `nvim/tests/tutor.lua` asserts still resolves -- a renamed or deleted
+map fails `nix flake check` instead of leaving a drill for a dead key.
+
+Progress lives in `$XDG_STATE_HOME/nvim/tutor/progress.json`.
+
 ### Configuration structure
 
 ```
 nvim/
 ├── init.lua              # Main configuration entry
-├── install.sh           # Installation script
-└── lua/config/
-    ├── autocmds.lua     # Auto commands
-    ├── keymaps.lua      # Key mappings
-    ├── options.lua      # Neovim options
-    ├── plugins.lua      # Plugin configurations
-    └── util.lua         # Utility functions
+├── install.sh            # Installation script
+├── tests/                # headless assertions run by nix flake check
+├── lua/config/
+│   ├── autocmds.lua      # Auto commands
+│   ├── keymaps.lua       # Key mappings
+│   ├── options.lua       # Neovim options
+│   ├── plugins.lua       # Plugin configurations
+│   └── util.lua          # Utility functions
+└── lua/tutor/
+    ├── init.lua          # :Dojo API and dispatch
+    ├── inventory.lua     # keymaps derived from the live table
+    ├── lessons.lua       # chapters over the inventory
+    ├── drills.lua        # authored, pinned drill corpus
+    ├── session.lua       # engine: keystroke count, timing, scoring
+    ├── progress.lua      # progress persistence and ranking
+    └── ui.lua            # floats and briefings
 ```
 
 ## Plugin ecosystem
