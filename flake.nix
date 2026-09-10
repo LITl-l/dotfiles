@@ -161,7 +161,23 @@
                 export XDG_DATA_HOME="$TMPDIR/data"
                 export XDG_STATE_HOME="$TMPDIR/state"
                 export XDG_CACHE_HOME="$TMPDIR/cache"
+
+                # The sandbox has no network, so init.lua's mini.nvim bootstrap
+                # clone cannot run. Provide the plugin offline at the exact path
+                # the bootstrap probes; otherwise init.lua aborts on packadd
+                # before config.options runs, and every test below then inspects
+                # an unconfigured editor (no mapleader, no plugin keymaps).
+                mkdir -p "$XDG_DATA_HOME/nvim/site/pack/deps/start"
+                ln -s ${pkgs.vimPlugins.mini-nvim} \
+                  "$XDG_DATA_HOME/nvim/site/pack/deps/start/mini.nvim"
+
                 nvim --headless +'luafile nvim/tests/leader_e_minifiles.lua' +'qa!'
+
+                # A Lua error raised by +cmd does not set nvim's exit code: the
+                # trailing qa! quits cleanly, so a failed assertion would leave
+                # this derivation green. Turn an error into :cq so the test
+                # actually gates the build.
+                nvim --headless -c "lua local ok, err = pcall(dofile, 'nvim/tests/tutor.lua'); if not ok then io.stderr:write(tostring(err), '\n'); vim.cmd('cq 1') end" -c 'qa!'
                 nvim --headless nvim/init.lua +'lua assert(vim.fn.exists(":LspServers") == 2, "LspServers command missing"); local cfg = vim.lsp.config.lua_ls; assert(cfg and type(cfg.cmd) == "table" and #cfg.cmd > 0, "lua_ls cmd missing"); assert(vim.fn.maparg("<leader>l", "n") == "", "<leader>l maps to missing Lazy command")' +'qa!'
                 touch "$out"
               '';

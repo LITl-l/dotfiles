@@ -73,6 +73,19 @@ vim.keymap.set('n', '<leader>fC', function() plugins.pick_colorschemes() end, { 
 vim.keymap.set('n', '<leader>gb', function() require('config.blame').toggle() end, { desc = 'Toggle inline blame' })
 vim.api.nvim_create_user_command('BlameToggle', function() require('config.blame').toggle() end, { desc = 'Toggle inline git/jj blame' })
 
+-- Config tutor: lessons over the live keymap table, plus timed drills.
+-- Registered eagerly so :Dojo and <leader>t* exist from startup; only the
+-- module bodies are lazy, matching the <leader>gb pattern above.
+-- The command is :Dojo because :Tutor is a built-in (vimtutor).
+vim.keymap.set('n', '<leader>tt', function() require('tutor').open() end, { desc = 'Tutor: lessons' })
+vim.keymap.set('n', '<leader>td', function() require('tutor').drill() end, { desc = 'Tutor: drill weakest' })
+vim.keymap.set('n', '<leader>ts', function() require('tutor').stats() end, { desc = 'Tutor: stats' })
+vim.api.nvim_create_user_command('Dojo', function(o) require('tutor').command(o) end, {
+  nargs = '*',
+  complete = function(arg) return require('tutor').complete(arg) end,
+  desc = 'Config tutor: lessons and timed drills',
+})
+
 -- Debug keymaps lazy-load DAP on first use, then config.dap replaces these stubs.
 local function with_dap(callback)
   return function()

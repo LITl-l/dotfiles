@@ -173,6 +173,19 @@ Leader key: `<Space>`
 ### mini.splitjoin
 - `gS` - Toggle split/join
 
+## Tutor (Dojo)
+
+Lessons are generated from the live keymap table, so they cannot drift from this
+file. Drills are timed and scored against an optimal keystroke count.
+
+| Key | Mode | Description |
+|-----|------|-------------|
+| `<leader>tt` | n | Open tutor lessons |
+| `<leader>td` | n | Drill weakest keymaps |
+| `<leader>ts` | n | Show drill progress |
+
+Drill groups: `surround`, `comment`, `splitjoin`, `editing`, `treesitter`, `motions`.
+
 ## Commands
 
 | Command | Description |
@@ -182,3 +195,8 @@ Leader key: `<Space>`
 | `:FormatDisable!` | Disable format on save (global) |
 | `:FormatEnable` | Enable format on save |
 | `:LspServers` | Show enabled LSP servers |
+| `:Dojo` | Open tutor lessons |
+| `:Dojo drill [group]` | Timed drills (weakest-first if no group) |
+| `:Dojo skip` | Skip the current drill |
+| `:Dojo stats` | Show drill progress |
+| `:Dojo reset` | Clear drill progress |
