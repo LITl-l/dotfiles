@@ -1,7 +1,8 @@
 { config, pkgs, lib, ... }:
 
 let
-  dotfilesClaudePath = "/home/nixos/.config/dotfiles/claude";
+  dotfilesPath = "/home/nixos/.config/dotfiles";
+  dotfilesClaudePath = "${dotfilesPath}/claude";
   mkSymlink = config.lib.file.mkOutOfStoreSymlink;
 in
 {
@@ -13,6 +14,25 @@ in
   home.file.".claude/wsl-clipboard-image-hook.sh".source = mkSymlink "${dotfilesClaudePath}/wsl-clipboard-image-hook.sh";
   home.file.".claude/ast-grep-nudge-hook.sh".source = mkSymlink "${dotfilesClaudePath}/ast-grep-nudge-hook.sh";
   home.file.".claude/gh-api-write-guard.sh".source = mkSymlink "${dotfilesClaudePath}/gh-api-write-guard.sh";
+
+  # Meta-agent orchestration: the orchestrator agent definition and the worker spec
+  # template it fills in. `--agent meta` constrains the TOP-LEVEL session (verified), so
+  # the orchestrator has no Edit/Write and cannot drift into implementing things itself.
+  home.file.".claude/agents/meta.md".source = mkSymlink "${dotfilesClaudePath}/agents/meta.md";
+  home.file.".claude/worker-spec.template.md".source = mkSymlink "${dotfilesClaudePath}/worker-spec.template.md";
+
+  # `fleet` manages background agent sessions. Unlike the files above it is installed INTO
+  # the store rather than symlinked out of it: an out-of-store symlink dangles on any
+  # machine without this checkout, and a sandboxed build stats its inputs, so CI cannot
+  # realise it. The trade-off is that editing scripts/fleet needs a rebuild.
+  home.packages = [
+    (pkgs.writeTextFile {
+      name = "fleet";
+      destination = "/bin/fleet";
+      executable = true;
+      text = builtins.readFile ../scripts/fleet;
+    })
+  ];
 
   # Run marketplace plugin setup after build
   home.activation.setupClaudeCode = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
