@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+# fleet — inspect and reap the Claude Code background-agent fleet.
+#
+# WHY THIS EXISTS (all four points were measured on 2.1.267, not assumed):
+#   1. `claude logs <id>` returns raw ANSI/TUI screen frames — ~15k tokens of escape
+#      codes for a one-line answer. It is unusable from an agent. `fleet out` reads the
+#      session transcript JSONL instead. NEVER call `claude logs` from the meta agent.
+#   2. `claude rm <id>` REFUSES to remove a session whose daemon socket is gone
+#      ("couldn't remove ... the background service may be restarting"). The state then
+#      leaks forever: a session sat in `state: blocked` for six weeks before anyone
+#      noticed. `fleet gc` removes the orphaned job dir that `claude rm` cannot.
+#   3. `claude agents --json` is the only cheap inventory, and `--cwd` scopes it to one
+#      project — that is what makes "one project = one session" enforceable.
+#   4. `fleet watch` emits one line per state TRANSITION so a Monitor can wake the meta
+#      agent on events instead of polling each worker (polling N agents does not scale).
+set -uo pipefail
+
+# Field separator for internal records. MUST NOT be whitespace: bash `read` collapses
+# runs of IFS whitespace, which would silently shift columns whenever a field is empty.
+SEP=$'\x1f'
+
+JOBS_DIR="${HOME}/.claude/jobs"
+PROJECTS_DIR="${HOME}/.claude/projects"
+
+die() { printf 'fleet: %s\n' "$*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"; }
+need jq
+
+# Normalised inventory: id \t kind \t state \t waitingFor \t cwd \t name
+snapshot() {
+  local cwd_filter=("$@")
+  claude agents --json "${cwd_filter[@]}" 2>/dev/null | jq -r '
+    .[] | [ (.id // .sessionId[0:8]),
+            .kind,
+            (.state // .status // "?"),
+            (.waitingFor // ""),
+            (.cwd // ""),
+            ((.name // "") | gsub("[\t\n]"; " ")) ] | map(tostring) | join("\u001f")'
+}
+
+cmd_ls() {
+  local args=() self="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
+  [ -n "${1:-}" ] && args=(--cwd "$1")
+  local rows; rows="$(snapshot "${args[@]}")"
+  [ -z "$rows" ] && { echo "(no sessions)"; return 0; }
+  printf '%-10s %-12s %-10s %-28s %s\n' ID KIND STATE CWD NAME
+  while IFS="$SEP" read -r id kind state wf cwd name; do
+    [ -z "$id" ] && continue
+    [ -n "$self" ] && [ "${self:0:8}" = "$id" ] && name="$name  <- this session"
+    [ -n "$wf" ] && state="$state($wf)"
+    printf '%-10s %-12s %-10s %-28s %s\n' \
+      "$id" "$kind" "$state" "$(basename "$cwd")" "${name:0:60}"
+  done <<<"$rows"
+}
+
+# Resolve a short id to its transcript file without knowing the cwd->slug mangling.
+transcript_for() {
+  local id="$1" f
+  f="$(find "$PROJECTS_DIR" -name "${id}*.jsonl" -print -quit 2>/dev/null)"
+  [ -n "$f" ] && { printf '%s\n' "$f"; return 0; }
+  local full
+  full="$(claude agents --json 2>/dev/null | jq -r --arg i "$id" \
+    '.[] | select((.id // .sessionId[0:8]) == $i) | .sessionId' | head -1)"
+  [ -n "$full" ] && find "$PROJECTS_DIR" -name "${full}.jsonl" -print -quit 2>/dev/null
+}
+
+cmd_out() {
+  local id="${1:-}" n="${2:-40}"
+  [ -z "$id" ] && die "usage: fleet out <id> [lines]"
+  local f; f="$(transcript_for "$id")"
+  [ -z "$f" ] && die "no transcript found for '$id' (session may never have started)"
+  jq -r '
+    select(.type=="assistant")
+    | .message.content[]?
+    | select(.type=="text")
+    | .text' "$f" 2>/dev/null | tail -n "$n"
+}
+
+# A job is a zombie when nothing in the live inventory claims it.
+zombie_ids() {
+  # --all includes completed background sessions. Without it, a finished-but-kept
+  # session looks orphaned and gc would destroy a conversation `claude attach` can reopen.
+  local live; live="$(snapshot --all | cut -d"$SEP" -f1)"
+  [ -d "$JOBS_DIR" ] || return 0
+  for d in "$JOBS_DIR"/*/; do
+    [ -d "$d" ] || continue
+    local id; id="$(basename "$d")"
+    [ "$id" = "pins.json" ] && continue
+    grep -qx -- "$id" <<<"$live" || printf '%s\n' "$id"
+  done
+}
+
+cmd_gc() {
+  local dry=0; [ "${1:-}" = "--dry-run" ] && dry=1
+  local ids; ids="$(zombie_ids)"
+  [ -z "$ids" ] && { echo "fleet: no orphaned job state"; return 0; }
+  while read -r id; do
+    [ -z "$id" ] && continue
+    # Try the supported path first; it fails when the daemon socket is gone.
+    if [ "$dry" -eq 0 ]; then
+      claude rm "$id" >/dev/null 2>&1
+      if [ -d "$JOBS_DIR/$id" ]; then
+        rm -rf "${JOBS_DIR:?}/$id" && echo "reaped  $id (claude rm could not; removed job state)"
+      else
+        echo "removed $id (via claude rm)"
+      fi
+    else
+      echo "would reap $id"
+    fi
+  done <<<"$ids"
+}
+
+# One line per transition. Consumed by Monitor; keep stdout sparse.
+cmd_watch() {
+  local interval="${1:-20}" self="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
+  local prev cur
+  key() { snapshot | awk -F"$SEP" -v OFS="$SEP" -v s="${self:0:8}" '$1!=s {print $1,$2,$3,$4,$6}' | sort; }
+  prev="$(key)"
+  echo "fleet-watch armed ($(grep -c . <<<"$prev") member(s), ${interval}s)"
+  while true; do
+    sleep "$interval"
+    cur="$(key)"
+    comm -13 <(printf '%s\n' "$prev") <(printf '%s\n' "$cur") \
+      | while IFS="$SEP" read -r id kind st wf nm; do
+          [ -z "$id" ] && continue
+          echo "-> $id [$kind] ${st}${wf:+ ($wf)} :: ${nm:0:50}"
+        done
+    comm -23 <(printf '%s\n' "$prev") <(printf '%s\n' "$cur") \
+      | while IFS="$SEP" read -r id kind st wf nm; do
+          [ -z "$id" ] && continue
+          cut -d"$SEP" -f1 <<<"$cur" | grep -qx -- "$id" || echo "x  $id [$kind] gone (was $st) :: ${nm:0:50}"
+        done
+    prev="$cur"
+  done
+}
+
+# Refuse to dispatch work that has no termination condition or output path.
+# MAST (arXiv:2503.13657, 1600+ traces): 79% of multi-agent failures are specification
+# and coordination defects; "unaware of termination conditions" is a top-3 mode.
+cmd_spawn() {
+  local name="" dir="" spec="" model="" mode="acceptEdits"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --name)  name="$2"; shift 2 ;;
+      --dir)   dir="$2";  shift 2 ;;
+      --spec)  spec="$2"; shift 2 ;;
+      --model) model="$2"; shift 2 ;;
+      --permission-mode) mode="$2"; shift 2 ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  [ -n "$name" ] && [ -n "$dir" ] && [ -n "$spec" ] \
+    || die "usage: fleet spawn --name N --dir PATH --spec FILE [--model M] [--permission-mode M]"
+  [ -f "$spec" ] || die "spec file not found: $spec"
+  [ -d "$dir" ]  || die "workspace dir not found: $dir"
+
+  local missing=()
+  grep -qi '^## *Termination'  "$spec" || missing+=("## Termination condition")
+  grep -qi '^## *Output'       "$spec" || missing+=("## Output")
+  grep -qi '^## *Boundary'     "$spec" || missing+=("## Boundary")
+  if [ ${#missing[@]} -gt 0 ]; then
+    printf 'fleet: spec is missing required section(s):\n' >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    die "refusing to dispatch an underspecified worker (see claude/worker-spec.template.md)"
+  fi
+
+  # One project = one session: warn if this dir already has a live worker.
+  local existing; existing="$(snapshot --cwd "$dir" | cut -d"$SEP" -f1 | grep -c . || true)"
+  [ "${existing:-0}" -gt 0 ] && echo "fleet: note — $existing session(s) already live in $dir" >&2
+
+  # An unattended worker cannot answer a permission prompt: in a prompting mode it parks
+  # in `waiting` indefinitely. Say which mode is in force so that is never a surprise.
+  echo "fleet: dispatching '$name' with --permission-mode $mode" >&2
+  local flags=(--bg -n "$name" --permission-mode "$mode")
+  [ -n "$model" ] && flags+=(--model "$model")
+  # Read the spec BEFORE cd: a relative --spec path would not resolve inside the subshell,
+  # and an unreadable spec would silently dispatch a worker with an empty prompt.
+  local prompt; prompt="$(cat "$spec")"
+  [ -n "$prompt" ] || die "spec file is empty: $spec"
+  ( cd "$dir" && claude "${flags[@]}" -- "$prompt" )
+}
+
+usage() {
+  cat <<'USAGE'
+fleet — Claude Code background-agent fleet control
+
+  fleet ls [CWD]                 inventory (optionally scoped to one project dir)
+  fleet out <id> [lines]         worker's assistant output, from the transcript
+                                 (never `claude logs` — that returns ANSI frames)
+  fleet gc [--dry-run]           reap orphaned job state `claude rm` refuses to remove
+  fleet watch [interval]         emit one line per state transition (for Monitor)
+  fleet spawn --name N --dir PATH --spec FILE [--model M] [--permission-mode M]
+                                 dispatch a worker, refusing underspecified specs
+USAGE
+}
+
+case "${1:-}" in
+  ls)    shift; cmd_ls "$@" ;;
+  out)   shift; cmd_out "$@" ;;
+  gc)    shift; cmd_gc "$@" ;;
+  watch) shift; cmd_watch "$@" ;;
+  spawn) shift; cmd_spawn "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage; exit 1 ;;
+esac
