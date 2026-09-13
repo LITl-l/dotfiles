@@ -18,6 +18,7 @@ in
     ./modules/pi.nix
     ./modules/llama-cpp.nix
     ./modules/hyprland.nix
+    ./modules/hunk.nix
   ];
 
   # Let Home Manager manage itself
