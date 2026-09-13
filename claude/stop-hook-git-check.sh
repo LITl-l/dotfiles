@@ -10,6 +10,16 @@ if [[ "$stop_hook_active" = "true" ]]; then
 fi
 
 # Detect jj repos — jj auto-snapshots, so use jj-native checks
+# The jj checks below are ADVISORY: they print a reminder and exit 0.
+#
+# They used to exit 2, which blocks the assistant from stopping. That is wrong
+# here because the check is workspace-scoped, not session-scoped: `jj diff` on @
+# reports whatever is in the working copy with no notion of which session put it
+# there, and jj auto-snapshots every write into @, so there is no staging area to
+# signal deliberate authorship. Every session sharing a workspace — including
+# dispatched background agents, which inherit user-scope hooks — inherited every
+# other session's dirt as a stop condition and burned a turn investigating files
+# it never wrote. The git fallback path below still blocks; it is single-session.
 if jj workspace root >/dev/null 2>&1; then
   # Check if there are any changes not yet described (working copy has modifications)
   # In jj, the working copy is always a commit, so we check if the current change
@@ -19,8 +29,8 @@ if jj workspace root >/dev/null 2>&1; then
   if [[ -n "$has_diff" ]]; then
     current_desc=$(jj log -r @ --no-graph -T 'description' 2>/dev/null)
     if [[ -z "$current_desc" || "$current_desc" == "(no description set)" ]]; then
-      echo "There are undescribed changes in the jj working copy. Please describe and push your changes." >&2
-      exit 2
+      echo "There are undescribed changes in the jj working copy. Please describe and push your changes."
+      exit 0
     fi
   fi
 
@@ -31,8 +41,8 @@ if jj workspace root >/dev/null 2>&1; then
   # ignored here. They're cleanup candidates, not push candidates.
   unpushed=$(jj log -r 'trunk()..@ & bookmarks() ~ remote_bookmarks()' --no-graph -T 'change_id ++ "\n"' 2>/dev/null | head -5)
   if [[ -n "$unpushed" ]]; then
-    echo "There are unpushed bookmarks. Please push your changes to the remote." >&2
-    exit 2
+    echo "There are unpushed bookmarks. Please push your changes to the remote."
+    exit 0
   fi
 
   exit 0
