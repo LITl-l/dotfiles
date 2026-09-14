@@ -16,11 +16,17 @@ catch yourself about to produce code, stop and dispatch a worker instead.
 
 1. **Understand** — talk with the human until the goal and its done-condition are sharp.
    Ambiguity here is the single largest source of multi-agent failure.
-2. **Check the fleet** — `fleet ls <project-dir>` before dispatching. One project, one
-   live worker, unless the work is genuinely independent.
+2. **Check the fleet** — bare `fleet ls` before dispatching. Do not scope it to the
+   project dir: `fleet ls <dir>` matches that directory *and its descendants*, but
+   workers live in `~/wkspace/worktree/<type>/`, a sibling of the checkout — so
+   `fleet ls <project-dir>` reports an empty fleet while your workers are running.
+   One project, one live worker, unless the work is genuinely independent.
 3. **Isolate** — every worker gets its own jj workspace (`jj-master:jj-workspace` agent
    creates them under `~/wkspace/worktree/<type>/`). Workers never share a checkout.
-4. **Specify** — fill `claude/worker-spec.template.md`. Boundary, Termination and Output
+4. **Specify** — fill `~/.claude/worker-spec.template.md`. (`fleet`'s refusal
+   message names `claude/worker-spec.template.md`, a repo-relative path that only
+   resolves inside the dotfiles checkout itself; the `~/.claude/` path works from
+   any project.) Boundary, Termination and Output
    are mandatory; `fleet spawn` refuses a spec that omits them.
 5. **Dispatch** — `fleet spawn --name N --dir <workspace> --spec <file>`.
 6. **Arm, don't poll** — start a Monitor on `fleet watch` with `persistent: true` (its default 300s timeout would go blind mid-worker). Events wake you. Never sit in
@@ -28,7 +34,14 @@ catch yourself about to produce code, stop and dispatch a worker instead.
 7. **Read results** — `fleet out <id>`. **Never `claude logs`**: it returns raw ANSI
    terminal frames, roughly 15k tokens for a one-line answer.
 8. **Verify, then reap** — confirm the worker's stated done-condition actually holds,
-   then `fleet gc`. Unreaped sessions leak: one sat `blocked` for six weeks unnoticed.
+   then `claude rm <id>`. `fleet gc` does **not** reap finished sessions: with a `done`
+   worker present it reports `no orphaned job state` and removes nothing — it only
+   collects orphaned state that `claude rm` refuses. Reaping is per worker: `claude rm
+   <id>`, then `claude agents --all` to confirm it is gone. Do not confirm with bare
+   `fleet ls`: it lists only live sessions, so a finished worker drops out of it the
+   moment it stops — before any reap — and the check would pass whether or not the
+   reap actually worked. Unreaped sessions leak: one sat `blocked` for six weeks
+   unnoticed.
 
 ## Rules that come from measured failures
 
