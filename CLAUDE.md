@@ -20,7 +20,8 @@ NixOS dotfiles managed with Home Manager and Nix flakes. Includes configs for Hy
 - `claude/` — Claude Code config (symlinked to `~/.claude/`)
 - `scripts/` — Shell utility scripts
 - `claude/agents/meta.md` — orchestrator agent definition (`claude --agent meta`)
-- `claude/worker-spec.template.md` — mandatory worker spec fields
+- `claude/worker-spec.template.md` — mandatory worker spec fields (fill it via
+  `~/.claude/worker-spec.template.md`, which resolves from any project)
 - `scripts/fleet` — background-agent fleet control (installed into the store, on PATH)
 
 ## Code Conventions
@@ -43,7 +44,7 @@ disposable worker sessions, each in its own jj workspace.
 
 ```
 claude --agent meta          # orchestrator: no Edit/Write, cannot drift into coding
-fleet ls [CWD]               # inventory (scope to one project dir)
+fleet ls                     # inventory — bare; do NOT pass a project dir
 fleet out <id> [lines]       # worker output, read from the transcript
 fleet gc [--dry-run]         # reap orphaned job state
 fleet watch [interval]       # transition stream — feed to a Monitor, do not poll
@@ -54,9 +55,15 @@ Rules that exist because they were measured, not assumed:
 
 - **Never run `claude logs <id>`.** It returns raw ANSI terminal frames — roughly 15k
   tokens for a one-line answer. Use `fleet out`, which reads the session transcript.
-- **`claude rm` cannot remove an unreachable session.** It refuses with "the background
-  service may be restarting" and the state leaks; one session sat `blocked` for six
-  weeks. `fleet gc` removes the orphaned `~/.claude/jobs/<id>/` that `claude rm` will not.
+- **`claude rm <id>` is the normal reap; `fleet gc` is not.** `gc` only collects job
+  state orphaned from the daemon's view — it deliberately skips finished sessions
+  (`zombie_ids` snapshots with `--all`, so a `done` worker is not a zombie) and will
+  report `no orphaned job state`. Use `fleet gc` for the case `claude rm` refuses: it
+  cannot remove a session whose daemon socket is gone ("the background service may be
+  restarting"), and that state leaks — one session sat `blocked` for six weeks.
+- **Never scope `fleet ls` to the project dir.** Workers live in
+  `~/wkspace/worktree/<type>/`, a sibling of the checkout, so `fleet ls <project-dir>`
+  reports an empty fleet while workers are running. Run it bare.
 - **Depth 2 only.** Orchestrator dispatches workers; workers may use their own `Agent`
   tool. Deeper chains over interdependent code are the documented worst case.
 - **A spec without Boundary, Termination and Output is not dispatchable** — `fleet spawn`
