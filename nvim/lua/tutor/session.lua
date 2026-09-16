@@ -92,6 +92,14 @@ function M.start(exercise, opts)
       if handle.stopped then
         return true
       end
+      -- A drill that changes the line count (gS) would leave the briefing
+      -- anchored mid-buffer. ui is only loaded once something has drawn one,
+      -- so look it up rather than require it: the engine stays testable with
+      -- no window and no rendering modules.
+      local ui = package.loaded['tutor.ui']
+      if ui then
+        ui.reanchor_briefing(buf)
+      end
       if not handle.predicate(handle) then
         return
       end

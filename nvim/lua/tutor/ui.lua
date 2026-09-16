@@ -77,8 +77,12 @@ function M.render_lessons()
   })
 end
 
+-- The briefing renders UNDER the exercise, so it is ordered to read top-down
+-- from the code the user is editing: a blank separator, which drill this is,
+-- the state to reach, then how to get there.
 function M.drill_lines(exercise, index, total)
   local lines = {
+    '',
     ('Drill %d/%d  [%s]  %s'):format(index or 1, total or 1, exercise.group, exercise.id),
     '',
     'Target:',
@@ -90,11 +94,10 @@ function M.drill_lines(exercise, index, total)
   lines[#lines + 1] = ('optimal: %d keystrokes%s'):format(
     exercise.optimal, exercise.lhs and ('     key: ' .. exercise.lhs) or '')
   if exercise.hint then
-    lines[#lines + 1] = ''
     lines[#lines + 1] = exercise.hint
   end
   lines[#lines + 1] = ''
-  lines[#lines + 1] = 'Edit the buffer to match the target.  :Dojo skip to move on.'
+  lines[#lines + 1] = 'Edit the buffer above to match the target.  :Dojo skip to move on.'
   return lines
 end
 
@@ -115,7 +118,9 @@ function M.result_lines(exercise, score)
     '',
     'optimal solution: ' .. (exercise.solution or ''),
     '',
-    'Next: <leader>td      Stats: <leader>ts',
+    -- Not <leader>td: that rebuilds a fresh weakest-first queue, which ejects
+    -- the user from a group run. :Dojo skip is what advances THIS queue.
+    'Next: :Dojo skip      Stats: <leader>ts',
   }
 end
 
@@ -154,10 +159,25 @@ function M.render_stats()
 end
 
 local briefing_ns = vim.api.nvim_create_namespace('tutor_briefing')
+local BRIEFING_ID = 1
 
--- Pin the drill briefing above the first line as virtual text. Virtual lines
--- are not buffer content, so the completion predicate (buffer lines == target)
--- is unaffected -- unlike putting the target in the buffer itself.
+-- One drill runs at a time, so a single slot holds everything needed to move
+-- the briefing when the exercise changes line count.
+local briefing = { buf = nil, virt = nil }
+
+local function briefing_row(buf)
+  return math.max(0, vim.api.nvim_buf_line_count(buf) - 1)
+end
+
+-- Pin the drill briefing under the exercise as virtual text. Virtual lines are
+-- not buffer content, so the completion predicate (buffer lines == target) is
+-- unaffected -- unlike putting the target in the buffer itself, which would
+-- also shift the absolute line numbers that gg, NG, :N and gcip depend on.
+--
+-- Anchored BELOW the last exercise line, never above line 1: no window can
+-- scroll higher than the first line, so virt_lines_above there reserves no
+-- room and nvim draws nothing at all. That is how a briefing can be attached,
+-- assert-ably present, and still invisible.
 function M.attach_briefing(buf, lines)
   if not vim.api.nvim_buf_is_valid(buf) then
     return
@@ -167,9 +187,31 @@ function M.attach_briefing(buf, lines)
   for _, l in ipairs(lines) do
     virt[#virt + 1] = { { l, 'Comment' } }
   end
-  vim.api.nvim_buf_set_extmark(buf, briefing_ns, 0, 0, {
+  briefing.buf, briefing.virt = buf, virt
+  vim.api.nvim_buf_set_extmark(buf, briefing_ns, briefing_row(buf), 0, {
+    id = BRIEFING_ID,
     virt_lines = virt,
-    virt_lines_above = true,
+    virt_lines_above = false,
+  })
+end
+
+-- Keep the briefing under the exercise when the drill changes the line count --
+-- gS splits one line into four, which would otherwise strand it mid-buffer.
+-- Re-sets the SAME extmark id rather than adding one, and runs from the
+-- session's TextChanged handler, so the hot path is two C calls and a compare.
+function M.reanchor_briefing(buf)
+  if briefing.buf ~= buf or not briefing.virt or not vim.api.nvim_buf_is_valid(buf) then
+    return
+  end
+  local row = briefing_row(buf)
+  local at = vim.api.nvim_buf_get_extmark_by_id(buf, briefing_ns, BRIEFING_ID, {})
+  if at[1] == row then
+    return
+  end
+  vim.api.nvim_buf_set_extmark(buf, briefing_ns, row, 0, {
+    id = BRIEFING_ID,
+    virt_lines = briefing.virt,
+    virt_lines_above = false,
   })
 end
 
