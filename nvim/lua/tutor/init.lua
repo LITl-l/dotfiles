@@ -43,11 +43,46 @@ end
 -- Queue state for a multi-exercise drill run.
 local queue, queue_index = {}, 0
 
+-- The drill's own tab, plus the window to return to when the set is done. A
+-- drill needs full width -- the briefing is as tall as the exercise again --
+-- and reusing one window across the queue is what keeps a skip chain from
+-- stacking a new pane per exercise.
+local drill_win, origin_win = nil, nil
+
+local function show_drill(buf)
+  if drill_win and vim.api.nvim_win_is_valid(drill_win) then
+    vim.api.nvim_win_set_buf(drill_win, buf)
+    vim.api.nvim_set_current_win(drill_win)
+    return
+  end
+  origin_win = vim.api.nvim_get_current_win()
+  vim.cmd('tabnew')
+  -- The empty buffer tabnew just made is displaced immediately; wipe it with
+  -- the same 'bufhidden' the drill buffers use rather than leaking one per tab.
+  vim.bo[vim.api.nvim_get_current_buf()].bufhidden = 'wipe'
+  drill_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(drill_win, buf)
+end
+
+local function close_drill_win()
+  if drill_win and vim.api.nvim_win_is_valid(drill_win)
+    and #vim.api.nvim_list_tabpages() > 1 then
+    -- Last window in its tabpage, so this closes the tab; 'bufhidden' = wipe
+    -- takes the drill buffer with it.
+    pcall(vim.api.nvim_win_close, drill_win, true)
+    if origin_win and vim.api.nvim_win_is_valid(origin_win) then
+      pcall(vim.api.nvim_set_current_win, origin_win)
+    end
+  end
+  drill_win, origin_win = nil, nil
+end
+
 local function run_next()
   local m = mods()
   queue_index = queue_index + 1
   local exercise = queue[queue_index]
   if not exercise then
+    close_drill_win()
     vim.notify('Dojo: drill set complete', vim.log.levels.INFO)
     return
   end
@@ -67,13 +102,7 @@ local function run_next()
 
   local briefing = m.ui.drill_lines(exercise, queue_index, #queue)
 
-  vim.cmd('botright split')
-  vim.api.nvim_win_set_buf(0, handle.buf)
-  -- The briefing renders as virtual lines above line 1, so the window has to be
-  -- tall enough for briefing + content or the target scrolls out of view.
-  vim.api.nvim_win_set_height(0, math.min(
-    #briefing + #exercise.before + 1,
-    math.max(8, math.floor(vim.o.lines * 0.6))))
+  show_drill(handle.buf)
   vim.bo[handle.buf].modifiable = true
 
   -- The optimal keystroke count assumes a starting cursor position, so place it.
@@ -82,8 +111,8 @@ local function run_next()
   local col = math.min(cur[2], #(vim.api.nvim_buf_get_lines(handle.buf, line - 1, line, false)[1] or ''))
   pcall(vim.api.nvim_win_set_cursor, 0, { line, col })
 
-  -- Pinned above line 1, so the target stays visible while editing instead of
-  -- scrolling out of the message area.
+  -- Pinned under the exercise, so the target and the hint stay on screen while
+  -- editing instead of scrolling out of the message area.
   m.ui.attach_briefing(handle.buf, briefing)
 end
 

@@ -346,4 +346,132 @@ assert(require('tutor.session').active() == nil,
 
 require('tutor.progress').reset()
 print('tutor.init: ok')
+
+-- BRIEFING PLACEMENT. The older assertion above only checks that an extmark
+-- EXISTS, which is exactly why a briefing that never drew a pixel shipped
+-- green. Virtual lines anchored ABOVE line 1 reserve no space -- no window can
+-- scroll higher than the first line -- so what has to be asserted is where the
+-- briefing anchors and which side of the anchor it renders on.
+local briefing_ns = vim.api.nvim_create_namespace('tutor_briefing')
+
+local function briefing_mark(b)
+  local marks = vim.api.nvim_buf_get_extmarks(b, briefing_ns, 0, -1, { details = true })
+  assert(#marks == 1, 'expected exactly one briefing extmark, got ' .. #marks)
+  return marks[1][2], marks[1][4]
+end
+
+local function briefing_text(details)
+  local out = {}
+  for _, vline in ipairs(details.virt_lines or {}) do
+    local chunks = {}
+    for _, chunk in ipairs(vline) do chunks[#chunks + 1] = chunk[1] end
+    out[#out + 1] = table.concat(chunks)
+  end
+  return table.concat(out, '\n')
+end
+
+local pbuf = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_buf_set_lines(pbuf, 0, -1, false, { 'local t = {', '  a = 1,', '}' })
+ui.attach_briefing(pbuf, { 'Target:', '    x = 1' })
+
+local prow, pdet = briefing_mark(pbuf)
+assert(pdet.virt_lines_above == false,
+  'briefing must render BELOW its anchor: virt_lines above line 1 are never drawn')
+assert(prow == 2,
+  'briefing must anchor on the last line of the exercise (row 2), got row ' .. prow)
+assert(briefing_text(pdet):find('Target:', 1, true),
+  'briefing extmark must carry the target text, got: ' .. briefing_text(pdet))
+
+-- Drift: splitjoin drills change the line count mid-drill, so the anchor has to
+-- follow the buffer. Re-anchoring reuses the same extmark id, so it moves the
+-- briefing rather than stacking a second one.
+vim.api.nvim_buf_set_lines(pbuf, 0, -1, false,
+  { 'local t = {', '  a = 1,', '  b = 2', '}' })
+ui.reanchor_briefing(pbuf)
+prow, pdet = briefing_mark(pbuf)
+assert(prow == 3, 'briefing must follow the new last line (row 3), got row ' .. prow)
+assert(briefing_text(pdet):find('Target:', 1, true),
+  're-anchoring must preserve the briefing text')
+
+-- The result panel used to advertise <leader>td, which rebuilds a fresh
+-- weakest-first queue and silently ejects the user from a group run.
+local nextline = table.concat(ui.result_lines(
+  { id = 'x', solution = 'saiw"', optimal = 5 },
+  { keys = 7, optimal = 5, ratio = 1.4, ms = 2100 }), '\n')
+assert(nextline:find(':Dojo skip', 1, true),
+  'result panel must advertise the command that actually advances the queue')
+assert(not nextline:find('<leader>td', 1, true),
+  '<leader>td rebuilds the queue; it must not be offered as "next"')
+
+-- The briefing sits below the exercise now, so the footer must point up at it.
+assert(table.concat(ui.drill_lines(drills.all()[1], 1, 18), '\n'):find('above', 1, true),
+  'drill footer must say the buffer to edit is above the briefing')
+
+print('tutor.ui briefing placement: ok')
+
+-- DRILL WINDOW. A drill gets its own tab, and the tab is REUSED across the
+-- queue: the old `botright split` stacked a fresh window on every skip and
+-- never closed the previous one.
+local base_tabs = #vim.api.nvim_list_tabpages()
+local surround_set = drills.by_group('surround')
+tutor.drill('surround')
+
+assert(#vim.api.nvim_list_tabpages() == base_tabs + 1,
+  'drill must open exactly one new tab, got ' .. #vim.api.nvim_list_tabpages())
+
+local dhandle = require('tutor.session').active()
+assert(dhandle, 'drill must start a session')
+local dwin = vim.api.nvim_get_current_win()
+assert(vim.api.nvim_win_get_buf(dwin) == dhandle.buf,
+  'the drill window must display the drill buffer')
+
+local drow, ddet = briefing_mark(dhandle.buf)
+assert(ddet.virt_lines_above == false, 'drill briefing must render below the exercise')
+assert(drow == #surround_set[1].before - 1,
+  ('drill briefing must anchor on row %d, got %d')
+    :format(#surround_set[1].before - 1, drow))
+assert(briefing_text(ddet):find(surround_set[1].after[1], 1, true),
+  'the drill briefing must show the target text the user has to reach')
+
+-- Skipping reuses the tab AND the window inside it.
+local tab_wins = #vim.api.nvim_tabpage_list_wins(vim.api.nvim_win_get_tabpage(dwin))
+tutor.skip()
+assert(#vim.api.nvim_list_tabpages() == base_tabs + 1,
+  'skip must not open a second tab, got ' .. #vim.api.nvim_list_tabpages())
+assert(#vim.api.nvim_tabpage_list_wins(vim.api.nvim_get_current_tabpage()) == tab_wins,
+  'skip must reuse the drill window instead of splitting another one')
+
+-- Draining the queue returns the user to the layout they started from.
+for _ = 1, #surround_set - 1 do tutor.skip() end
+assert(#vim.api.nvim_list_tabpages() == base_tabs,
+  'the drill tab must close when the set completes, got '
+    .. #vim.api.nvim_list_tabpages())
+assert(require('tutor.session').active() == nil,
+  'no session may survive queue exhaustion')
+
+-- Line-count drift through the real session, which is where it actually bites.
+local sj_set = drills.by_group('splitjoin')
+tutor.drill('splitjoin')
+local sjh = require('tutor.session').active()
+assert(sjh, 'splitjoin drill must start a session')
+assert(briefing_mark(sjh.buf) == #sj_set[1].before - 1,
+  'splitjoin briefing must start on the last line of the exercise')
+
+-- A partial edit: more lines than `before`, but not the target, so the
+-- completion predicate does not fire and the drill stays open.
+local partial = { 'local t = {', '  a = 1,', '  b = 2 }' }
+assert(not vim.deep_equal(partial, sj_set[1].after),
+  'the partial edit must not match the target, or this asserts nothing')
+vim.api.nvim_buf_set_lines(sjh.buf, 0, -1, false, partial)
+vim.api.nvim_exec_autocmds('TextChanged', { buffer = sjh.buf })
+assert(briefing_mark(sjh.buf) == #partial - 1,
+  ('briefing must re-anchor to the new last line (%d), got %d')
+    :format(#partial - 1, briefing_mark(sjh.buf)))
+
+for _ = 1, #sj_set do tutor.skip() end
+assert(#vim.api.nvim_list_tabpages() == base_tabs,
+  'the splitjoin drill tab must close on exhaustion too')
+
+require('tutor.progress').reset()
+print('tutor.init drill window: ok')
 print('ALL TUTOR TESTS PASSED')
