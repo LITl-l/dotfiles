@@ -14,6 +14,8 @@ in
   home.file.".claude/wsl-clipboard-image-hook.sh".source = mkSymlink "${dotfilesClaudePath}/wsl-clipboard-image-hook.sh";
   home.file.".claude/ast-grep-nudge-hook.sh".source = mkSymlink "${dotfilesClaudePath}/ast-grep-nudge-hook.sh";
   home.file.".claude/gh-api-write-guard.sh".source = mkSymlink "${dotfilesClaudePath}/gh-api-write-guard.sh";
+  home.file.".claude/blocking-wait-nudge.sh".source = mkSymlink "${dotfilesClaudePath}/blocking-wait-nudge.sh";
+  home.file.".claude/full-suite-nudge.sh".source = mkSymlink "${dotfilesClaudePath}/full-suite-nudge.sh";
 
   # Meta-agent orchestration: the orchestrator agent definition and the worker spec
   # template it fills in. `--agent meta` constrains the TOP-LEVEL session (verified), so

@@ -97,21 +97,41 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/ast-grep-nudge-hook.sh"
-          }
-        ]
-      },
-      {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
             "command": "~/.claude/gh-api-write-guard.sh",
             "if": "Bash(gh api:*)"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/blocking-wait-nudge.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/full-suite-nudge.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/ast-grep-nudge-hook.sh",
+            "if": "Bash(grep:*)"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/ast-grep-nudge-hook.sh",
+            "if": "Bash(rg:*)"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/full-suite-nudge.sh"
           }
         ]
       }
