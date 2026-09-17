@@ -182,9 +182,14 @@ file. Drills are timed and scored against an optimal keystroke count.
 |-----|------|-------------|
 | `<leader>tt` | n | Open tutor lessons |
 | `<leader>td` | n | Drill weakest keymaps |
+| `<leader>th` | n | Navigation hunt (cross-file LSP) |
 | `<leader>ts` | n | Show drill progress |
 
 Drill groups: `surround`, `comment`, `splitjoin`, `editing`, `treesitter`, `motions`.
+
+Hunt groups: `symbol`. Hunts navigate a bundled TypeScript fixture with `gd`,
+`gr`, `gI` and the workspace symbol picker, and are scored by keystroke ratio
+just like drills.
 
 ## Commands
 
@@ -198,5 +203,7 @@ Drill groups: `surround`, `comment`, `splitjoin`, `editing`, `treesitter`, `moti
 | `:Dojo` | Open tutor lessons |
 | `:Dojo drill [group]` | Timed drills (weakest-first if no group) |
 | `:Dojo skip` | Skip the current drill |
+| `:Dojo hunt [group]` | Cross-file navigation hunts (weakest-first if no group) |
+| `:Dojo hunt-skip` | Skip the current hunt |
 | `:Dojo stats` | Show drill progress |
 | `:Dojo reset` | Clear drill progress |

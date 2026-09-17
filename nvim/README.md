@@ -84,6 +84,7 @@ A tutor for this config specifically, not for generic Vim.
 
 - `<leader>tt` -- chaptered lessons
 - `<leader>td` -- timed drills, weakest keymaps first
+- `<leader>th` -- navigation hunts, weakest first
 - `<leader>ts` -- your keystroke-ratio stats
 
 Lesson chapters are generated from the live keymap table
@@ -91,6 +92,14 @@ Lesson chapters are generated from the live keymap table
 they cannot drift from the config. Drill exercises are authored, but each pins a
 keymap that `nvim/tests/tutor.lua` asserts still resolves -- a renamed or deleted
 map fails `nix flake check` instead of leaving a drill for a dead key.
+
+Hunts (`:Dojo hunt`) navigate a bundled TypeScript fixture under
+`nvim/tutor-fixture/` rather than a scratch buffer, so `gd`, `gr`, `gI` and the
+workspace symbol picker have a real project to resolve against -- including a
+same-named decoy that a text search falls for and `gd` does not. A hunt is
+scored by keystroke ratio exactly like a drill, against the same optimal counts
+and verdict tiers, and its clock starts only once the language server actually
+answers so the score is the route and not the server's cold start.
 
 Progress lives in `$XDG_STATE_HOME/nvim/tutor/progress.json`.
 
@@ -107,12 +116,15 @@ nvim/
 │   ├── options.lua       # Neovim options
 │   ├── plugins.lua       # Plugin configurations
 │   └── util.lua          # Utility functions
+├── tutor-fixture/        # committed TypeScript project the hunts navigate
 └── lua/tutor/
     ├── init.lua          # :Dojo API and dispatch
     ├── inventory.lua     # keymaps derived from the live table
     ├── lessons.lua       # chapters over the inventory
     ├── drills.lua        # authored, pinned drill corpus
-    ├── session.lua       # engine: keystroke count, timing, scoring
+    ├── hunts.lua         # authored, pattern-resolved hunt corpus
+    ├── session.lua       # drill engine: keystroke count, timing, scoring
+    ├── hunt.lua          # hunt engine: real files, cursor predicate, teardown
     ├── progress.lua      # progress persistence and ranking
     └── ui.lua            # floats and briefings
 ```

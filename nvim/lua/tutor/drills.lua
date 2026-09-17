@@ -117,15 +117,28 @@ local EXERCISES = {
   },
 
   -- line moves ------------------------------------------------------------
+  -- `filetype` pins the drill buffer's language; session.lua defaults it to
+  -- 'lua'. Both move-line maps end in '==', so the drill is scored against
+  -- whatever the buffer's indent rules do to the moved line. With Lua indent
+  -- active, 'second' lands under 'first' as a continuation and is re-indented
+  -- to '  second' -- a target the user cannot reach with the documented
+  -- solution, because that '==' is part of the mapping's RHS, not of the keys
+  -- the user types. Under 'text' the moved line was verified by replay to come
+  -- through unchanged, so the drill measures the line move, which is the point.
   {
     id = 'move-line-down',
     lhs = '<A-j>', mode = 'n', group = 'editing',
+    filetype = 'text',
     before = { 'second', 'first' },
     after  = { 'first', 'second' },
     cursor = { 1, 0 },
     optimal = 1, solution = '<A-j>',
     hint = 'Alt-j drags this line down and re-indents it.',
   },
+  -- No `filetype` here: this one moves a line to the TOP of the buffer, where
+  -- every indentexpr agrees on column 0, so '==' cannot perturb the target.
+  -- Verified by replay under 'lua', 'text' and no filetype -- all three reach
+  -- `after`.
   {
     id = 'move-line-up',
     lhs = '<A-k>', mode = 'n', group = 'editing',
