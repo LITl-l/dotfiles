@@ -80,10 +80,13 @@ vim.api.nvim_create_user_command('BlameToggle', function() require('config.blame
 vim.keymap.set('n', '<leader>tt', function() require('tutor').open() end, { desc = 'Tutor: lessons' })
 vim.keymap.set('n', '<leader>td', function() require('tutor').drill() end, { desc = 'Tutor: drill weakest' })
 vim.keymap.set('n', '<leader>ts', function() require('tutor').stats() end, { desc = 'Tutor: stats' })
+vim.keymap.set('n', '<leader>th', function() require('tutor').hunt() end, { desc = 'Tutor: navigation hunt' })
 vim.api.nvim_create_user_command('Dojo', function(o) require('tutor').command(o) end, {
   nargs = '*',
-  complete = function(arg) return require('tutor').complete(arg) end,
-  desc = 'Config tutor: lessons and timed drills',
+  -- The command line is forwarded, not just the argument being completed, so
+  -- hunt groups can be offered after `hunt` and nowhere else.
+  complete = function(arg, line) return require('tutor').complete(arg, line) end,
+  desc = 'Config tutor: lessons, timed drills and navigation hunts',
 })
 
 -- Debug keymaps lazy-load DAP on first use, then config.dap replaces these stubs.

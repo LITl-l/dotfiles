@@ -643,5 +643,67 @@ do
   print('tutor.hunt readiness: ok (no session without a ready server)')
 end
 
+-- tutor.init hunt teardown leaves the editor as it found it
+do
+  local hunt = require('tutor.hunt')
+  local real_await = hunt.await_lsp
+  hunt.await_lsp = function() return true end
+
+  for _, fn in ipairs({ 'hunt', 'hunt_skip' }) do
+    assert(type(tutor[fn]) == 'function', 'tutor.' .. fn .. ' must exist')
+  end
+
+  -- Hunt groups belong AFTER the subcommand. Drill groups are offered at the
+  -- top level, which is a pre-existing wart -- `:Dojo sur<Tab>` completes to an
+  -- invalid `:Dojo surround` -- and not one worth spreading to hunts.
+  local top = {}
+  for _, c in ipairs(tutor.complete('')) do top[c] = true end
+  assert(top.hunt and top['hunt-skip'], 'hunt subcommands must complete')
+  assert(not top.symbol, 'hunt groups must not leak into the top-level completion')
+  local after = {}
+  for _, c in ipairs(tutor.complete('', 'Dojo hunt ')) do after[c] = true end
+  assert(after.symbol, ':Dojo hunt <Tab> must offer hunt groups')
+
+  -- <leader>th is set by nvim/init.lua, which is only loaded when the config
+  -- under test IS this tree: true under nix flake check, which exports
+  -- XDG_CONFIG_HOME=$PWD, and false for a bare `set rtp^=` run, which loads the
+  -- installed config and can only see keymaps that already shipped. Assert it
+  -- where it is observable instead of failing where it cannot be.
+  if vim.fs.normalize(vim.fn.stdpath('config'))
+    == vim.fs.normalize(vim.fn.getcwd() .. '/nvim') then
+    local thmap = vim.fn.maparg(vim.keycode('<leader>th'), 'n', false, true)
+    assert(type(thmap) == 'table' and not vim.tbl_isempty(thmap), '<leader>th must be mapped')
+    assert((thmap.desc or ''):match('^Tutor'),
+      '<leader>th desc should start with "Tutor": ' .. vim.inspect(thmap.desc))
+  end
+
+  local tabs_before = #vim.api.nvim_list_tabpages()
+  local bufs_before = #vim.api.nvim_list_bufs()
+
+  tutor.hunt('symbol')
+  assert(#vim.api.nvim_list_tabpages() == tabs_before + 1, 'hunt must open exactly one tab')
+  assert(hunt.active(), 'hunt must start a session')
+
+  -- More skips than hunts: draining the queue must be idempotent, not a crash.
+  for _ = 1, 10 do
+    tutor.hunt_skip()
+  end
+
+  assert(#vim.api.nvim_list_tabpages() == tabs_before,
+    'hunt tab leaked: ' .. #vim.api.nvim_list_tabpages() .. ' vs ' .. tabs_before)
+  assert(#vim.api.nvim_list_bufs() == bufs_before,
+    'fixture buffers leaked: ' .. #vim.api.nvim_list_bufs() .. ' vs ' .. bufs_before)
+  assert(hunt.active() == nil, 'no hunt may survive queue exhaustion')
+
+  -- An unknown group must warn, not error, and must not open a tab.
+  tutor.hunt('no-such-group')
+  assert(hunt.active() == nil, 'unknown hunt group must not start a session')
+  assert(#vim.api.nvim_list_tabpages() == tabs_before,
+    'unknown hunt group must not open a tab')
+
+  hunt.await_lsp = real_await
+  print('tutor.init hunt: ok (one tab, clean teardown, no buffer leak)')
+end
+
 require('tutor.progress').reset()
 print('ALL TUTOR TESTS PASSED')
