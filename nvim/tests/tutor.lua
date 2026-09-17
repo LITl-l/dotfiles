@@ -474,4 +474,174 @@ assert(#vim.api.nvim_list_tabpages() == base_tabs,
 
 require('tutor.progress').reset()
 print('tutor.init drill window: ok')
+
+-- tutor.hunts corpus integrity
+do
+  local hunts = require('tutor.hunts')
+  local all = hunts.all()
+  assert(#all >= 4, 'expected at least 4 hunts, got ' .. #all)
+
+  local seen = {}
+  local drill_ids = {}
+  for _, d in ipairs(require('tutor.drills').all()) do
+    drill_ids[d.id] = true
+  end
+
+  for _, h in ipairs(all) do
+    assert(type(h.id) == 'string' and h.id ~= '', 'hunt missing id')
+    assert(not seen[h.id], 'duplicate hunt id: ' .. h.id)
+    assert(not drill_ids[h.id], 'hunt id collides with drill id: ' .. h.id)
+    seen[h.id] = true
+    assert(type(h.group) == 'string' and h.group ~= '', h.id .. ': missing group')
+    assert(type(h.goal) == 'string' and h.goal ~= '', h.id .. ': missing goal')
+    assert(type(h.optimal) == 'number' and h.optimal > 0, h.id .. ': optimal must be > 0')
+    assert(type(h.solution) == 'string' and h.solution ~= '', h.id .. ': missing solution')
+
+    -- Anti-rot: each location must resolve to exactly one line.
+    local spath, sline, scol = hunts.resolve(h.start)
+    assert(vim.fn.filereadable(spath) == 1, h.id .. ': start file unreadable: ' .. spath)
+    assert(sline > 0, h.id .. ': start pattern did not resolve')
+    local tpath, tline = hunts.resolve(h.target)
+    assert(vim.fn.filereadable(tpath) == 1, h.id .. ': target file unreadable: ' .. tpath)
+    assert(tline > 0, h.id .. ': target pattern did not resolve')
+    assert(not (spath == tpath and sline == tline), h.id .. ': start and target are the same location')
+
+    -- The start cursor must land ON the symbol. `optimal` assumes it (gd from
+    -- column 0 of an indented line is not 2 keystrokes), and so does the
+    -- readiness probe, which asks for a definition at exactly this position.
+    assert(type(h.start.word) == 'string' and h.start.word ~= '',
+      h.id .. ': start must name the word the cursor lands on')
+    local sline_text = vim.fn.readfile(spath)[sline]
+    assert(sline_text:sub(scol + 1, scol + #h.start.word) == h.start.word,
+      ('%s: start col %d does not sit on %q in %q')
+        :format(h.id, scol, h.start.word, sline_text))
+  end
+  print('tutor.hunts: ok (' .. #all .. ' hunts)')
+end
+
+-- tutor.hunts.resolve rejects ambiguity
+do
+  local hunts = require('tutor.hunts')
+  local ok = pcall(hunts.resolve, { file = 'auth/session.ts', pattern = 'token' })
+  assert(not ok, 'resolve must error when a pattern matches multiple lines')
+  local ok2 = pcall(hunts.resolve, { file = 'auth/session.ts', pattern = 'zzz_no_such_text' })
+  assert(not ok2, 'resolve must error when a pattern matches nothing')
+  local ok3 = pcall(hunts.resolve,
+    { file = 'auth/session.ts', pattern = '^export function refresh%(', word = 'zzz' })
+  assert(not ok3, 'resolve must error when the word is absent from the resolved line')
+  print('tutor.hunts.resolve: ok (rejects 0 and >1 matches)')
+end
+
+-- tutor.hunt lifecycle
+--
+-- The readiness gate is stubbed throughout. A live tsserver would turn these
+-- into timing tests of vtsls -- ~8s of indexing per hunt, measured -- and the
+-- lifecycle being pinned here (start location, path-aware predicate, teardown)
+-- needs no server at all. The stub still proves the one thing the gate exists
+-- for: that the keystroke clock has not started while readiness is undecided.
+do
+  local hunt = require('tutor.hunt')
+  local hunts = require('tutor.hunts')
+  local h = hunts.by_id('symbol-decoy-definition')
+
+  local real_await = hunt.await_lsp
+  local saw = {}
+  hunt.await_lsp = function(buf)
+    local pending = hunt.active()
+    saw.active = pending ~= nil
+    saw.started_at = pending and pending.started_at
+    saw.buf = buf
+    return true
+  end
+
+  local completed = nil
+  local handle = hunt.start(h, { on_complete = function(score) completed = score end })
+  assert(handle, 'hunt.start must return a handle when the server is ready')
+
+  -- 1. lands on the start location, cursor ON the symbol
+  local spath, sline, scol = hunts.resolve(h.start)
+  assert(vim.fs.normalize(vim.api.nvim_buf_get_name(0)) == spath,
+    'expected to start in ' .. spath .. ', got ' .. vim.api.nvim_buf_get_name(0))
+  assert(vim.api.nvim_win_get_cursor(0)[1] == sline, 'cursor not on start line')
+  assert(vim.api.nvim_win_get_cursor(0)[2] == scol,
+    ('cursor not on the start word: col %d, want %d')
+      :format(vim.api.nvim_win_get_cursor(0)[2], scol))
+
+  -- 2. the clock starts only after readiness
+  assert(saw.active, 'the handle must exist while await_lsp runs')
+  assert(saw.started_at == nil, 'started_at was set BEFORE await_lsp returned')
+  assert(saw.buf == handle.buf, 'await_lsp must probe the hunt buffer')
+  assert(handle.keys == 0, 'keystroke counter must start at zero')
+  assert(type(handle.started_at) == 'number', 'started_at must be set after readiness')
+
+  -- 3. fixture buffers are read-only
+  assert(vim.bo[handle.buf].modifiable == false, 'fixture buffer must not be modifiable')
+
+  -- 4. The autocmds must be GLOBAL. session.lua scopes its trigger to the one
+  -- drill buffer; a hunt succeeds by LEAVING its start buffer, so a
+  -- buffer-scoped autocmd would never fire at the target and no hunt could
+  -- ever complete. Also pin the trigger set: TextChanged is the drill's
+  -- trigger and is useless here.
+  local aus = vim.api.nvim_get_autocmds({ group = handle.augroup })
+  assert(#aus > 0, 'hunt must register autocmds')
+  local events = {}
+  for _, au in ipairs(aus) do
+    events[au.event] = true
+    assert(au.buffer == nil,
+      'hunt autocmds must be global, but one is scoped to buffer ' .. tostring(au.buffer))
+  end
+  for _, want in ipairs({ 'CursorMoved', 'CursorMovedI', 'BufEnter', 'WinEnter' }) do
+    assert(events[want], 'hunt must listen for ' .. want)
+  end
+  assert(not events.TextChanged, 'hunt must not use the drill trigger')
+
+  -- 5. The TARGET LINE NUMBER in the WRONG FILE must not complete the hunt.
+  -- Deliberately not a trivial "move somewhere else" check: that would pass
+  -- vacuously if no predicate ran at all. This proves the predicate compares
+  -- the PATH, not just the line number.
+  local tpath, tline = hunts.resolve(h.target)
+  assert(vim.fn.line('$') >= tline, 'start file too short for this probe to mean anything')
+  vim.api.nvim_win_set_cursor(0, { tline, 0 })
+  assert(vim.api.nvim_win_get_cursor(0)[1] == tline, 'cursor did not move -- test would be vacuous')
+  -- CursorMoved is raised from nvim's main loop, which a headless -c script
+  -- never reaches; the existing drill tests fire TextChanged by hand for the
+  -- same reason (see the splitjoin block above).
+  vim.api.nvim_exec_autocmds('CursorMoved', {})
+  assert(completed == nil, 'hunt completed on the right line of the WRONG file')
+
+  -- 6. reaching the target location DOES complete it
+  vim.cmd('edit ' .. vim.fn.fnameescape(tpath))
+  vim.api.nvim_win_set_cursor(0, { tline, 0 })
+  vim.api.nvim_exec_autocmds('CursorMoved', {})
+  assert(completed ~= nil, 'hunt did not complete at the target location')
+  assert(type(completed.ratio) == 'number', 'score must carry a ratio')
+  assert(completed.optimal == h.optimal, 'score must carry the hunt optimal')
+
+  hunt.stop(handle)
+  assert(hunt.active() == nil, 'stop must clear the active handle')
+  hunt.stop(handle)
+
+  hunt.await_lsp = real_await
+  print('tutor.hunt: ok (starts on the symbol, rejects wrong file, completes at target)')
+end
+
+-- A hunt whose server never becomes ready must not be presented as scoreable.
+do
+  local hunt = require('tutor.hunt')
+  local hunts = require('tutor.hunts')
+  local real_await = hunt.await_lsp
+  hunt.await_lsp = function() return false end
+
+  local fired = false
+  local handle = hunt.start(hunts.by_id('symbol-decoy-definition'),
+    { on_complete = function() fired = true end })
+  assert(handle == nil, 'start must return nil when the language server never answers')
+  assert(hunt.active() == nil, 'a hunt that cannot be completed must not stay active')
+  assert(not fired, 'on_complete must not fire for an ungated hunt')
+
+  hunt.await_lsp = real_await
+  print('tutor.hunt readiness: ok (no session without a ready server)')
+end
+
+require('tutor.progress').reset()
 print('ALL TUTOR TESTS PASSED')
