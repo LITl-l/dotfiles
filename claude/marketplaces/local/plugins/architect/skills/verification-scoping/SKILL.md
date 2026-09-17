@@ -59,11 +59,13 @@ and, here, an approval prompt. Group the work, then push.
 behaviour that correlates with *less* total work, not more. Front-load it.
 
 **Keep big output out of context.** When you know output will be large (full test
-logs, `nix build` traces, bulk greps), pipe it through `crumb compress` and pull
-back only what you need with `crumb retrieve <hash> --query "..."`. Large raw
+logs, `nix build` traces, bulk greps), run it as `cmd 2>&1 | crumb compress` and
+pull back only what you need with `crumb retrieve <hash> --query "..."`. Large raw
 output left in context crowds out what actually matters and raises the odds of a
-mistake later in the session. Note that `crumb` passes through the command's exit
-code and stderr, so check those separately.
+mistake later in the session. The `2>&1` is required — crumb compresses stdout
+only, so without it stderr (where `nix build` puts the trace) bypasses crumb and
+lands raw in context. And `$?` after the pipe is crumb's own status, not the
+command's — read `${PIPESTATUS[0]}`, or `set -o pipefail`.
 
 ## Applying it
 
@@ -74,7 +76,7 @@ code and stderr, so check those separately.
 | Change is complete | One full suite, then push |
 | Want to know if CI is green | Don't block on it: nothing downstream depends on it → push and check later; something does → `run_in_background` + `Monitor` |
 | Must wait on something external | `run_in_background: true` + `Monitor` |
-| Command will print a lot | `... \| crumb compress` |
+| Command will print a lot | `... 2>&1 \| crumb compress` |
 
 ## Anti-patterns
 
