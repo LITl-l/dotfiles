@@ -515,6 +515,17 @@ do
     assert(sline_text:sub(scol + 1, scol + #h.start.word) == h.start.word,
       ('%s: start col %d does not sit on %q in %q')
         :format(h.id, scol, h.start.word, sline_text))
+
+    -- The readiness probe is the request the solution actually makes. Without
+    -- it the clock can start on an answer that does not reach the target: a
+    -- definition at a declaration answers with itself, and a cross-file
+    -- definition answers with the local import for several seconds first.
+    assert(type(h.probe) == 'table' and type(h.probe.method) == 'string',
+      h.id .. ': needs a probe method')
+    if h.probe.method == 'workspace/symbol' then
+      assert(type(h.probe.query) == 'string' and h.probe.query ~= '',
+        h.id .. ': a workspace/symbol probe needs a query')
+    end
   end
   print('tutor.hunts: ok (' .. #all .. ' hunts)')
 end
@@ -544,13 +555,29 @@ do
   local hunts = require('tutor.hunts')
   local h = hunts.by_id('symbol-decoy-definition')
 
+  -- The four LSP result shapes the servers in this config actually send. This
+  -- is the part that rots, and it is pure, so it is pinned without a server.
+  local tgt = '/tmp/x/auth/session.ts'
+  local uri = vim.uri_from_fname(tgt)
+  assert(hunt.answer_reaches({ { result = { { uri = uri } } } }, tgt), 'Location{uri}')
+  assert(hunt.answer_reaches({ { result = { { targetUri = uri } } } }, tgt), 'LocationLink{targetUri}')
+  assert(hunt.answer_reaches({ { result = { { location = { uri = uri } } } } }, tgt),
+    'SymbolInformation{location={uri}}')
+  assert(hunt.answer_reaches({ { result = { { uri = 'file:///nope.ts' }, { targetUri = uri } } } }, tgt),
+    'must scan past a non-matching result')
+  assert(not hunt.answer_reaches({ { result = {} } }, tgt), 'an empty result reaches nothing')
+  assert(not hunt.answer_reaches(nil, tgt), 'a nil response reaches nothing')
+  assert(not hunt.answer_reaches({ { result = { { uri = vim.uri_from_fname('/tmp/x/util/validate.ts') } } } }, tgt),
+    'the decoy must not count as reaching the target')
+
   local real_await = hunt.await_lsp
   local saw = {}
-  hunt.await_lsp = function(buf)
+  hunt.await_lsp = function(buf, _, o)
     local pending = hunt.active()
     saw.active = pending ~= nil
     saw.started_at = pending and pending.started_at
     saw.buf = buf
+    saw.opts = o
     return true
   end
 
@@ -571,6 +598,11 @@ do
   assert(saw.active, 'the handle must exist while await_lsp runs')
   assert(saw.started_at == nil, 'started_at was set BEFORE await_lsp returned')
   assert(saw.buf == handle.buf, 'await_lsp must probe the hunt buffer')
+  -- Readiness is "the server can answer THIS hunt's question with THIS hunt's
+  -- target", not "the server replied".
+  assert(saw.opts and saw.opts.probe == h.probe, 'await_lsp must be given the hunt probe')
+  assert(saw.opts.target == select(1, hunts.resolve(h.target)),
+    'await_lsp must be given the resolved target path')
   assert(handle.keys == 0, 'keystroke counter must start at zero')
   assert(type(handle.started_at) == 'number', 'started_at must be set after readiness')
 

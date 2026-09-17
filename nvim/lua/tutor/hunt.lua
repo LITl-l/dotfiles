@@ -41,34 +41,65 @@ function M.is_fixture_buf(buf)
   return name:sub(1, #root + 1) == root .. '/'
 end
 
--- Attachment is not readiness. Measured on this machine, vtsls attaches in
--- about a second but answers a definition request only after roughly 8s of
--- indexing. Starting the keystroke clock at attach would charge the user for
--- the server's cold start, so wait for a real answer instead of for a client.
---
--- The probe asks for a definition AT THE CURSOR, which is why hunts.lua pins a
--- `word` on every start: on whitespace the server correctly returns nothing and
--- this would wait out its whole timeout.
-function M.await_lsp(buf, timeout_ms)
-  timeout_ms = timeout_ms or 30000
-  local attached = vim.wait(timeout_ms, function()
-    return #vim.lsp.get_clients({ bufnr = buf }) > 0
-  end, 100)
-  if not attached then
-    return false
-  end
-  return vim.wait(timeout_ms, function()
-    local params = vim.lsp.util.make_position_params(0, 'utf-16')
-    local res = vim.lsp.buf_request_sync(buf, 'textDocument/definition', params, 1000)
-    if not res then
-      return false
-    end
-    for _, r in pairs(res) do
-      if r.result and #r.result > 0 then
+-- Does an LSP response point at `target_path`? Pure, so the four result shapes
+-- can be pinned without a server: Location{uri}, LocationLink{targetUri},
+-- SymbolInformation{location={uri}}, and WorkspaceSymbol, whose `location` may
+-- be a bare {uri} with no range.
+function M.answer_reaches(responses, target_path)
+  target_path = vim.fs.normalize(target_path)
+  for _, r in pairs(responses or {}) do
+    for _, item in ipairs(r.result or {}) do
+      local uri = item.targetUri or item.uri or (item.location and item.location.uri)
+      if uri and vim.fs.normalize(vim.uri_to_fname(uri)) == target_path then
         return true
       end
     end
+  end
+  return false
+end
+
+-- Attachment is not readiness, and neither is a reply. Both were measured here:
+--
+--   * vtsls attaches in about a second, but for the first several seconds a
+--     definition request at api/handler.ts answers with the LOCAL import
+--     specifier -- same file, line 1 -- and only resolves across the file
+--     boundary to auth/session.ts at roughly t+8s;
+--   * a definition request at a DECLARATION (store/iface.ts) answers instantly
+--     with itself, while the implementation index behind `gI` is still cold.
+--
+-- Either satisfies "the server responded" while the hunt is still unwinnable,
+-- so readiness is defined as the server answering THIS hunt's own request with
+-- THIS hunt's own target. That is also the solvability check hunts otherwise
+-- lack: drills replay their solution against the target text, and a hunt has no
+-- target text to replay against.
+function M.await_lsp(buf, timeout_ms, opts)
+  opts = opts or {}
+  local probe, target = opts.probe, opts.target
+  assert(probe and probe.method, 'await_lsp: a probe method is required')
+  assert(target, 'await_lsp: a target path is required')
+
+  local deadline = (vim.uv or vim.loop).now() + (timeout_ms or 30000)
+  local function remaining()
+    return math.max(0, deadline - (vim.uv or vim.loop).now())
+  end
+
+  if not vim.wait(remaining(), function()
+        return #vim.lsp.get_clients({ bufnr = buf }) > 0
+      end, 100) then
     return false
+  end
+
+  return vim.wait(remaining(), function()
+    local params
+    if probe.method == 'workspace/symbol' then
+      params = { query = probe.query or '' }
+    else
+      params = vim.lsp.util.make_position_params(0, 'utf-16')
+      if probe.context then
+        params.context = probe.context
+      end
+    end
+    return M.answer_reaches(vim.lsp.buf_request_sync(buf, probe.method, params, 2000), target)
   end, 500)
 end
 
@@ -147,7 +178,8 @@ function M.start(h, opts)
   -- pins this ordering -- can observe a hunt that exists but is not yet timed.
   current = handle
 
-  if h.needs_lsp and not M.await_lsp(buf, opts.lsp_timeout) then
+  if h.needs_lsp and not M.await_lsp(buf, opts.lsp_timeout,
+        { probe = h.probe, target = tpath }) then
     vim.notify(
       ('Dojo: no language server answered for %s; skipping this hunt rather than '
         .. 'scoring a route you cannot take'):format(h.start.file),

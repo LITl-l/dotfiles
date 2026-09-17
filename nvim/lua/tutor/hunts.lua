@@ -5,12 +5,22 @@
 -- not line numbers, so editing the fixture moves the hunts with it; a pattern
 -- matching zero or several lines is a test failure, not a silent drift.
 --
--- A `start` also names the `word` the cursor lands on, which is load-bearing
--- twice over. `optimal` assumes it -- `gd` is two keystrokes only when the
--- cursor is already on the symbol, not at column 0 of an indented line -- and
--- so does hunt.lua's readiness probe, which asks the server for a definition
--- at exactly this position and would otherwise wait out its timeout on
--- whitespace. Measured: vtsls answers at every start column below.
+-- A `start` also names the `word` the cursor lands on. `optimal` assumes it --
+-- `gd` is two keystrokes only when the cursor is already on the symbol, not at
+-- column 0 of an indented line -- and so do the three positional readiness
+-- probes below, which ask the server a question at exactly that position and
+-- would otherwise wait out their timeout on whitespace.
+--
+-- `probe` is the request the solution actually makes. hunt.lua starts the
+-- keystroke clock only once that request comes back pointing at this hunt's
+-- own target, which doubles as the solvability check drills get from replaying
+-- their solution and hunts otherwise have no equivalent of. Two measurements
+-- forced this: a definition request at a DECLARATION (store/iface.ts) answers
+-- instantly with itself while the implementation index is still cold, and a
+-- definition request at api/handler.ts answers with the local import specifier
+-- for the first several seconds before it resolves across the file boundary.
+-- Either one satisfies "the server responded" while the hunt is still
+-- unwinnable.
 
 local M = {}
 
@@ -70,6 +80,7 @@ local hunts = {
     optimal = 2,
     solution = 'gd',
     needs_lsp = true,
+    probe = { method = 'textDocument/definition' },
   },
   {
     id = 'symbol-callers',
@@ -80,6 +91,10 @@ local hunts = {
     optimal = 4,
     solution = 'gr',
     needs_lsp = true,
+    probe = {
+      method = 'textDocument/references',
+      context = { includeDeclaration = false },
+    },
   },
   {
     id = 'symbol-implementation',
@@ -90,6 +105,7 @@ local hunts = {
     optimal = 4,
     solution = 'gI',
     needs_lsp = true,
+    probe = { method = 'textDocument/implementation' },
   },
   {
     id = 'symbol-workspace-refresh',
@@ -100,6 +116,9 @@ local hunts = {
     optimal = 10,
     solution = '<leader>ws',
     needs_lsp = true,
+    -- Not positional: the workspace symbol picker is driven by a query, so the
+    -- start cursor is irrelevant to whether the server can answer this one.
+    probe = { method = 'workspace/symbol', query = 'refresh' },
   },
 }
 
