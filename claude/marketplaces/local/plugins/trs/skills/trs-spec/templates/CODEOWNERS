@@ -1,0 +1,6 @@
+# 仕様・生成物・検査器の変更には人の承認を必須にする (ブランチ保護で Require review from Code Owners)
+/specs/          @your-org/spec-owners
+/tools/trs/      @your-org/spec-owners
+/flake.nix       @your-org/spec-owners
+/flake.lock      @your-org/spec-owners
+/.github/workflows/trs.yml  @your-org/spec-owners

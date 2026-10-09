@@ -36,3 +36,8 @@ Desktop.ini
 
 # Superpowers planning artifacts (ephemeral specs/plans, not deliverables)
 docs/superpowers/
+
+# Python bytecode (the vendored trs tool writes these into the tree when run)
+claude/marketplaces/local/plugins/trs/**/__pycache__/
+claude/marketplaces/local/plugins/trs/**/*.py[cod]
+claude/marketplaces/local/plugins/trs/**/.pytest_cache/

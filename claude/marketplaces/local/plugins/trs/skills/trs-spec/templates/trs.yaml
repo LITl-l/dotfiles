@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../tools/trs/src/trs/schema/trs.schema.json
+schema: trs/v2
+id: PBI-XXX
+title: タイトル
+
+sources:            # 期待値の根拠にできる一次資料。版 (rev) は必須
+  - {id: SRC-1, kind: 仕様書, ref: "", rev: ""}
+  - {id: SRC-2, kind: デザイン, ref: "", rev: ""}
+
+factors:            # 振る舞いを変える入力。値 (水準) の単一の情報源
+  - {id: factor_a, label: 因子A, levels: [水準1, 水準2], status: tentative, basis: ["SRC-1 §"]}
+
+outcomes:           # 観測できる結果。AC の post はここから選ぶ
+  - {id: result, label: 結果, levels: [成功, 拒否]}
+
+assumptions: []     # 起こりえない入力 (未定義ではない)。例: {id: A-01, text: "", expr: '', basis: [""]}
+
+rules: []           # 常に / 決して の規則。状態なし→expr (Z3)、状態あり→tla (TLC)
+
+stories:
+  - {id: US-01, as_a: "", i_want: "", so_that: ""}
+
+use_cases:
+  - id: UC-01
+    story: US-01
+    title: ""
+    inputs: [factor_a]
+    scope: {正常: 未検討, 準正常: 未検討, 例外: 未検討}   # あり / なし を明示するまで lint エラー
+    acs:
+      - id: AC-基本正常-001
+        title: ""
+        given: [""]
+        when: [""]
+        then: [""]
+        pre: 'factor_a == "水準1"'
+        post: {result: 成功}
+        basis: ["SRC-1 §"]
+
+open_issues:
+  - {id: OI-01, text: 因子A の水準が未確定, affects: [factor_a], status: open}

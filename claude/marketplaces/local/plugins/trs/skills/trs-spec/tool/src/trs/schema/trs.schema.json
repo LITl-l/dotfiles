@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/trs/v2/trs.schema.json",
+  "title": "TRS v2 (テスト要求仕様)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "title", "sources", "factors", "outcomes", "use_cases", "open_issues"],
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+    "basis": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "description": "SRC-n か解決済み OI-n を含む参照。実装 (コードパス) は不可"
+    },
+    "expr": {"type": "string", "minLength": 1, "description": "CEL サブセット: ==, !=, in [..], &&, ||, !, =>"},
+    "levels": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "presence": {"enum": ["あり", "なし", "未検討"]}
+  },
+  "properties": {
+    "schema": {"const": "trs/v2"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"},
+    "title": {"type": "string", "minLength": 1},
+    "links": {"type": "array", "items": {"type": "string"}},
+    "sources": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "kind", "ref", "rev"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^SRC-[0-9]+$"},
+          "kind": {"enum": ["仕様書", "デザイン", "合意", "規格", "議事録"]},
+          "ref": {"type": "string", "minLength": 1},
+          "rev": {"type": "string", "minLength": 1, "description": "版。元資料の更新に気づくため必須"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    "factors": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "label", "levels", "status", "basis"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "label": {"type": "string"},
+          "levels": {"$ref": "#/$defs/levels"},
+          "status": {"enum": ["fixed", "tentative"]},
+          "basis": {"$ref": "#/$defs/basis"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    "outcomes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "label", "levels"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "label": {"type": "string"},
+          "levels": {"$ref": "#/$defs/levels"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "description": "起こりえない入力 (未定義ではない)。根拠必須",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "text", "expr", "basis"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^A-[0-9]+$"},
+          "text": {"type": "string"},
+          "expr": {"$ref": "#/$defs/expr"},
+          "use_cases": {"type": "array", "items": {"type": "string"}},
+          "basis": {"$ref": "#/$defs/basis"}
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "ears", "text", "basis"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^R-[0-9]+$"},
+          "ears": {"enum": ["ubiquitous", "event", "state", "unwanted", "optional", "complex"]},
+          "text": {"type": "string"},
+          "expr": {"$ref": "#/$defs/expr", "description": "状態を持たない規則。因子と結果の式。Z3 で全 AC に対して検査"},
+          "tla": {"type": "string", "description": "状態を持つ規則。TLA+ の不変条件名。TLC で検査"},
+          "basis": {"$ref": "#/$defs/basis"}
+        },
+        "oneOf": [{"required": ["expr"]}, {"required": ["tla"]}]
+      }
+    },
+    "stories": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "as_a", "i_want", "so_that"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^US-[0-9]+$"},
+          "as_a": {"type": "string"}, "i_want": {"type": "string"}, "so_that": {"type": "string"}
+        }
+      }
+    },
+    "use_cases": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "story", "title", "inputs", "scope", "acs"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^UC-[0-9]+$"},
+          "story": {"type": "string", "pattern": "^US-[0-9]+$"},
+          "title": {"type": "string"},
+          "inputs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+          "scope": {
+            "type": "object", "additionalProperties": false,
+            "required": ["正常", "準正常", "例外"],
+            "properties": {
+              "正常": {"$ref": "#/$defs/presence"},
+              "準正常": {"$ref": "#/$defs/presence"},
+              "例外": {"$ref": "#/$defs/presence"}
+            }
+          },
+          "acs": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["id", "title", "pre", "post", "basis"],
+              "properties": {
+                "id": {"type": "string", "pattern": "^AC-(基本|代替|例外)(準正常|正常|例外)-[0-9]{3}$"},
+                "title": {"type": "string"},
+                "given": {"type": "array", "items": {"type": "string"}},
+                "when": {"type": "array", "items": {"type": "string"}},
+                "then": {"type": "array", "items": {"type": "string"}},
+                "pre": {"$ref": "#/$defs/expr"},
+                "post": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string"}},
+                "coverage": {"enum": ["pairwise", "all"], "default": "pairwise"},
+                "tla_witness": {"type": "string", "description": "事後条件に到達できることを示す witness 不変条件名"},
+                "basis": {"$ref": "#/$defs/basis"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "tla": {
+      "type": "object", "additionalProperties": false,
+      "required": ["module", "config"],
+      "properties": {
+        "module": {"type": "string"},
+        "config": {"type": "string"}
+      }
+    },
+    "open_issues": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "text", "status"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^OI-[0-9]+$"},
+          "text": {"type": "string"},
+          "affects": {"type": "array", "items": {"type": "string"},
+                      "description": "AC の完全 ID (US-01_UC-01_AC-基本正常-001) か因子 id"},
+          "region": {"$ref": "#/$defs/expr", "description": "未定義と認識済みの入力領域 (Z3 の未定義検出で既知扱いになる)"},
+          "use_case": {"type": "string"},
+          "status": {"enum": ["open", "resolved"]},
+          "link": {"type": "string"},
+          "resolution": {"type": "string"}
+        }
+      }
+    }
+  }
+}
