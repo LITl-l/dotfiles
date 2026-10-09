@@ -1,0 +1,8 @@
+{
+  "name": "trs",
+  "version": "0.1.0",
+  "description": "Spec-driven development with TRS test requirement specifications — humans own the spec, Z3/TLA+ check it, tests verify conformance",
+  "author": {
+    "name": "dotfiles"
+  }
+}

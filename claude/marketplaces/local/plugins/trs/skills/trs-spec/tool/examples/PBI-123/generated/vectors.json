@@ -1,0 +1,270 @@
+{
+  "format": "trs-vectors/v1",
+  "spec": "PBI-123",
+  "spec_sha256": "c99cc0523015f3332d39386befb56381bc6d05775a8cc6696beac361673f335c",
+  "vectors": [
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#1ba4bb7f",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "role": "管理者",
+        "op": "追加",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "保存"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#34d8023b",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "role": "管理者",
+        "op": "変更",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "保存"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#c2611897",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "role": "管理者",
+        "op": "削除",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "保存"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#fd08716e",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "role": "編集者",
+        "op": "追加",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "保存"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#3db9ea48",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "role": "編集者",
+        "op": "変更",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "保存"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#50ae5c54",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "role": "編集者",
+        "op": "削除",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "保存"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#61f8e78a",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "role": "管理者",
+        "op": "追加",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "入力保持してエラー"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#29e981ba",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "role": "編集者",
+        "op": "変更",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "入力保持してエラー"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#90e152ba",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "role": "管理者",
+        "op": "削除",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "入力保持してエラー"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#1a868a94",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "role": "管理者",
+        "op": "変更",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "入力保持してエラー"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#3c624aca",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "role": "編集者",
+        "op": "追加",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "入力保持してエラー"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#4d1fab5e",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "role": "編集者",
+        "op": "削除",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "入力保持してエラー"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#ba1fcc0f",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "role": "閲覧者",
+        "op": "追加",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "拒否"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#31fa5efb",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "role": "閲覧者",
+        "op": "変更",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "拒否"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#3003bb0c",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "role": "閲覧者",
+        "op": "削除",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "拒否"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#087c1ac0",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "role": "閲覧者",
+        "op": "追加",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "拒否"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#c4069578",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "role": "閲覧者",
+        "op": "変更",
+        "net": "正常"
+      },
+      "expect": {
+        "result": "拒否"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#a4ecd4d8",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "role": "閲覧者",
+        "op": "削除",
+        "net": "失敗"
+      },
+      "expect": {
+        "result": "拒否"
+      }
+    }
+  ],
+  "blocked": [
+    {
+      "ac": "US-01_UC-02_AC-基本正常-001",
+      "reasons": [
+        "OI-01 (sort_order)",
+        "sort_order は水準未確定 (tentative)"
+      ]
+    }
+  ],
+  "stats": [
+    {
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "coverage": "all",
+      "region": 6,
+      "vectors": 6
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "coverage": "pairwise",
+      "region": 6,
+      "vectors": 6
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "coverage": "pairwise",
+      "region": 6,
+      "vectors": 6
+    }
+  ]
+}

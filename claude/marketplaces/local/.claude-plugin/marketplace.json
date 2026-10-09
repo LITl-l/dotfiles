@@ -14,6 +14,11 @@
       "name": "architect",
       "description": "Architecture decision discipline — verified recommendations, decide-or-defer ADRs, cross-decision consistency",
       "source": "./plugins/architect"
+    },
+    {
+      "name": "trs",
+      "description": "Spec-driven development with TRS test requirement specifications — humans own the spec, Z3/TLA+ check it, tests verify conformance",
+      "source": "./plugins/trs"
     }
   ]
 }

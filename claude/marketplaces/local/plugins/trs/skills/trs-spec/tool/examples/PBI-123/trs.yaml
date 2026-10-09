@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../src/trs/schema/trs.schema.json
+schema: trs/v2
+id: PBI-123
+title: プロジェクト設定の編集
+
+sources:
+  - {id: SRC-1, kind: 仕様書, ref: "https://wiki.example.com/spec/project-settings", rev: "rev 14 (2026-10-01)"}
+  - {id: SRC-2, kind: デザイン, ref: "https://www.figma.com/file/XXXX 設定画面", rev: "v3.2"}
+
+factors:
+  - {id: role, label: 権限, levels: [管理者, 編集者, 閲覧者], status: fixed, basis: ["SRC-1 §2.1"]}
+  - {id: op, label: 操作, levels: [追加, 変更, 削除], status: fixed, basis: ["SRC-1 §3.1"]}
+  - {id: net, label: 通信, levels: [正常, 失敗], status: fixed, basis: ["SRC-1 §4.3"]}
+  - {id: sort_order, label: 並び順, levels: [名前順, 更新日順], status: tentative, basis: ["SRC-2 設定画面"]}
+
+outcomes:
+  - {id: result, label: 保存結果, levels: [保存, 入力保持してエラー, 拒否]}
+  - {id: listing, label: 一覧表示, levels: [指定順で表示]}
+
+rules:
+  - id: R-01
+    ears: ubiquitous
+    text: システムは閲覧者による設定の変更を一切保存してはならない
+    expr: 'role == "閲覧者" => result != "保存"'
+    basis: ["SRC-1 §2.1"]
+  - id: R-02
+    ears: unwanted
+    text: 保存中に通信が失敗した場合、システムは入力内容を保持したままエラーを表示しなければならない
+    tla: Inv_KeepDraftOnError
+    basis: ["SRC-1 §4.3"]
+
+stories:
+  - {id: US-01, as_a: プロジェクトメンバー, i_want: 設定項目を追加・変更・削除したい, so_that: チームの運用ルールを画面上で揃えられる}
+
+use_cases:
+  - id: UC-01
+    story: US-01
+    title: 設定を変更して保存する
+    inputs: [role, op, net]
+    scope: {正常: あり, 準正常: あり, 例外: あり}
+    acs:
+      - id: AC-基本正常-001
+        title: 管理者・編集者が操作すると変更が保存される
+        given: ["<role> のユーザーがログイン済みであること"]
+        when: ["<op> を行う"]
+        then: [変更内容が保存される, 保存完了のトーストが表示される]
+        pre: 'role in ["管理者", "編集者"] && net == "正常"'
+        post: {result: 保存}
+        coverage: all
+        basis: ["SRC-1 §3.1", "SRC-2 設定画面"]
+      - id: AC-代替準正常-001
+        title: 保存時に通信が失敗しても入力を保持し、再保存できる
+        given: ["<role> のユーザーがログイン済みであること", 保存リクエストが通信エラーになる状態であること]
+        when: ["<op> を行う"]
+        then: [入力内容が保持されたままエラーが表示される, 再度保存すると変更内容が保存される]
+        pre: 'role in ["管理者", "編集者"] && net == "失敗"'
+        post: {result: 入力保持してエラー}
+        tla_witness: Witness_RetrySaved
+        basis: ["SRC-1 §4.3"]
+      - id: AC-例外例外-001
+        title: 閲覧者は操作できない
+        given: [閲覧者のユーザーがログイン済みであること]
+        when: ["<op> を試みる"]
+        then: [操作は拒否され変更は保存されない]
+        pre: 'role == "閲覧者"'
+        post: {result: 拒否}
+        basis: ["SRC-1 §2.1"]
+  - id: UC-02
+    story: US-01
+    title: 設定一覧を並べ替える
+    inputs: [sort_order]
+    scope: {正常: あり, 準正常: なし, 例外: なし}
+    acs:
+      - id: AC-基本正常-001
+        title: 一覧を指定した順で並べ替えられる
+        when: ["一覧を <sort_order> で並べ替える"]
+        then: ["一覧が <sort_order> で表示される"]
+        pre: "true"
+        post: {listing: 指定順で表示}
+        basis: ["SRC-2 設定画面"]
+
+tla:
+  module: Settings.tla
+  config: Settings.cfg
+
+open_issues:
+  - id: OI-01
+    text: 並び順に「作成日順」を含めるかデザインと仕様書で食い違う
+    affects: [sort_order]
+    status: open
+    link: "https://tracker.example.com/123"
+  - id: OI-02
+    text: 削除に確認ダイアログを出すか
+    affects: [US-01_UC-01_AC-基本正常-001]
+    status: resolved
+    link: "https://tracker.example.com/120"
+    resolution: 出さない (SRC-1 rev 14 に反映済み)

@@ -1,0 +1,16 @@
+# .github/workflows/trs.yml
+name: trs
+on: [pull_request]
+jobs:
+  spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: spec checks (schema + Z3 + generated drift + TLC)
+        run: nix develop --command trs ci specs/*/trs.yaml --strict
+      # 実装のテストを走らせ、JUnit XML を出したあとで照合する:
+      # - name: tests
+      #   run: nix develop --command <your test command producing junit.xml>
+      # - name: trace (vectors executed and passed)
+      #   run: nix develop --command trs trace specs/*/trs.yaml --junit reports/junit/*.xml

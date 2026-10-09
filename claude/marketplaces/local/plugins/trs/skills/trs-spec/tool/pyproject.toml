@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trs"
+version = "2.0.0"
+description = "TRS (テスト要求仕様): 人が所有する振る舞い仕様の検査 (Z3 / TLA+)・テストベクタ生成・結果照合"
+requires-python = ">=3.10"
+dependencies = [
+  "z3-solver>=4.12,<5",
+  "PyYAML>=6,<7",
+  "jsonschema>=4.18,<5",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+trs = "trs.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+trs = ["schema/*.json"]

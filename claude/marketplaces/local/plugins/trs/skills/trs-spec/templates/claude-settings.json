@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(specs/**)",
+      "Write(specs/**)",
+      "Edit(tools/trs/**)",
+      "Write(tools/trs/**)"
+    ]
+  }
+}
