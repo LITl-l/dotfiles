@@ -37,6 +37,17 @@ def _run(cmd, module: Path, cfg: Path, extra=()):
     return p.returncode, p.stdout + p.stderr
 
 
+def _ensure_trailing_newline(path: Path) -> None:
+    """TLC の -dumpTrace json は末尾改行を書かないので、書かれたあとに補う。"""
+    with path.open("rb+") as f:
+        f.seek(0, os.SEEK_END)
+        if f.tell() == 0:
+            return
+        f.seek(-1, os.SEEK_END)
+        if f.read(1) != b"\n":
+            f.write(b"\n")
+
+
 def check(spec: Spec, strict_tool: bool = True) -> list:
     F = []
     if "tla" not in spec.raw:
@@ -98,6 +109,8 @@ def check(spec: Spec, strict_tool: bool = True) -> list:
         finally:
             wcfg.unlink(missing_ok=True)
         if re.search(rf"Invariant {re.escape(w)} is violated", out):
+            if trace.exists():
+                _ensure_trailing_newline(trace)
             F.append(Finding("I", "L101", a.full_id, f"事後条件に到達できます (witness {w} の反例 → {trace.relative_to(spec.dir)})"))
         elif "No error has been found" in out:
             trace.unlink(missing_ok=True)
