@@ -49,7 +49,7 @@
 
 `trs tla` は、まず .cfg のまま本検査を回し、次に witness ごとに「.cfg + `INVARIANT <witness>`」の一時 config で回して、反例を `generated/traces/<AC 完全 ID>.json` に落とす。一時 config はモジュールと同じディレクトリに作るので、そこは書き込み可能である必要がある。L011 は .cfg 内に名前があるかを見るだけなので、`INVARIANT` 行に置いたか (= TLC が実際に検査するか) は人が確かめる。
 
-完成例: `tool/examples/PBI-123/Settings.tla` と `Settings.cfg` (trs.yaml の `rules[].tla: Inv_KeepDraftOnError` と `acs[].tla_witness: Witness_RetrySaved` に対応)。
+完成例: `tools/trs/examples/PBI-123/Settings.tla` (導入済み) / `<skill>/tool/examples/PBI-123/Settings.tla` (未導入) と `Settings.cfg` (trs.yaml の `rules[].tla: Inv_KeepDraftOnError` と `acs[].tla_witness: Witness_RetrySaved` に対応)。
 
 ### 書くときの落とし穴 (実際に踏んだもの)
 

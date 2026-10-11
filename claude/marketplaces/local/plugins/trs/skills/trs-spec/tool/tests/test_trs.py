@@ -206,3 +206,16 @@ def test_tla_rejects_non_ascii(ws):
     t = ws / "Settings.tla"
     t.write_text(t.read_text() + "\n\\* 日本語\n")
     assert "L002" in codes(tla.check(load(ws / "trs.yaml")[0]))
+
+
+def test_ensure_trailing_newline(tmp_path):
+    p = tmp_path / "trace.json"
+    p.write_bytes(b'{"state": 1}')
+    tla._ensure_trailing_newline(p)
+    assert p.read_bytes() == b'{"state": 1}\n'
+    tla._ensure_trailing_newline(p)
+    assert p.read_bytes() == b'{"state": 1}\n'
+    e = tmp_path / "empty.json"
+    e.write_bytes(b"")
+    tla._ensure_trailing_newline(e)
+    assert e.read_bytes() == b""

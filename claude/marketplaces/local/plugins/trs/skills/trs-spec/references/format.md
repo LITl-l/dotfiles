@@ -1,6 +1,6 @@
 # trs.yaml 形式 (trs/v2)
 
-完成例: `tool/examples/PBI-123/trs.yaml`。雛形: `templates/trs.yaml`。スキーマ: `tool/src/trs/schema/trs.schema.json` (先頭の `# yaml-language-server: $schema=...` でエディタ補完が効く)。
+完成例: `tools/trs/examples/PBI-123/trs.yaml` (導入済み) / `<skill>/tool/examples/PBI-123/trs.yaml` (未導入)。雛形: `templates/trs.yaml`。スキーマ: `tools/trs/src/trs/schema/trs.schema.json` (導入済み) / `<skill>/tool/src/trs/schema/trs.schema.json` (未導入) (先頭の `# yaml-language-server: $schema=...` でエディタ補完が効く)。
 
 ## 目次
 1. 全体像と意味論

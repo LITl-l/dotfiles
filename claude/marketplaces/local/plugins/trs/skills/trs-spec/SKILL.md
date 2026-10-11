@@ -44,7 +44,7 @@ AI に実装させて「いつの間にか認識とズレる」原因と、そ�
 ## 構成
 
 ```
-tool/                       Python パッケージ `trs` (z3-solver, PyYAML, jsonschema)。プロジェクトの tools/trs/ にコピーして使う
+tool/ (導入済みは tools/trs/)   Python パッケージ `trs` (z3-solver, PyYAML, jsonschema)。プロジェクトの tools/trs/ にコピーして使う
   src/trs/schema/trs.schema.json   スキーマ (エディタ補完用)
   examples/PBI-123/          完成例 (trs.yaml + Settings.tla/.cfg)
   tests/                     自己テスト (検査器が壊れた仕様を壊れていると言うか)
@@ -72,14 +72,14 @@ references/
 
 プロジェクトに導入済みなら `trs …`。未導入でスキルから直接使うなら、`<skill>` = この SKILL.md があるディレクトリ とし、まず依存の用意をどちらにするか決める。
 
-- **(A) 依存 (z3-solver / PyYAML / jsonschema) が入った python が既にあるなら** — インストールは不要。`PYTHONPATH=<skill>/tool/src <その python> -m trs …` で呼ぶ。`python` が PATH に無い環境では、その python の実体を絶対パスで書く (`PYTHONPATH=<skill>/tool/src /path/to/python -m trs check …`)
+- **(A) 依存 (z3-solver / PyYAML / jsonschema) が入った python が既にあるなら** — インストールは不要。`PYTHONPATH=<skill>/tool/src <その python> -m trs …` で呼ぶ (導入済みなら `<skill>/tool/src` は `tools/trs/src`)。`python` が PATH に無い環境では、その python の実体を絶対パスで書く (`PYTHONPATH=<skill>/tool/src /path/to/python -m trs check …`)
 - **(B) 無いなら** — `pip install z3-solver PyYAML jsonschema` (必要なら `--break-system-packages`)
 
 以降の `python` は (A) か (B) で決めたもの。
 
 ```bash
-export PYTHONPATH=<skill>/tool/src
-SPEC=<skill>/tool/examples/PBI-123/trs.yaml      # 導入済みなら specs/<PBI>/trs.yaml
+export PYTHONPATH=<skill>/tool/src               # 導入済みなら tools/trs/src
+SPEC=<skill>/tool/examples/PBI-123/trs.yaml      # 導入済みなら specs/<PBI>/trs.yaml (例は tools/trs/examples/)
 python -m trs check $SPEC                        # 構造 + Z3
 python -m trs gen   $SPEC                        # generated/TRS.md, vectors.json を書く
 python -m trs gen   $SPEC --check                # 書かずに乖離だけ見る
@@ -88,7 +88,7 @@ python -m trs trace $SPEC --junit reports/junit/*.xml
 python -m trs ci    specs/*/trs.yaml --strict [--junit …] [--no-tla]
 ```
 
-パスの解決: 仕様のパスと `--junit` は **cwd 基準**。生成物 `generated/` (TRS.md, vectors.json, traces/) と `tla.module` / `tla.config` は **仕様ファイルのあるディレクトリ基準**で、cwd には依らない。よってスキルの例を指した `trs gen` / `trs tla` は `<skill>/tool/examples/PBI-123/generated/` を書き換える。
+パスの解決: 仕様のパスと `--junit` は **cwd 基準**。生成物 `generated/` (TRS.md, vectors.json, traces/) と `tla.module` / `tla.config` は **仕様ファイルのあるディレクトリ基準**で、cwd には依らない。よってスキルの例を指した `trs gen` / `trs tla` は `<skill>/tool/examples/PBI-123/generated/` (導入済みなら `tools/trs/examples/PBI-123/generated/`) を書き換える。
 
 `--json` で機械可読の結果を出せる。終了コードはエラーがあれば 1。
 
