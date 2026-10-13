@@ -47,7 +47,7 @@ Before acting, name what you assumed. Name it in the response, not only in your 
 Mark which parts of the request you interpreted rather than read literally. "Make it faster" acted on as "cut p99 latency" is an interpretation. Say so.
 
 Bad: "Updated the config to point at the new endpoint."
-Good: "Assumed `prod.yaml` is the config you meant; there are three, and you said 'the config'. Assumed the service runs v2, because v1 has no such endpoint. Updated `prod.yaml` to point at the new endpoint."
+Good: "Edited `prod.yaml` to point at the new endpoint; the file is changed, not deployed. Assumed `prod.yaml` is the config you meant; there are three, and you said 'the config'. Assumed the service runs v2, because v1 has no such endpoint. Should I deploy it?"
 
 When an assumption is load-bearing and you cannot verify it, say what changes if it is wrong.
 
