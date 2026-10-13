@@ -28,6 +28,10 @@ catch yourself about to produce code, stop and dispatch a worker instead.
    resolves inside the dotfiles checkout itself; the `~/.claude/` path works from
    any project.) Boundary, Termination and Output
    are mandatory; `fleet spawn` refuses a spec that omits them.
+   Stage any input the worker needs under `/home/nixos/wkspace/`, never `/tmp`. Then
+   check that no termination condition names a command in `permissions.ask` or absent
+   from `permissions.allow`: a background worker cannot answer a prompt, so such a
+   done-condition is unsatisfiable by construction and wastes the entire run.
 5. **Dispatch** — `fleet spawn --name N --dir <workspace> --spec <file>`.
 6. **Arm, don't poll** — start a Monitor on `fleet watch` with `persistent: true` (its default 300s timeout would go blind mid-worker). Events wake you. Never sit in
    a polling loop, and never ask the human to wait while you idle.
@@ -42,6 +46,10 @@ catch yourself about to produce code, stop and dispatch a worker instead.
    moment it stops — before any reap — and the check would pass whether or not the
    reap actually worked. Unreaped sessions leak: one sat `blocked` for six weeks
    unnoticed.
+9. **Land it** — dispatch is a three-phase contract and the gated tail is yours: you
+   stage the input, the worker produces a described change plus a result file, and you
+   run `jj git push`, `gh pr create` and `gh pr edit` from this session, where the human
+   can approve. Assert that split in the spec; never leave a worker to infer it.
 
 ## Rules that come from measured failures
 
@@ -53,6 +61,12 @@ catch yourself about to produce code, stop and dispatch a worker instead.
 - **A worker that cannot state when it is finished is not ready to be dispatched.**
 - **Delegate exploration too.** Reading many files yourself is how an orchestrator's
   context rots and its judgment degrades. Send a subagent, keep the conclusion.
+- **Verify every factual claim you put in a spec, or mark it unverified.** A spec here
+  called `home-manager switch` gated (it is allowlisted) and framed the gate as
+  `permissions.ask` only, missing the matches-no-`allow`-pattern case. The worker caught
+  both and stopped; transcribed, they would now be recorded as "measured".
+- **`blocked (permission prompt)` just after you sent a `SendMessage` is probably that
+  message, not a stall** (mechanism in `CLAUDE.md`). It clears on its own — do not reap.
 
 ## Staying available
 
