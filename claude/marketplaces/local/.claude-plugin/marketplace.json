@@ -19,6 +19,16 @@
       "name": "trs",
       "description": "Spec-driven development with TRS test requirement specifications — humans own the spec, Z3/TLA+ check it, tests verify conformance",
       "source": "./plugins/trs"
+    },
+    {
+      "name": "i-have-adhd",
+      "description": "Response shaping for a reader with ADHD — vendored from ayghri/i-have-adhd (MIT), de-latched to apply per response",
+      "source": "./plugins/i-have-adhd"
+    },
+    {
+      "name": "i-have-asd",
+      "description": "Response shaping for an autistic reader — literal wording, assumptions stated explicitly, questions asked directly",
+      "source": "./plugins/i-have-asd"
     }
   ]
 }
