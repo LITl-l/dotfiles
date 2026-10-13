@@ -68,6 +68,30 @@ Rules that exist because they were measured, not assumed:
   tool. Deeper chains over interdependent code are the documented worst case.
 - **A spec without Boundary, Termination and Output is not dispatchable** — `fleet spawn`
   refuses it. Specification defects, not model mistakes, dominate multi-agent failures.
+- **A worker cannot answer a permission prompt, so no gated action can be part of its
+  termination condition.** One worker ran 37 tool calls clean — `nix flake check` exit 0,
+  every file written — then blocked forever launching the PR, on a done-condition that
+  was unsatisfiable by construction. Two cases prompt, and only the first is named in the
+  config: a `permissions.ask` match (`jj git push`, `gh pr create`, `gh pr merge`,
+  `git push`, `nix flake update`), and — the case that keeps surprising people — a
+  command matching no `allow` pattern at all (`gh pr edit`, `cp`, `mv`). Workers
+  terminate at "change described, result file written"; the orchestrator runs every gated
+  step where a human can approve. Widening the allowlist is not the fix — the gate exists
+  so a human approves pushes. (`home-manager switch` is allowlisted and does not prompt.)
+- **Stage worker input under `/home/nixos/wkspace/`, never another session's `/tmp`
+  scratchpad.** A worker handed input under `/tmp/claude-1000/` blocked on its FIRST tool
+  call with a directory-access prompt; given the same files under
+  `/home/nixos/wkspace/adhd-upstream/` it read them without issue. The mechanism is not
+  fully pinned down — `wkspace` is what has been shown to work. Stage input there and
+  name the path in the spec.
+- **Reading is allowlisted; copying is not.** `cat`, `jq`, `grep`, `sed`, `find`, `head`,
+  `tail`, `wc` and `mkdir` are allowed, but `cp`, `mv` and `rm` match no `allow` pattern
+  (only the `rm -rf` forms are explicitly denied), so the reflex to snapshot a file
+  before editing stalls the worker. Specs say: create with Write, read with `cat`.
+- **A worker "blocked (permission prompt)" may just be holding your message.** `fleet
+  spawn` defaults to `--permission-mode acceptEdits`, so a cross-session `SendMessage`
+  from another mode is held for approval and is indistinguishable in `fleet watch` from a
+  tool prompt. It clears on its own — do not panic-reap.
 
 ## Gotchas
 

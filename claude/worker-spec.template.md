@@ -14,6 +14,12 @@ What outcome is wanted, in one or two sentences. State the intent, not the steps
 - Writable paths: <the worker's own jj workspace, e.g. ~/wkspace/worktree/feature/xyz>
 - Do NOT touch: <paths owned by other workers, the main checkout, unrelated modules>
 - Out of scope: <adjacent work this worker must leave alone>
+- Scratch space: under `/home/nixos/wkspace/` only. A worker handed files under another
+  session's `/tmp` scratchpad blocked on its first tool call; `wkspace` is what has been
+  shown to work.
+- `cp`, `mv` and `rm` match no `allow` pattern and will stall the worker: create files
+  with the Write tool, read with `cat`. If a baseline snapshot is wanted, stage it under
+  `/home/nixos/wkspace/` yourself and name the path here.
 
 ## Termination condition
 
@@ -21,6 +27,12 @@ The worker is done when this is objectively true — a command that exits 0, a f
 exists with given content, a test that passes. Not "when the feature feels complete".
 
     e.g. `nix flake check` exits 0 AND `home-manager switch --flake .` succeeds
+
+Never make a gated action the done-condition: a background worker has no human to answer
+a permission prompt and will block forever. A command gates either by matching
+`permissions.ask` (`jj git push`, `gh pr create`, `gh pr merge`) or by matching no
+`allow` pattern at all (`gh pr edit`, `cp`, `mv`). Stop the worker at "change described
+with `jj describe -m`, result file written"; the orchestrator runs the gated steps.
 
 ## Output
 
