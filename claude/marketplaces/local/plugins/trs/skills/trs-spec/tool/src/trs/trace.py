@@ -1,8 +1,13 @@
 """実装のテスト結果 (JUnit XML) とテストベクタの照合。
 
 JUnit XML はほぼすべてのテストフレームワークが出力できるので、スタックに依存しない。
-テスト側の約束はひとつだけ: テストケース名 (または property / system-out) に
-ベクタ ID を含めること。例: `test_save[US-01_UC-01_AC-基本正常-001#1a2b3c4d]`
+テスト側の約束はひとつだけ: テストケース名 (または property の値) にベクタ ID を含めること。
+例: `test_save[US-01_UC-01_AC-基本正常-001#1a2b3c4d]`
+
+ベクタ ID は name と property からしか拾わない。この2つはテストケースを名指しするが、
+classname はクラス内の全ケースで共通で、system-out はたまたま流れた標準出力なので、
+そこから拾うと「vectors.json を print するだけの通過テスト1本」で全ベクタが通過扱いになる。
+spec ハッシュ (T010) は逆に厳しくなる方向にしか働かないので、出力全体から拾う。
 """
 from __future__ import annotations
 
@@ -23,13 +28,14 @@ def collect(paths):
     for p in paths:
         root = ET.parse(p).getroot()
         for tc in root.iter("testcase"):
-            texts = [tc.get("name", ""), tc.get("classname", "")]
+            ident = [tc.get("name", "")]
+            other = [tc.get("classname", "")]
             for prop in tc.iter("property"):
-                texts.append(f"{prop.get('name', '')}={prop.get('value', '')}")
+                ident.append(f"{prop.get('name', '')}={prop.get('value', '')}")
             for tag in ("system-out", "system-err"):
                 for el in tc.iter(tag):
-                    texts.append(el.text or "")
-            blob = "\n".join(texts)
+                    other.append(el.text or "")
+            blob = "\n".join(ident)
             if tc.find("failure") is not None or tc.find("error") is not None:
                 status = "fail"
             elif tc.find("skipped") is not None:
@@ -38,7 +44,7 @@ def collect(paths):
                 status = "pass"
             for vid in set(VEC_RE.findall(blob)):
                 seen[vid].append(status)
-            shas.update(SHA_RE.findall(blob))
+            shas.update(SHA_RE.findall("\n".join(ident + other)))
     return seen, shas
 
 

@@ -14,6 +14,7 @@ IDENT は因子・結果の id ([A-Za-z_][A-Za-z0-9_]*)、STRING は "..." (日�
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -133,7 +134,12 @@ class _Parser:
         tok = self.eat()
         if not (tok.startswith('"') and tok.endswith('"')):
             raise ExprError(f'文字列 "..." が必要です (got {tok!r})')
-        return bytes(tok[1:-1], "utf-8").decode("unicode_escape") if "\\" in tok else tok[1:-1]
+        if "\\" not in tok:
+            return tok[1:-1]
+        try:
+            return json.loads(tok)
+        except ValueError as e:
+            raise ExprError(f"文字列のエスケープを解釈できません: {tok!r} ({e})") from None
 
     def cmp(self):
         var = self.eat()

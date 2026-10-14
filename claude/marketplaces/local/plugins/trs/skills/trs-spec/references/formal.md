@@ -44,10 +44,12 @@
 | --- | --- |
 | `SPECIFICATION Spec` | 必須。モジュール側の `Spec == Init /\ [][Next]_vars` を指す |
 | `INVARIANT TypeOK` | 慣習。型の崩れを最初に捕まえる |
-| `INVARIANT <rules[].tla の名前>` | 規則ごとに1行。モジュールに `名前 ==` の定義が無いと L010、.cfg に名前が無いと L011 |
+| `INVARIANT <rules[].tla の名前>` | 規則ごとに1行。モジュールに `名前 ==` の定義が無いと L010、.cfg の `INVARIANT` / `INVARIANTS` 節に無いと L011 |
 | `INVARIANT <acs[].tla_witness の名前>` | **書かない。** witness は破られるための主張なので、本検査が落ちる (L020) |
 
-`trs tla` は、まず .cfg のまま本検査を回し、次に witness ごとに「.cfg + `INVARIANT <witness>`」の一時 config で回して、反例を `generated/traces/<AC 完全 ID>.json` に落とす。一時 config はモジュールと同じディレクトリに作るので、そこは書き込み可能である必要がある。L011 は .cfg 内に名前があるかを見るだけなので、`INVARIANT` 行に置いたか (= TLC が実際に検査するか) は人が確かめる。
+`trs tla` は、まず .cfg のまま本検査を回し、次に witness ごとに「.cfg + `INVARIANT <witness>`」の一時 config で回して、反例を `generated/traces/<AC 完全 ID>.json` に落とす。一時 config はモジュールと同じディレクトリに作るので、そこは書き込み可能である必要がある。L011 は .cfg のコメント (`\*` と `(* *)`) を落としたうえで `INVARIANT` / `INVARIANTS` 節に名前があるかを見るので、コメントアウトした行や `PROPERTY` 節に置いた名前は検査したことにならない。
+
+L010〜L012 は TLC を使わない文字列の照合なので、`trs ci --no-tla` でも実行する。`--no-tla` で省略したことは L003 (I) として出力に残る。
 
 完成例: `tools/trs/examples/PBI-123/Settings.tla` (導入済み) / `<skill>/tool/examples/PBI-123/Settings.tla` (未導入) と `Settings.cfg` (trs.yaml の `rules[].tla: Inv_KeepDraftOnError` と `acs[].tla_witness: Witness_RetrySaved` に対応)。
 
