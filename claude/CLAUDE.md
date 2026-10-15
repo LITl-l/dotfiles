@@ -57,6 +57,21 @@ Use the `jj-master` plugin skills and agents automatically as needed:
 - IMPORTANT: Whenever you change any files, you MUST complete the entire workflow including creating a PR
 - **Superpowers artifacts**: The `brainstorming` and `writing-plans` skills save specs/plans under `docs/superpowers/` (`specs/`, `plans/`). These are ephemeral planning notes, not deliverables — the directory is gitignored. Don't commit them (skip the skill's "commit the spec" step), and delete any that exist before merging.
 
+### Stacked PRs
+
+`gh stack` (`github/gh-stack`) is installed and is the canonical way to build a
+series of PRs. Stack — rather than base on trunk — when any of these holds:
+
+- the change depends on an open, unmerged PR
+- one job is being split into several PRs (wave 1 → wave 2 → …)
+- a stack on the same topic is already open → add to its top
+
+State the base explicitly every time; never let it fall back to trunk silently.
+`gh stack` needs a real git checkout: inside a `~/wkspace/worktree/...` jj workspace
+it exits `✗ not a git repository`. From a workspace, open the PR with
+`gh api repos/<owner>/<repo>/pulls -f base=<previous branch>`; run `gh stack`
+(`view`/`add`/`push`/`submit`/`sync`/`merge`) from the colocated main checkout.
+
 ### PR Title Convention
 
 Gitmoji + conventional commit with **mandatory scope**: `:emoji: type(scope): description`

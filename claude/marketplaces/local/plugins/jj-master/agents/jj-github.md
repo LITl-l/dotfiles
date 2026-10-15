@@ -93,12 +93,20 @@ fi
 ## Create PR via API (only if no existing PR)
 
 ```bash
+# Stacked (depends on an open PR / split into waves / an open stack on this topic)?
+# Then BASE is the previous PR's head branch — otherwise the repo's default branch:
+BASE=${BASE:-$(gh repo view "$OWNER_REPO" --json defaultBranchRef --jq .defaultBranchRef.name)}
+
 gh api repos/$OWNER_REPO/pulls \
   -f title="$TITLE" \
   -f head="$BRANCH" \
   -f base="$BASE" \
   -f body="$BODY"
 ```
+
+`gh stack` itself exits `✗ not a git repository` in these workspaces, so the PR is
+created with `gh api` against the chosen base; run `gh stack` from the colocated main
+checkout.
 
 ## Output
 
