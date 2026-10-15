@@ -105,7 +105,8 @@ def main(argv=None):
         if name in ("trace", "ci"):
             p.add_argument("--junit", nargs="+", default=[])
         if name == "ci":
-            p.add_argument("--no-tla", action="store_true")
+            p.add_argument("--no-tla", action="store_true",
+                           help="TLC を実行しない (名前の照合 L010〜L012 は行い、省略を L003 で報告する)")
     args = ap.parse_args(argv)
 
     results = []
@@ -125,8 +126,7 @@ def main(argv=None):
             F = cmd_check(spec)
             if not _failed(F, False):
                 F += cmd_gen(spec, check_only=True)
-            if not args.no_tla:
-                F += tla.check(spec, strict_tool=True)
+            F += tla.check(spec, strict_tool=True, run_tlc=not args.no_tla)
             if args.junit:
                 F += cmd_trace(spec, args.junit)
         results.append((sp, F))

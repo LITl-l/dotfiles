@@ -21,6 +21,17 @@ CODE_REF_RE = re.compile(
 GAP_LIMIT = 50
 SELF_CHECK_LIMIT = 3000
 
+# これらのどれかが E で出たら Z3 による意味検査に入らない。
+# 入ると落ちるか、誤った指摘を出すため (S020: 辞書の上書き / S021: Z3 の列挙ソート名の衝突 /
+# S010・S040〜S043: 式や参照が壊れている)。
+STOP_SEMANTIC = ("S010", "S020", "S021", "S040", "S041", "S042", "S043")
+
+
+class SolverUnknown(RuntimeError):
+    """Z3 が sat とも unsat とも判定できなかった (資源切れなど)。
+
+    unsat と同じに扱うと Z020/Z030/Z040 が黙って0件になるので、必ず表に出す。"""
+
 
 # ---------------------------------------------------------------------------
 # Z3 エンコーダ
@@ -59,6 +70,8 @@ class Enc:
         s = self.z3.Solver()
         s.add(*fs)
         r = s.check()
+        if r == self.z3.unknown:
+            raise SolverUnknown(s.reason_unknown())
         return (s.model() if r == self.z3.sat else None), r == self.z3.sat
 
 
@@ -175,12 +188,18 @@ def static_checks(spec: Spec) -> list:
         check_expr(r["id"], e, allv, "規則")
         if "tla" in r and "tla" not in raw:
             E("S070", r["id"], "tla 規則があるのに tla (module/config) がありません")
-    uc_ids = {u.id for u in spec.use_cases}
+    by_id = {u.id: u for u in spec.use_cases}
     for a, e in spec.assumptions:
         check_expr(a["id"], e, set(spec.factors), "前提")
         for u in a.get("use_cases", []):
-            if u not in uc_ids:
+            if u not in by_id:
                 E("S045", a["id"], f"use_cases に {u} がありません")
+            else:
+                # 指定された UC には必ず適用されるので、その UC の入力だけで書けている必要がある
+                for v in (e.vars if e is not None else []):
+                    if v not in by_id[u].inputs:
+                        E("S041", f"{a['id']}/{u}",
+                          f"前提で使えない変数 {v!r} ({u} の入力は {sorted(by_id[u].inputs)})")
 
     ac_ids = {a.full_id for a in spec.all_acs()}
     for i, e in spec.issues:
@@ -317,7 +336,12 @@ def gap_cubes(enc: Enc, inputs, assume, covered):
     s = z3.Solver()
     s.add(assume, z3.Not(covered))
     out = []
-    while len(out) < GAP_LIMIT and s.check() == z3.sat:
+    while len(out) < GAP_LIMIT:
+        r = s.check()
+        if r == z3.unknown:
+            raise SolverUnknown(s.reason_unknown())
+        if r != z3.sat:
+            break
         m = s.model()
         cube = {v: enc.value(m, v) for v in inputs}
         for v in inputs:
@@ -390,8 +414,12 @@ def summary(spec: Spec) -> Finding:
 def run_all(spec: Spec) -> list:
     F = list(spec.parse_findings)
     F += static_checks(spec)
-    if not any(f.severity == "E" and f.code in ("S010", "S041", "S042", "S043", "S040") for f in F):
-        F += semantic_checks(spec)
+    if not any(f.severity == "E" and f.code in STOP_SEMANTIC for f in F):
+        try:
+            F += semantic_checks(spec)
+        except SolverUnknown as e:
+            F.append(Finding("E", "Z000", spec.id,
+                             f"Z3 が判定できませんでした ({e})。意味検査 (Z010〜Z060) の結果は信用できません"))
     else:
         F.append(Finding("I", "I001", spec.id, "式・参照のエラーがあるため Z3 による意味検査を省略しました"))
     for a in spec.all_acs():

@@ -20,6 +20,29 @@ from pathlib import Path
 
 from .model import Finding, Spec
 
+# TLC の config ファイルの節を示すキーワード (次のキーワードまでが1つの節)
+CFG_KEYWORDS = frozenset((
+    "SPECIFICATION", "INIT", "NEXT", "CONSTANT", "CONSTANTS", "CONSTRAINT", "CONSTRAINTS",
+    "ACTION_CONSTRAINT", "ACTION_CONSTRAINTS", "INVARIANT", "INVARIANTS", "PROPERTY",
+    "PROPERTIES", "SYMMETRY", "VIEW", "ALIAS", "POSTCONDITION", "CHECK_DEADLOCK",
+))
+
+
+def cfg_invariants(cfg_text: str) -> set:
+    """cfg の INVARIANT / INVARIANTS 節で実際に検査される名前。
+
+    コメント (`\\*` 行コメントと `(* ... *)`) を先に落とす。名前が cfg のどこかにあるかだけを
+    見ると、コメントアウトした `\\* INVARIANT X` や PROPERTY 節の名前まで通ってしまう。"""
+    text = re.sub(r"\(\*.*?\*\)", " ", cfg_text, flags=re.S)
+    text = re.sub(r"\\\*[^\n]*", " ", text)
+    names, section = set(), None
+    for tok in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text):
+        if tok in CFG_KEYWORDS:
+            section = tok
+        elif section in ("INVARIANT", "INVARIANTS"):
+            names.add(tok)
+    return names
+
 
 def tlc_cmd():
     cmd = shlex.split(os.environ.get("TRS_TLC", "tlc"))
@@ -48,7 +71,7 @@ def _ensure_trailing_newline(path: Path) -> None:
             f.write(b"\n")
 
 
-def check(spec: Spec, strict_tool: bool = True) -> list:
+def check(spec: Spec, strict_tool: bool = True, run_tlc: bool = True) -> list:
     F = []
     if "tla" not in spec.raw:
         return F
@@ -69,18 +92,25 @@ def check(spec: Spec, strict_tool: bool = True) -> list:
     if F:
         return F
 
-    # 静的: 規則と witness の名前がモジュール / config にあるか
+    # 静的: 規則と witness の名前がモジュール / config にあるか (TLC は要らない)
+    checked = cfg_invariants(cfg_text)
     for r, _ in spec.rules:
         if "tla" in r:
             if not re.search(rf"^\s*{re.escape(r['tla'])}\s*==", src, re.M):
                 F.append(Finding("E", "L010", r["id"], f"不変条件 {r['tla']} が {module.name} に定義されていません"))
-            if not re.search(rf"\b{re.escape(r['tla'])}\b", cfg_text):
-                F.append(Finding("E", "L011", r["id"], f"不変条件 {r['tla']} が {cfg.name} で検査されていません"))
+            if r["tla"] not in checked:
+                F.append(Finding("E", "L011", r["id"],
+                                 f"不変条件 {r['tla']} が {cfg.name} の INVARIANT に入っていません"))
     witnesses = [(a, a.raw["tla_witness"]) for a in spec.all_acs() if a.raw.get("tla_witness")]
     for a, w in witnesses:
         if not re.search(rf"^\s*{re.escape(w)}\s*==", src, re.M):
             F.append(Finding("E", "L012", a.full_id, f"witness {w} が {module.name} に定義されていません"))
     if any(f.severity == "E" for f in F):
+        return F
+
+    if not run_tlc:
+        F.append(Finding("I", "L003", module.name,
+                         "--no-tla のため TLC は実行していません (名前の照合 L010〜L012 のみ実施)"))
         return F
 
     cmd = tlc_cmd()
