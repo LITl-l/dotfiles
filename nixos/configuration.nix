@@ -108,5 +108,15 @@
   # there. This is what actually shrinks the live store between GC sweeps.
   nix.settings.auto-optimise-store = true;
 
+  # NixOS CUDA binary cache. cache.nixos.org cannot host CUDA builds — the
+  # redistributables are unfree — so without this every cudaSupport derivation
+  # compiles locally from source. The extra- prefixed spellings append at the
+  # nix.conf layer, which stays additive however nixpkgs happens to contribute
+  # cache.nixos.org and its signing key.
+  nix.settings.extra-substituters = [ "https://cache.nixos-cuda.org" ];
+  nix.settings.extra-trusted-public-keys = [
+    "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
+  ];
+
   system.stateVersion = "25.05";
 }
