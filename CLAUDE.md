@@ -92,6 +92,32 @@ Rules that exist because they were measured, not assumed:
   spawn` defaults to `--permission-mode acceptEdits`, so a cross-session `SendMessage`
   from another mode is held for approval and is indistinguishable in `fleet watch` from a
   tool prompt. It clears on its own — do not panic-reap.
+- **A worker's *path* can be gated, not just its termination condition.** The `advisor`
+  tool appears in no permissions list at all: `allow` carries nine non-Bash tool entries
+  (`Edit`, `Glob`, `Grep`, `Read`, `Skill`, `WebFetch`, `WebSearch`, `Write`,
+  `mcp__context7`) and `advisor` is not one of them, even though `advisorModel` is
+  configured. A background worker that decides to consult it therefore blocks forever.
+  No termination condition named it, and the done-condition rule above does not catch
+  it: the gate was on a path the worker chose, not on a step the spec wrote down. The
+  first worker died there before writing a line. Say "do not call `advisor`" outright in
+  the spec, with the reason — a worker reaches for it exactly when the task looks
+  consequential. And unlike the held-message case above, a real tool prompt never
+  clears: if you sent no `SendMessage`, stop waiting and reap.
+- **`od` matches no `allow` pattern.** The reading set in the bullet above is allowed and
+  so is `diff` (`Bash(diff *)`), but `od` is absent, so the reflex "confirm the trailing
+  byte with `od -c`" stalls the worker. `tail -c 1 <file> | wc -l` answers the same
+  question and is allowed.
+- **Staging under `wkspace` is necessary but not sufficient — and a few tool calls do
+  not need a fleet worker at all.** The second worker, dispatched with `advisor`
+  explicitly forbidden in its spec, blocked anyway: during an orientation *read* of
+  paths that `permissions.additionalDirectories` already covers (`/home/nixos/wkspace`,
+  `/home/nixos/.config/dotfiles`), again before writing anything. That cause is still
+  unpinned, so it is a second data point that the `/tmp`-vs-`wkspace` mechanism above is
+  incompletely understood. The rule that follows is about sizing, not paths: for a task
+  of a few tool calls, dispatch an in-process `Agent` instead. It runs under this
+  session's permissions, so a prompt reaches the human instead of deadlocking. The same
+  spec that killed two background workers was executed by an in-process subagent in 19
+  tool calls. Reserve `fleet` for work long enough that staying available matters.
 
 ## Gotchas
 
