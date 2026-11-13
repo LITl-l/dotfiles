@@ -17,9 +17,9 @@ local function mods()
   }
 end
 
--- mini.surround / mini.comment / mini.splitjoin are loaded on InsertEnter, so
--- their maps (sa, gcc, gS) do not exist yet if the user has only been in normal
--- mode. Warm them before a drill can pin on them.
+-- mini.surround / mini.splitjoin are loaded on InsertEnter, so their maps
+-- (sa, gS) do not exist yet if the user has only been in normal mode. Warm
+-- them before a drill can pin on them.
 local function warm_editing_maps()
   pcall(function() require('config.plugins').setup_editing() end)
 end
