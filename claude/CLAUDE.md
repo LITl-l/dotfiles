@@ -8,7 +8,7 @@
   re-litigate a decision already made or re-derive facts already established.
   Reconsider on new evidence, not on doubt.
 - **Minimal changes, root causes.** Only modify what's necessary; no temporary
-  workarounds. Never modify code you haven't read in this session.
+  workarounds.
 - **Evidence before assertions.** Never claim complete, fixed, or passing without
   running the check and reading its output. Scope the check to what changed — the
   full suite is for the PR, not for every edit.
@@ -20,10 +20,6 @@ Long, bloated context measurably degrades accuracy ("context rot") — keep it l
 avoid mistakes like editing a stale or unread file.
 
 - `/clear` between unrelated tasks.
-- **Pipe large output through crumb**: `big-cmd | crumb compress` prints a small stub;
-  pull back what you need with `crumb retrieve <hash> --query "..."`. Use the CLI, not
-  the MCP compress tool. crumb passes through the command's exit code and stderr —
-  check those separately.
 - Send subagents to explore; have them return conclusions, not file dumps.
 - Scope investigations narrowly — don't read everything.
 
@@ -44,38 +40,31 @@ instead of searching the first phrase that comes to mind:
 
 ## Version Control: Jujutsu (jj)
 
-This environment uses **Jujutsu (jj)**, not git. **Never use git commands directly.**
+This environment uses **Jujutsu (jj)**, not git. **Never use mutating git commands**
+(`commit`, `push`, `add`, `checkout`, `merge`, `rebase`, `reset`, `restore`). Read-only
+`git show` / `git grep` / `git log` is fine, and is the normal way to read history in
+repos that are not jj.
 
 - **Always pass `-m`** to `jj describe`, `jj squash`, `jj split`, `jj commit`. Without
   it jj opens `$EDITOR` and hangs forever in a non-interactive shell.
 - **New task** — use the `jj-workspace` agent (workspaces go under
   `~/wkspace/worktree/<type>/`). Already in one? `jj workspace root` tells you.
-- **Finishing** — changed files MUST reach a PR; use the `jj-github` agent (`/jj-pr` is
-  the human path — see the bullet below). A session that cannot answer a permission
-  prompt — any background worker — stops at `jj describe -m` and reports instead:
-  `jj git push` and `gh pr create` are gated, and a worker waiting on that gate blocks
-  forever.
+- **Finishing** — changed files MUST reach a PR. A session that cannot answer a
+  permission prompt — any background worker — stops at `jj describe -m` and reports
+  instead: `jj git push` and `gh pr create` are gated, and a worker waiting on that
+  gate blocks forever.
 - The `/jj` skill can be invoked automatically; `/jj-pr`, `/jj-history`, `/jj-safety`,
   `/jj-revsets`, `/jj-submodules` are slash-command only — they are never loaded unless
   asked for by name.
 - **Superpowers artifacts**: `brainstorming` and `writing-plans` save specs/plans under
   `docs/superpowers/` — ephemeral notes, gitignored. Don't commit them (skip the skill's
-  "commit the spec" step); delete any that exist before merging.
+  "commit the spec" step).
 
-### Stacked PRs
+### PR base
 
-`gh stack` (`github/gh-stack`) is installed and is the canonical way to build a
-series of PRs. Stack — rather than base on trunk — when any of these holds:
-
-- the change depends on an open, unmerged PR
-- one job is being split into several PRs (wave 1 → wave 2 → …)
-- a stack on the same topic is already open → add to its top
-
-State the base explicitly every time; never let it fall back to trunk silently.
-`gh stack` needs a real git checkout: inside a `~/wkspace/worktree/...` jj workspace
-it exits `✗ not a git repository`. From a workspace, open the PR with
-`gh api repos/<owner>/<repo>/pulls -f base=<previous branch>`; run `gh stack`
-(`view`/`add`/`push`/`submit`/`sync`/`merge`) from the colocated main checkout.
+State the base explicitly every time; never let it fall back to trunk silently. From a
+`~/wkspace/worktree/...` jj workspace, open the PR with
+`gh api repos/<owner>/<repo>/pulls -f base=<branch>`.
 
 ## What you write
 

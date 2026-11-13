@@ -20,6 +20,9 @@ What outcome is wanted, in one or two sentences. State the intent, not the steps
 - `cp`, `mv` and `rm` match no `allow` pattern and will stall the worker: create files
   with the Write tool, read with `cat`. If a baseline snapshot is wanted, stage it under
   `/home/nixos/wkspace/` yourself and name the path here.
+- Reading is allowlisted: `cat`, `jq`, `grep`, `sed`, `find`, `head`, `tail`, `wc`,
+  `mkdir` and `diff`. `od` is not — use `tail -c 1 <file> | wc -l` for the
+  trailing-newline check.
 
 ## Termination condition
 

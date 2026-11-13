@@ -9,10 +9,12 @@ NixOS dotfiles managed with Home Manager and Nix flakes. Includes configs for Hy
 - **OS**: NixOS (WSL2)
 - **Package Manager**: Nix flakes + Home Manager
 - **Shell**: Fish
-- **VCS**: Jujutsu (jj) — never use git commands directly
+- **VCS**: Jujutsu (jj) — no direct mutating git; read-only git is fine
 - **Editor**: Neovim
 
 ## Key Paths
+
+This repo is `LITl-l/dotfiles` on GitHub — use that for every `gh` command.
 
 - `flake.nix` / `flake.lock` — Nix flake definition
 - `home.nix` — Home Manager entry point
@@ -33,7 +35,8 @@ NixOS dotfiles managed with Home Manager and Nix flakes. Includes configs for Hy
 
 ## Commands & Verification
 
-- `home-manager switch --flake .` — Apply config (ALWAYS run after changes to verify)
+- `home-manager switch --flake .` — Apply the config; this is the verification step for
+  a config change
 - `nix flake check` — Validate flake (run before committing)
 - `nix flake update` — Update all flake inputs
 
@@ -84,10 +87,6 @@ Rules that exist because they were measured, not assumed:
   `/home/nixos/wkspace/adhd-upstream/` it read them without issue. The mechanism is not
   fully pinned down — `wkspace` is what has been shown to work. Stage input there and
   name the path in the spec.
-- **Reading is allowlisted; copying is not.** `cat`, `jq`, `grep`, `sed`, `find`, `head`,
-  `tail`, `wc` and `mkdir` are allowed, but `cp`, `mv` and `rm` match no `allow` pattern
-  (only the `rm -rf` forms are explicitly denied), so the reflex to snapshot a file
-  before editing stalls the worker. Specs say: create with Write, read with `cat`.
 - **A worker "blocked (permission prompt)" may just be holding your message.** `fleet
   spawn` defaults to `--permission-mode acceptEdits`, so a cross-session `SendMessage`
   from another mode is held for approval and is indistinguishable in `fleet watch` from a
@@ -103,10 +102,6 @@ Rules that exist because they were measured, not assumed:
   the spec, with the reason — a worker reaches for it exactly when the task looks
   consequential. And unlike the held-message case above, a real tool prompt never
   clears: if you sent no `SendMessage`, stop waiting and reap.
-- **`od` matches no `allow` pattern.** The reading set in the bullet above is allowed and
-  so is `diff` (`Bash(diff *)`), but `od` is absent, so the reflex "confirm the trailing
-  byte with `od -c`" stalls the worker. `tail -c 1 <file> | wc -l` answers the same
-  question and is allowed.
 - **Staging under `wkspace` is necessary but not sufficient — and a few tool calls do
   not need a fleet worker at all.** The second worker, dispatched with `advisor`
   explicitly forbidden in its spec, blocked anyway: during an orientation *read* of
