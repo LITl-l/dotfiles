@@ -10,7 +10,7 @@ Modern Neovim configuration using mini.nvim with LSP, completion, and Git integr
 - **LSP integration** with auto-completion
 - **Git integration** with status and operations
 - **Fuzzy finding** for files, text, and commands
-- **Catppuccin theme** for consistent aesthetics
+- **Monochrome theme** (in-repo, see `colors/`), with Catppuccin available on demand
 - **Treesitter** for advanced syntax highlighting
 - **Vi mode everywhere** consistent with Fish and Tmux
 - **Built-in tutor** (`:Dojo`) that teaches and drills this config's own keymaps
@@ -39,22 +39,28 @@ If you need just neovim configuration without the full Nix setup:
 ## Key features
 
 ### Plugin management
-- **Mini.deps**: Automatic plugin management
+- **Nix-managed**: Home Manager installs every plugin and tool; there is no in-editor plugin manager and no clone-on-startup
 - **Lazy loading**: Heavy plugins load on first relevant event or keypress
-- **Bootstrap**: Nix provides mini.nvim; standalone installs still auto-bootstrap it
-- **Nix-managed dependencies**: Home Manager provides plugins/tools; heavy plugins are installed optional and loaded on demand
+- **Standalone**: `install.sh` installs mini.nvim for use without Nix
 
 ### LSP servers supported
+
+Each server is enabled only when its binary is in PATH, so the list below is
+what `modules/neovim.nix` installs:
+
 - **lua_ls**: Lua language server
-- **pyright**: Python type checking
+- **nil_ls**: Nix language server
+- **basedpyright**: Python type checking
+- **ruff**: Python linting and import sorting
 - **rust_analyzer**: Rust language support
-- **tsserver**: TypeScript/JavaScript
+- **vtsls**: TypeScript/JavaScript
 - **gopls**: Go language server
 - **bashls**: Bash scripting
 - **jsonls/yamlls**: Configuration files
 - **html/cssls**: Web development
-- **dockerls**: Docker files
-- **terraformls**: Infrastructure as code
+
+`dockerls` and `terraformls` are configured too, but their binaries are not
+installed; add them to `extraPackages` to turn them on.
 
 ### Key mappings
 
@@ -138,10 +144,11 @@ nvim/
 - **mini.git**: Git integration and status
 
 ### Visual enhancements
-- **Catppuccin**: Color scheme
+- **monochrome**: Default color scheme, in-repo under `colors/`
+- **Catppuccin**: Alternative color scheme, configured when selected
 - **Treesitter**: Syntax highlighting
-- **mini.statusline**: Status bar (optional)
-- **mini.icons**: File type icons
+- **mini.statusline**: Status bar
+- **mini.icons**: File type icons for the status bar
 
 ### Code features
 - **nvim-lspconfig**: Language server defaults
@@ -159,12 +166,13 @@ The configuration automatically enables LSP servers that are found in PATH. To a
 ```nix
 extraPackages = with pkgs; [
   lua-language-server
-  nil                                          # Nix LSP
-  nodePackages.bash-language-server
-  nodePackages.typescript-language-server
-  nodePackages.vscode-langservers-extracted    # HTML, CSS, JSON
-  nodePackages.yaml-language-server
-  python3Packages.python-lsp-server
+  nil                          # Nix LSP
+  bash-language-server
+  vtsls                        # TypeScript/JavaScript
+  vscode-langservers-extracted # HTML, CSS, JSON, ESLint
+  yaml-language-server
+  basedpyright                 # Python types
+  ruff                         # Python lint + format
   rust-analyzer
   gopls
 ];
