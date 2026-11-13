@@ -35,6 +35,17 @@ in
       executable = true;
       text = builtins.readFile ../scripts/fleet;
     })
+    # `claude-corpus` reports what of this config actually fires. Installed the same way
+    # and for the same reasons as fleet above. It finds the hooks and settings.json it
+    # measures relative to its own path, so the store copy reads the LIVE ~/.claude while
+    # a run from a checkout reads that checkout -- which is what keeps a run over a
+    # frozen corpus reproducible.
+    (pkgs.writeTextFile {
+      name = "claude-corpus";
+      destination = "/bin/claude-corpus";
+      executable = true;
+      text = builtins.readFile ../scripts/claude-corpus;
+    })
   ];
 
   # settings.json and CLAUDE.md are the two files Claude Code writes BACK -- the
