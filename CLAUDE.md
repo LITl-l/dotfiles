@@ -35,8 +35,8 @@ This repo is `LITl-l/dotfiles` on GitHub — use that for every `gh` command.
 
 ## Commands & Verification
 
-- `home-manager switch --flake .` — Apply the config; this is the verification step for
-  a config change
+- `home-manager switch --flake .#nixos@wsl` — Apply the config; this is the verification
+  step for a config change. Bare `--flake .` fails — the target must be named
 - `nix flake check` — Validate flake (run before committing)
 - `nix flake update` — Update all flake inputs
 
@@ -49,7 +49,9 @@ disposable worker sessions, each in its own jj workspace.
 claude --agent meta          # orchestrator: no Edit/Write, cannot drift into coding
 fleet ls                     # inventory — bare; do NOT pass a project dir
 fleet out <id> [lines]       # worker output, read from the transcript
-fleet gc [--dry-run]         # reap orphaned job state
+fleet why <id>               # why a session is parked: state, detail, needs, respawn
+fleet gc [--dry-run]         # reap orphaned job state; report leaked `stopped` state
+fleet gc --stopped           # also remove that leaked state (never a `done` session)
 fleet watch [interval]       # transition stream — feed to a Monitor, do not poll
 fleet spawn --name N --dir PATH --spec FILE
 ```
@@ -63,7 +65,27 @@ Rules that exist because they were measured, not assumed:
   (`zombie_ids` snapshots with `--all`, so a `done` worker is not a zombie) and will
   report `no orphaned job state`. Use `fleet gc` for the case `claude rm` refuses: it
   cannot remove a session whose daemon socket is gone ("the background service may be
-  restarting"), and that state leaks — one session sat `blocked` for six weeks.
+  restarting"), and that state leaks — one session sat `blocked` for six weeks. A
+  `stopped` session leaks the same way while looking accounted for: nine job dirs dated
+  Oct 16 – Nov 2 sat in `~/.claude/jobs/` while `fleet gc` reported `no orphaned job
+  state`, because `claude agents --json --all` still lists them, so nothing looked
+  orphaned. `fleet gc` now reports those separately and removes them only under
+  `--stopped`, since each still carries a `resumeSessionId`.
+- **Ask the state file why a session is parked.** `fleet why <id>` prints `state`,
+  `detail`, `needs`, `respawnFlags` and `resumeSessionId` from
+  `~/.claude/jobs/<id>/state.json`; the six-week `blocked` session went unnoticed because
+  nothing surfaced that. Do not `cat` the file — `intent` holds the worker's entire spec.
+- **`claude agents --all` needs `--json` added, not `--all` dropped — confirm a reap with
+  `claude agents --json --all`.** It is the *absence of `--json`* that requires a TTY, not
+  `--all`. Measured both ways from a non-interactive session: `claude agents --all` exits
+  1 with an empty stdout, the message `'claude agents' requires an interactive terminal
+  (stdout is not a TTY)` going to stderr — so a stdout-reading check sees nothing while an
+  exit-code check fails loudly; `claude agents --json --all` exits 0 and returns the full
+  inventory (10 rows here, 9 of them `stopped`). Keep `--all`: it is what surfaces
+  `stopped` and zombie rows, and dropping it makes the check pass the moment the session
+  stops being live — the same vacuous pass in a new costume. `fleet ls` is no substitute
+  for the same reason: it lists only live sessions, so a finished worker drops out of it
+  before any reap.
 - **Never scope `fleet ls` to the project dir.** Workers live in
   `~/wkspace/worktree/<type>/`, a sibling of the checkout, so `fleet ls <project-dir>`
   reports an empty fleet while workers are running. Run it bare.
@@ -113,6 +135,24 @@ Rules that exist because they were measured, not assumed:
   session's permissions, so a prompt reaches the human instead of deadlocking. The same
   spec that killed two background workers was executed by an in-process subagent in 19
   tool calls. Reserve `fleet` for work long enough that staying available matters.
+- **`jj git fetch` does not move `@`, and `home-manager switch` will build the stale
+  working copy and still exit 0.** After fetching two merged PRs the bookmarks had
+  advanced but `@`'s parent was still the pre-merge commit; `home-manager switch --flake
+  .#nixos@wsl` built from that source, **reported exit code 0**, and activated a
+  generation containing neither merge. The symptom was a file the merge had deleted still
+  present in the activated generation — nothing in the switch output said anything was
+  wrong. `jj new main` is the catch-up step. Without it a destructive follow-up runs
+  against old source: here the deleted bootstrap would have recreated the very clone it
+  was meant to remove.
+- **A `Bash(...)` pattern's `*` crosses `/`, so a deny rule is far broader than it
+  looks.** `permissions.deny`'s `Bash(rm -rf /*)` matched *every* absolute path:
+  `rm -rf /home/nixos/wkspace/rmtest-probe` → denied, `rm -rf /tmp/.../rmprobe` →
+  denied, while `rm -rf rmtest-probe` — relative, same target — executed with no prompt,
+  because `permissions.deny` outranks the mode but `"defaultMode": "auto"` auto-approves
+  a relative deletion confined to an allowed directory. The net effect was that the
+  auditable spelling, absolute path with a visible target, was the only one forbidden.
+  `*` is not path-segment-scoped, so depth globs like `/*/*` cannot mean "root's direct
+  children"; check every deny rule by probing a path it was never meant to cover.
 
 ## Gotchas
 
