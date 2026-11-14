@@ -1,0 +1,863 @@
+#!/usr/bin/env bash
+# claude-corpus — measure what Claude Code sessions actually did, from the transcripts.
+#
+# WHY THIS EXISTS: the hooks in claude/ assert measured numbers in their header comments
+# ("blocking waits cost 12.8h over 8 weeks", "the Grep matcher fired ZERO times in 8
+# weeks", "1,009 full-suite calls"). Those numbers decided real config changes, but the
+# measurement was done out of band and only the conclusions were committed. Nothing in
+# the repo could recompute them, so the claims aged into folklore the moment the corpus
+# rotated out from under them. This is the missing measuring stick.
+#
+# Three properties of that failure shape the design:
+#
+#   1. PREDICATES ARE NOT RE-IMPLEMENTED HERE. A hook's fire rate is measured by running
+#      THAT HOOK against a payload synthesized from the transcript. A jq copy of
+#      `segment_is_full_suite` would drift from the shell original on its first edit and
+#      then report confident numbers about a predicate that no longer exists.
+#   2. THE CORPUS EXPIRES. cleanupPeriodDays is unset, so Claude Code's 30-day default
+#      retention applies: a window is unrecoverable before anyone thinks to re-read it
+#      (a repeated count here dropped 47 -> 32 files within minutes). `--ledger` appends
+#      one dated row per metric to a committed file so windows accumulate. The ledger is
+#      the durable artifact; this report is only the view.
+#   3. TOOL DURATION IS NOT RECORDED. No Bash tool_result carries a duration field
+#      (only WebFetch/WebSearch do), so every time figure here is a TIMESTAMP DELTA —
+#      see `--definitions`, which prints the exact rule for every metric. The
+#      definitions are part of the output because they are the part that was lost.
+set -uo pipefail
+
+SELF=${0##*/}
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" >/dev/null 2>&1 && pwd)
+REPO_DIR=$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)
+
+die() { printf '%s: %s\n' "$SELF" "$*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"; }
+
+usage() {
+  cat <<'USAGE'
+claude-corpus — what installed config actually fires, and what it costs
+
+  claude-corpus [CORPUS_ROOT] [options]
+
+  CORPUS_ROOT            dir of session transcripts (default: ~/.claude/projects)
+
+  --config FILE          settings.json holding the installed inventory
+                         (default: <repo>/claude/settings.json, else ~/.claude/settings.json)
+  --hooks-dir DIR        dir holding the hook scripts to replay
+                         (default: <repo>/claude, else ~/.claude)
+  --skills-root DIR      dir to scan for installed SKILL.md (repeatable)
+                         (default: <repo>/claude/marketplaces AND ~/.claude/plugins)
+                         The default covers the repo's own plugins and the installed
+                         tree. Pass this ONLY to add a marketplace kept elsewhere —
+                         passing it at all REPLACES the default, so passing just the
+                         repo dir reports 13 skills and calls the other ~45 uninstalled.
+  --no-replay            skip the hook replay (report only what the logs state)
+  --ledger [FILE]        append one dated row per metric to the ledger
+                         (default: <repo>/docs/claude-corpus-ledger.tsv)
+  --definitions          print the metric definitions and exit
+  --json                 emit the raw metrics object instead of the report
+USAGE
+}
+
+definitions() {
+  cat <<'DEFS'
+claude-corpus metric definitions
+================================
+
+The methodology behind the numbers in claude/*.sh headers was not committed and the
+session that produced it has aged out of retention. These definitions are re-derived
+from those header claims; they are a reading of them, not a recovery of them. Where a
+number here disagrees with a header, suspect the definition first.
+
+WALL CLOCK (every duration in this report)
+  No Bash tool_result records a duration. A call's cost is therefore the delta between
+  the `assistant` record carrying the tool_use block and the `user` record carrying the
+  matching tool_result (paired on tool_use_id). Consequences, all of them real:
+    - it is ELAPSED time, and so includes hook execution and human approval latency;
+    - a call with no matching result (interrupted, or last in the file) counts toward
+      call totals and contributes zero time; it is reported separately;
+    - timestamps are ISO-8601 with milliseconds, which jq's fromdateiso8601 rejects,
+      so they are parsed by hand to millisecond precision.
+  Where an assistant message carries SEVERAL tool_use blocks they share one start
+  timestamp and ran concurrently, so summing them double-counts. This corpus has none;
+  the report warns if a future one does rather than quietly inflating.
+
+HUMAN TIME vs MACHINE TIME
+  A call is human-gated when its tool_result record's permissionDecision.source begins
+  with `user_` (user_temporary / user_permanent / user_reject) — a human answered a
+  prompt. AskUserQuestion is human time by definition. Both are reported apart from
+  tool cost, never inside it.
+  This total is NOT attention and NOT compute. It is the wall clock between the prompt
+  being raised and someone answering, so a session left open overnight contributes the
+  whole night. The report prints the longest single wait next to the sum for exactly
+  that reason: read them together or not at all.
+
+BLOCKING WAIT
+  A Bash call for which claude/blocking-wait-nudge.sh fires when replayed: a loop
+  keyword paired with a sleep, an explicit `gh run watch` / `gh pr checks --watch`, or a
+  bare `sleep N` with N >= 30. Backgrounded calls are exempt (the hook's own exemption).
+  Cost is split, mirroring the header's "4.17h standalone + 8.68h embedded in gh/push":
+    standalone — the wait is the whole command;
+    embedded   — the matching command also mentions `gh ` or `push`, so the wait is a
+                 clause inside work that had to happen anyway.
+  Splitting on command text is this tool's guess at what "embedded" meant.
+
+FULL-SUITE RUN, AND A REPEAT
+  A full-suite run is a Bash call for which claude/full-suite-nudge.sh's predicate
+  matches. That hook only writes its state file when the predicate matched, so the run
+  count is read from the hook's own `runs` counter rather than re-implemented here.
+  A REPEAT is the 2nd-or-later full-suite run within one session. Edits since the
+  previous full run counts Edit/Write/NotebookEdit tool_use blocks between them, which
+  is what the hook's PostToolUse arm counts. A repeat SURFACED A FAILURE when its
+  tool_result is flagged is_error (a non-zero exit). That is narrower than the header's
+  "surface a real failure" and will undercount a suite that fails while exiting 0.
+
+HOOK FIRE RATE
+  Two different things, never added together:
+    MEASURED — Stop hooks are logged. Each `system`/`stop_hook_summary` record is one
+      Stop event and lists every hook that ran with its own durationMs. Fires and cost
+      are exact, not inferred.
+    REPLAYED — PreToolUse and PostToolUse fires are NOT logged anywhere, which is why
+      the headers speak of "replaying it over the corpus". Each recorded tool_input is
+      rebuilt into a hook payload and fed to the real hook; a non-empty stdout is a
+      fire. Session-scoped gates (once-per-session, edit-streak re-arm) replay correctly
+      because CLAUDE_NUDGE_STATE is pointed at a scratch dir, so the hooks keep their
+      own state exactly as they do in production.
+  A hook's `if:` filter is applied before the hook runs, as Claude Code applies it:
+  a segment of the command (split on && || ; |) whose leading word matches.
+  claude/stop-hook-git-check.sh is deliberately NOT replayed: it inspects the live
+  working copy, so replaying it would measure this checkout, not the corpus.
+
+STOP EVENT (for replaying a Stop hook)
+  The last assistant text block before each human turn, plus the final one in the file.
+  Compare the replayed count against the logged stop_hook_summary count in the report:
+  they measure the same thing two ways, and a large gap means this rule is wrong.
+
+INSTALLED vs USED
+  installed: enabledPlugins set true in settings.json; hook commands configured there;
+    SKILL.md files under --skills-root, counted as distinct `plugin:skill` ids because
+    the installed tree stores the same skill once per install layer (marketplace clone,
+    one cache dir per resolved version, and the repo source of a local plugin);
+    agent definitions in <hooks-dir>/agents.
+  attributed: a plugin or skill appears as attributionPlugin / attributionSkill on an
+    assistant record (the work happened under it), or as a Skill tool call; an agent
+    appears as agentType in a subagent .meta.json sidecar; a plugin is also credited for
+    a `plugin:skill`, a `plugin:agent` or an `mcp__plugin__tool` naming it.
+  ATTRIBUTED IS NOT FIRED, and the gap is not small. Attribution requires a plugin's
+  NAME to appear in some record, which happens only for those surfaces. Therefore the
+  following run without ever being credited, and land in the never-named list:
+    - a hook-only plugin. Claude Code logs the hook command with ${CLAUDE_PLUGIN_ROOT}
+      unexpanded, so the fire is measured but unattributable. In the corpus this tool
+      was written against, one such hook fired on all 45 Stop events while its plugin
+      was reported unused; the report now prints that count beside the list.
+    - an output style, a statusline, an LSP server, or a plugin whose value is a
+      CLAUDE.md fragment: no tool call and no attribution field ever names them.
+    - a plugin last used before the window. Retention is 30 days, so "never named here"
+      means "not in these 32 transcripts", never "not used".
+  Read the never-named list as a list of CANDIDATES to look at, not as a verdict.
+  A skill inventory that cannot be read is reported as unknown, never as zero. Passing
+  --skills-root REPLACES the default roots rather than adding to them.
+DEFS
+}
+
+# ---------------------------------------------------------------- arguments
+CORPUS_ROOT=""
+CONFIG=""
+HOOKS_DIR=""
+SKILL_ROOTS=()
+LEDGER=""
+DO_REPLAY=1
+AS_JSON=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --config)      CONFIG=${2:-};      shift 2 ;;
+    --hooks-dir)   HOOKS_DIR=${2:-};   shift 2 ;;
+    --skills-root) SKILL_ROOTS+=("${2:-}"); shift 2 ;;
+    --no-replay)   DO_REPLAY=0;        shift ;;
+    --json)        AS_JSON=1;          shift ;;
+    --definitions) definitions; exit 0 ;;
+    --ledger)
+      if [ -n "${2:-}" ] && case "${2:-}" in --*) false ;; *) true ;; esac; then
+        LEDGER=$2; shift 2
+      else
+        LEDGER="$REPO_DIR/docs/claude-corpus-ledger.tsv"; shift
+      fi ;;
+    -h|--help)     usage; exit 0 ;;
+    --*)           die "unknown flag: $1 (see --help)" ;;
+    *)             [ -n "$CORPUS_ROOT" ] && die "unexpected argument: $1"
+                   CORPUS_ROOT=$1; shift ;;
+  esac
+done
+
+need jq
+need find
+
+CORPUS_ROOT=${CORPUS_ROOT:-$HOME/.claude/projects}
+# jq and grep read a leading '-' as a flag, and EVERY project dir under
+# ~/.claude/projects is a cwd with '/' replaced by '-' — so every path in this corpus
+# begins with a dash unless it is absolute. Absolutise once, here.
+case "$CORPUS_ROOT" in /*) ;; *) CORPUS_ROOT="$PWD/$CORPUS_ROOT" ;; esac
+[ -d "$CORPUS_ROOT" ] || die "corpus root not found: $CORPUS_ROOT"
+
+# The repo copy is preferred over ~/.claude for both config and hooks: it is the
+# version-controlled source of truth, and it keeps a run over a frozen corpus
+# reproducible. Installed into the store, <repo>/claude does not exist and the live
+# config is used instead -- which is the right answer there.
+if [ -z "$CONFIG" ]; then
+  if [ -r "$REPO_DIR/claude/settings.json" ]; then CONFIG="$REPO_DIR/claude/settings.json"
+  else CONFIG="$HOME/.claude/settings.json"; fi
+fi
+if [ -z "$HOOKS_DIR" ]; then
+  if [ -d "$REPO_DIR/claude" ]; then HOOKS_DIR="$REPO_DIR/claude"
+  else HOOKS_DIR="$HOME/.claude"; fi
+fi
+# The repo marketplace holds only the five locally-authored plugins (13 SKILL.md). The
+# surface whose descriptions sit in EVERY system prompt is the installed tree, ~71 files
+# -- so defaulting to the repo copy alone undercounted the one number this tool exists to
+# report. Both are default now. The installed tree is layered (a marketplace clone, plus
+# one cache dir per resolved version, plus the repo source of the local plugins), so the
+# same skill is found three times; the inventory counts distinct plugin:skill ids and
+# reports the file count separately rather than scanning one layer and missing the rest --
+# superpowers' 14 skills exist ONLY under cache/, so excluding it would report the most
+# used plugin in the corpus as having no skills installed.
+if [ ${#SKILL_ROOTS[@]} -eq 0 ]; then
+  [ -d "$REPO_DIR/claude/marketplaces" ] && SKILL_ROOTS+=("$REPO_DIR/claude/marketplaces")
+  [ -d "$HOME/.claude/plugins" ] && SKILL_ROOTS+=("$HOME/.claude/plugins")
+fi
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/claude-corpus.XXXXXX") || die "cannot create temp dir"
+trap 'rm -rf -- "$tmp"' EXIT INT TERM
+
+# ---------------------------------------------------------------- jq preludes
+# Timestamps are ISO-8601 with a millisecond fraction, which fromdateiso8601 refuses
+# outright ("does not match format %Y-%m-%dT%H:%M:%SZ"). Parse the fraction separately.
+PRELUDE='
+def ep:
+  if type != "string" then null
+  else (try capture("^(?<d>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\\.(?<f>[0-9]+))?Z?$") catch null) as $m
+  | if $m == null then null
+    else (try (($m.d + "Z") | fromdateiso8601) catch null) as $s
+    | if $s == null then null
+      else $s + (if ($m.f // "") == "" then 0 else ("0." + $m.f | tonumber) end) end
+    end
+  end;
+def segs: (if type == "string" then . else "" end)
+  | [splits("&&|\\|\\||;|\\|")]
+  | map(sub("^[[:space:](]+"; ""));
+def leads: segs | map((try (capture("^(?<w>[^[:space:]]+)").w) catch "") | sub("^.*/"; ""));
+def txt: if type == "string" then . else ([.[]? | select(type == "object" and .type == "text") | .text] | join("\n")) end;
+'
+
+# ---------------------------------------------------------------- discovery
+find "$CORPUS_ROOT" -type f -name '*.jsonl' >"$tmp/all.list" 2>/dev/null
+grep -c . "$tmp/all.list" >/dev/null 2>&1 || true
+n_files=$(grep -c . "$tmp/all.list" 2>/dev/null || true)
+[ "${n_files:-0}" -gt 0 ] || die "no *.jsonl transcripts under $CORPUS_ROOT"
+
+# ---------------------------------------------------------------- pass A: facts
+# One jq per transcript rather than one global slurp: memory stays bounded by the
+# largest single transcript, and a transcript jq cannot parse becomes a counted skip
+# instead of a dead run.
+FACTS_JQ='
+[inputs] as $L
+| ([$L[] | select(length > 0)] | length) as $nz
+| [$L[] | select(length > 0) | (fromjson? // empty)] as $R
+| (reduce ($R[] | select(.type == "user")) as $r ({};
+    reduce ($r.message.content | arrays | .[] | select(.type == "tool_result")) as $tr (.;
+      .[$tr.tool_use_id] = {
+        ts: $r.timestamp,
+        err: ($tr.is_error == true),
+        src: ($r.permissionDecision.source // null),
+        dec: ($r.permissionDecision.decision // null),
+        # toolUseResult is sometimes a bare string. `objects` would yield empty here,
+        # and an empty field deletes the whole enclosing object in jq -- silently
+        # dropping the record instead of erroring. Never filter by type inside a
+        # constructed field; branch on it.
+        interrupted: ((($r.toolUseResult // {})
+                       | if type == "object" then (.interrupted == true) else false end))
+      }))) as $res
+| [$R[] | select(.type == "assistant") | . as $a
+   | ($a.message.content | arrays | map(select(.type == "tool_use")) | length) as $batch
+   | ($a.message.content | arrays | .[] | select(.type == "tool_use"))
+   | ($res[.id] // {}) as $r
+   | {
+       tool: .name, id: .id, batch: $batch,
+       sid: ($a.sessionId // "?"),
+       dur: (if $r.ts == null then null else (($r.ts | ep) - ($a.timestamp | ep)) end),
+       err: ($r.err // false), src: ($r.src // null), dec: ($r.dec // null),
+       interrupted: ($r.interrupted // false),
+       skill: ((.input // {}) | if type == "object" then (.skill // .command // null) else null end),
+       agent: ((.input // {}) | if type == "object" then (.subagent_type // null) else null end)
+     }] as $calls
+| {
+    file: $file, kind: $kind,
+    lines: $nz, unparsed: ($nz - ($R | length)),
+    sessions: ([$R[].sessionId // empty] | unique),
+    t_min: ([$R[].timestamp // empty] | min), t_max: ([$R[].timestamp // empty] | max),
+    versions: ([$R[].version // empty] | unique),
+    cwds: ([$R[].cwd // empty] | unique),
+    calls: $calls,
+    batches_over_1: ([$calls[] | select(.batch > 1)] | length),
+    hookfires: [$R[] | select(.subtype == "stop_hook_summary") | .hookInfos | arrays | .[]
+                | {cmd: (.command // "?"), ms: (.durationMs // 0)}],
+    stops: [$R[] | select(.subtype == "stop_hook_summary")
+            | {prevented: (.preventedContinuation == true),
+               reason: ((.stopReason // "") | length > 0),
+               errs: (.hookErrors | arrays | length)}],
+    turns: [$R[] | select(.subtype == "turn_duration") | .durationMs // 0],
+    cost: [$R[] | select(.type == "cost-state")
+           | {sid: (.sessionId // "?"), toolMs: (.totalToolDuration // 0),
+              totalMs: (.totalDuration // 0), apiMs: (.totalAPIDuration // 0),
+              usd: (.totalCostUSD // 0)}],
+    skillmsgs: [$R[] | .attributionSkill // empty],
+    pluginmsgs: [$R[] | .attributionPlugin // empty],
+    skillcmds: [$R[] | .toolUseResult | objects | .commandName // empty],
+    denials: [$R[] | .toolDenialKind // empty]
+  }
+'
+: >"$tmp/facts.jsonl"
+unreadable=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  kind=top
+  case "$f" in */subagents/*) kind=sub ;; esac
+  if ! jq -R -n -c --arg file "$f" --arg kind "$kind" "$PRELUDE$FACTS_JQ" \
+        "$f" >>"$tmp/facts.jsonl" 2>"$tmp/jqerr"; then
+    unreadable=$((unreadable + 1))
+    printf '%s: skipped unreadable transcript %s (%s)\n' \
+      "$SELF" "$f" "$(head -1 "$tmp/jqerr" 2>/dev/null)" >&2
+  fi
+done <"$tmp/all.list"
+
+# ---------------------------------------------------------------- pass B: events
+# The replay needs events in transcript order, because the full-suite gate is driven by
+# edits that happened BETWEEN two runs.
+#
+# join("\t"), never @tsv: @tsv escapes backslashes, which turns the payload's own \"
+# into \\" and hands the hook unparsable JSON. The hook then reads an empty command and
+# exits 0, so a predicate that fires perfectly well is reported as never firing.
+# tojson has already escaped every tab and newline, so the record stays single-line.
+EVENTS_JQ='
+[inputs] as $L
+| [$L[] | select(length > 0) | (fromjson? // empty)] as $R
+| (reduce ($R[] | select(.type == "assistant" or (.type == "user" and .isMeta != true))) as $r
+     ({last: null, out: []};
+      if $r.type == "assistant" then
+        ([$r.message.content | arrays | .[] | select(.type == "text") | .text] | join("\n")) as $t
+        | if ($t | length) > 0 then .last = $t else . end
+      else
+        (($r.message.content | arrays | [.[] | select(.type == "tool_result")] | length) // 0) as $ntr
+        | if (($r.message.content | type) == "string" or $ntr == 0)
+          then (if .last != null then .out += [.last] | .last = null else . end)
+          else . end
+      end)
+   | .out + (if .last != null then [.last] else [] end)) as $stops
+| ([$R[] | select(.type == "assistant") | . as $a
+    | ($a.message.content | arrays | .[] | select(.type == "tool_use"))
+    | {sid: ($a.sessionId // $file), tool: .name, id: .id, input: (.input // {})}]) as $calls
+| ( ($calls[] | select(.tool == "Bash")
+     | (.input | if type == "object" then (.command // "") else "" end) as $c
+     | [ $kind, .sid, "pre_bash", (.id // "-"),
+         (if ($c | leads | any(. == "grep" or . == "rg")) then "1" else "0" end),
+         (if ($c | segs | any(test("^gh[[:space:]]+api\\b"))) then "1" else "0" end),
+         ({hook_event_name: "PreToolUse", session_id: .sid, tool_name: "Bash",
+           tool_input: .input} | tojson) ] | join("\t")),
+    ($calls[] | select(.tool == "Edit" or .tool == "Write" or .tool == "NotebookEdit")
+     | [ $kind, .sid, "post_edit", (.id // "-"), "0", "0",
+         ({hook_event_name: "PostToolUse", session_id: .sid, tool_name: .tool,
+           tool_input: .input} | tojson) ] | join("\t")),
+    ($stops[] | [ $kind, (($R[0].sessionId) // $file), "stop", "-", "0", "0",
+         ({hook_event_name: "Stop", session_id: (($R[0].sessionId) // $file),
+           stop_hook_active: false, last_assistant_message: .} | tojson) ] | join("\t")) )
+'
+: >"$tmp/events.tsv"
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  kind=top
+  case "$f" in */subagents/*) kind=sub ;; esac
+  jq -R -n -r --arg file "$f" --arg kind "$kind" "$PRELUDE$EVENTS_JQ" "$f" \
+    >>"$tmp/events.tsv" 2>/dev/null
+done <"$tmp/all.list"
+
+# Derived independently of the replay, so the "logged vs derived" stop-event check still
+# cross-validates the turn-boundary rule under --no-replay. Subagents are excluded: a
+# subagent ending raises SubagentStop, not Stop, so counting them would make the check
+# disagree with the log for a reason that has nothing to do with the rule being tested.
+stop_events=$(grep -c $'^top\t[^\t]*\tstop\t' "$tmp/events.tsv" 2>/dev/null)
+stop_events=${stop_events:-0}
+
+# ---------------------------------------------------------------- replay
+# A hook's own state dir is redirected into the scratch tree, so once-per-session and
+# edit-streak gates replay exactly as they gate in production without touching the live
+# ~/.cache/claude-nudge.
+: >"$tmp/verdicts.tsv"
+replay_elapsed=0
+replay_runs=0
+hooks_missing=""
+if [ "$DO_REPLAY" -eq 1 ]; then
+  H_BW="$HOOKS_DIR/blocking-wait-nudge.sh"
+  H_FS="$HOOKS_DIR/full-suite-nudge.sh"
+  H_AG="$HOOKS_DIR/ast-grep-nudge-hook.sh"
+  H_GW="$HOOKS_DIR/gh-api-write-guard.sh"
+  H_SP="$HOOKS_DIR/stop-phrase-guard.sh"
+  for h in "$H_BW" "$H_FS" "$H_AG" "$H_GW" "$H_SP"; do
+    [ -r "$h" ] || hooks_missing="$hooks_missing ${h##*/}"
+  done
+  export CLAUDE_NUDGE_STATE="$tmp/nudge"
+  mkdir -p "$CLAUDE_NUDGE_STATE"
+  t0=$(date +%s)
+
+  fs_runs_of() { # the hook's own counter; it is written only when the predicate matched
+    local sid=$1 file runs rest
+    file="$CLAUDE_NUDGE_STATE/$(printf '%s' "$sid" | tr -c 'A-Za-z0-9._-' '_')"
+    [ -r "$file" ] || { printf '0\n'; return; }
+    read -r runs rest <"$file" 2>/dev/null
+    printf '%s\n' "${runs:-0}"
+  }
+
+  while IFS=$'\t' read -r fkind sid ev tid is_grep is_ghapi payload; do
+    [ -n "${ev:-}" ] || continue
+    bw=0; fsm=0; fsn=0; ag=0; gw=0; sp=0
+    case "$ev" in
+      pre_bash)
+        [ -r "$H_BW" ] && [ -n "$(printf '%s' "$payload" | bash "$H_BW" 2>/dev/null)" ] && bw=1
+        if [ -r "$H_FS" ]; then
+          before=$(fs_runs_of "$sid")
+          out=$(printf '%s' "$payload" | bash "$H_FS" 2>/dev/null)
+          after=$(fs_runs_of "$sid")
+          [ "$after" -gt "$before" ] 2>/dev/null && fsm=1
+          [ -n "$out" ] && fsn=1
+        fi
+        if [ "$is_grep" = "1" ] && [ -r "$H_AG" ]; then
+          [ -n "$(printf '%s' "$payload" | bash "$H_AG" 2>/dev/null)" ] && ag=1
+        fi
+        if [ "$is_ghapi" = "1" ] && [ -r "$H_GW" ]; then
+          [ -n "$(printf '%s' "$payload" | bash "$H_GW" 2>/dev/null)" ] && gw=1
+        fi
+        replay_runs=$((replay_runs + 2)) ;;
+      post_edit)
+        [ -r "$H_FS" ] && printf '%s' "$payload" | bash "$H_FS" >/dev/null 2>&1
+        replay_runs=$((replay_runs + 1)) ;;
+      stop)
+        # Only top-level transcripts: a subagent ending is SubagentStop, and the Stop
+        # hooks are not wired to it, so replaying them there would invent fires.
+        [ "$fkind" = "top" ] || continue
+        if [ -r "$H_SP" ]; then
+          [ -n "$(printf '%s' "$payload" | bash "$H_SP" 2>/dev/null)" ] && sp=1
+        fi
+        replay_runs=$((replay_runs + 1)) ;;
+    esac
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$ev" "$tid" "$bw" "$fsm" "$fsn" "$ag" "$gw" "$sp" "$is_grep" >>"$tmp/verdicts.tsv"
+  done <"$tmp/events.tsv"
+  replay_elapsed=$(( $(date +%s) - t0 ))
+fi
+
+# ---------------------------------------------------------------- inventories
+jq -n --slurpfile cfg "$CONFIG" '
+  ($cfg[0] // {}) as $c
+  | {
+      plugins_enabled: [($c.enabledPlugins // {}) | to_entries[] | select(.value == true) | .key],
+      plugins_disabled: [($c.enabledPlugins // {}) | to_entries[] | select(.value != true) | .key],
+      hooks_configured: [($c.hooks // {}) | to_entries[] | .key as $ev | .value[]?
+                         | (.matcher // "") as $m | .hooks[]?
+                         | {event: $ev, matcher: $m, cmd: (.command // "?"), if: (.["if"] // null)}],
+      allow: (($c.permissions.allow // []) | length),
+      ask: (($c.permissions.ask // []) | length),
+      deny: (($c.permissions.deny // []) | length)
+    }' >"$tmp/inventory.json" 2>/dev/null \
+  || printf '{"plugins_enabled":[],"plugins_disabled":[],"hooks_configured":[],"allow":0,"ask":0,"deny":0}\n' >"$tmp/inventory.json"
+
+: >"$tmp/skills.list"
+if [ ${#SKILL_ROOTS[@]} -gt 0 ]; then
+  find "${SKILL_ROOTS[@]}" -type f -name 'SKILL.md' >>"$tmp/skills.list" 2>/dev/null
+fi
+: >"$tmp/agents.list"
+find "$HOOKS_DIR/agents" -type f -name '*.md' >>"$tmp/agents.list" 2>/dev/null
+
+# A subagent's .meta.json sidecar already names the agent type that ran, which is the
+# only record of agent usage: the parent's Agent tool_use does not always name one.
+find "$CORPUS_ROOT" -type f -name 'agent-*.meta.json' >"$tmp/meta.list" 2>/dev/null
+: >"$tmp/agentuse.json"
+if [ -s "$tmp/meta.list" ]; then
+  jq -R -n -c '[inputs] as $f | [$f[] | select(length > 0)]' "$tmp/meta.list" >/dev/null 2>&1
+  jq -s -c '[.[] | {agent: (.agentType // "?"), depth: (.spawnDepth // 0),
+                    shape: (.requestShape // "?")}]' \
+     $(grep . "$tmp/meta.list" 2>/dev/null) >"$tmp/agentuse.json" 2>/dev/null \
+    || printf '[]\n' >"$tmp/agentuse.json"
+else
+  printf '[]\n' >"$tmp/agentuse.json"
+fi
+[ -s "$tmp/agentuse.json" ] || printf '[]\n' >"$tmp/agentuse.json"
+
+# ---------------------------------------------------------------- aggregate
+jq -n \
+  --slurpfile inv "$tmp/inventory.json" \
+  --slurpfile agentuse "$tmp/agentuse.json" \
+  --rawfile skills "$tmp/skills.list" \
+  --rawfile agents "$tmp/agents.list" \
+  --rawfile verdicts "$tmp/verdicts.tsv" \
+  --arg corpus "$CORPUS_ROOT" --arg config "$CONFIG" --arg hooksdir "$HOOKS_DIR" \
+  --argjson unreadable "${unreadable:-0}" \
+  --argjson replay "$DO_REPLAY" \
+  --argjson replay_runs "${replay_runs:-0}" \
+  --argjson replay_elapsed "${replay_elapsed:-0}" \
+  --argjson stop_events "${stop_events:-0}" \
+  --arg hooks_missing "${hooks_missing# }" \
+  --slurpfile facts "$tmp/facts.jsonl" '
+def nz: . // 0;
+def tally(f): [f] | group_by(.) | map({k: .[0], n: length}) | sort_by(-.n);
+def p50: if length == 0 then null else (sort | .[((length - 1) / 2) | floor]) end;
+def sum: if length == 0 then 0 else add end;
+def basename: sub("^.*/"; "");
+# A SKILL.md path names its plugin one or two components above the skill dir, depending
+# on install layer: <mp>/plugins/<plug>/skills/<skill> in a marketplace clone or the repo
+# source, <mp>/<plug>/<version>/skills/<skill> in the resolved cache. Identity must be
+# plugin:skill, matching the attributionSkill spelling -- a bare skill name would merge
+# two plugins that happen to ship the same skill name.
+def skill_id:
+  sub("/SKILL\\.md$"; "")
+  | if test("/skills/") then
+      (sub("^.*/skills/"; "")) as $name
+      | (sub("/skills/[^/]+$"; "")) as $pre
+      | ($pre | basename) as $p1
+      | ($pre | sub("/[^/]+$"; "") | basename) as $p2
+      | (if $p2 == "plugins" then $p1 else $p2 end) + ":" + $name
+    else basename end;
+
+($facts) as $F
+| ($inv[0] // {}) as $INV
+| ([$skills | split("\n")[] | select(length > 0)]) as $SKFILES
+| ([$agents | split("\n")[] | select(length > 0)]) as $AGFILES
+| ([$verdicts | split("\n")[] | select(length > 0) | split("\t")
+    | {ev: .[0], tid: .[1], bw: (.[2] == "1"), fsm: (.[3] == "1"),
+       fsn: (.[4] == "1"), ag: (.[5] == "1"), gw: (.[6] == "1"), sp: (.[7] == "1"),
+       grepish: (.[8] == "1")}]) as $V
+| ([$V[] | select(.ev == "pre_bash") | {key: .tid, value: .}] | from_entries) as $VB
+| ([$F[] | .calls[]]) as $CALLS
+| ([$CALLS[] | select(.tool != "AskUserQuestion")]) as $TOOLCALLS
+| ([$TOOLCALLS[] | select((.src // "") | startswith("user_"))]) as $GATED
+| ([$CALLS[] | select(.tool == "Bash")]) as $BASH
+| ([$BASH[] | select($VB[.id].bw == true)]) as $BW
+| ([$BASH[] | select($VB[.id].fsm == true)]) as $FS
+# cost-state is written repeatedly as a session runs and each record is CUMULATIVE, so
+# summing the records multiplies one session by how often it was snapshotted. Reduce to
+# the high-water mark per session first.
+| ([$F[] | .cost[]] | group_by(.sid)
+   | map({sid: .[0].sid, toolMs: ([.[] | .toolMs] | max), totalMs: ([.[] | .totalMs] | max),
+          apiMs: ([.[] | .apiMs] | max), usd: ([.[] | .usd] | max)})) as $COST
+# A plugin that ships agents or MCP tools instead of skills is never named by
+# attributionPlugin, so attribution alone reports jj-master unused while its agents ran.
+# Credit a plugin for any of its named surfaces.
+| (([$F[] | .pluginmsgs[]])
+   + ([$F[] | .skillmsgs[]] | map(select(test(":")) | sub(":.*$"; "")))
+   + ([($agentuse[0] // [])[] | .agent] | map(select(test(":")) | sub(":.*$"; "")))
+   + ([$CALLS[] | .tool | select(startswith("mcp__")) | sub("^mcp__"; "") | sub("__.*$"; "")])
+   | unique) as $PLUGUSED
+| (($INV.plugins_enabled // []) | map(sub("@.*$"; ""))) as $PLUGENABLED
+| ($SKFILES | map(skill_id) | unique) as $SKIDS
+| ([$F[] | .skillmsgs[]] + [$F[] | .skillcmds[]] | unique) as $SKATTR
+| {
+  corpus: {
+    root: $corpus, config: $config, hooks_dir: $hooksdir,
+    files: ($F | length),
+    files_top: ([$F[] | select(.kind == "top")] | length),
+    files_sub: ([$F[] | select(.kind == "sub")] | length),
+    files_unreadable: $unreadable,
+    lines: ([$F[] | .lines] | sum),
+    lines_unparsed: ([$F[] | .unparsed] | sum),
+    sessions: ([$F[] | .sessions[]] | unique | length),
+    projects: ([$F[] | .cwds[]] | unique | length),
+    window_start: ([$F[] | .t_min // empty] | min),
+    window_end: ([$F[] | .t_max // empty] | max),
+    versions: ([$F[] | .versions[]] | unique)
+  },
+  tools: {
+    calls: ($CALLS | length),
+    calls_top: ([$F[] | select(.kind == "top") | .calls[]] | length),
+    calls_sub: ([$F[] | select(.kind == "sub") | .calls[]] | length),
+    unpaired: ([$CALLS[] | select(.dur == null)] | length),
+    interrupted: ([$CALLS[] | select(.interrupted)] | length),
+    errors: ([$CALLS[] | select(.err)] | length),
+    parallel_batches: ([$F[] | .batches_over_1] | sum),
+    machine_s: ([$TOOLCALLS[] | select(.src == null or ((.src // "") | startswith("user_") | not)) | .dur // 0] | sum),
+    human_gated_n: ($GATED | length),
+    human_gated_s: ([$GATED[] | .dur // 0] | sum),
+    # Reported because the total is dominated by its tail: a prompt raised at midnight and
+    # answered after breakfast is 7h of UNATTENDED wall clock, not 7h of human attention
+    # and not one second of compute. Without the max, the sum reads as a cost figure.
+    human_gated_max_s: ([$GATED[] | .dur // 0] | max),
+    ask_user_n: ([$CALLS[] | select(.tool == "AskUserQuestion")] | length),
+    ask_user_s: ([$CALLS[] | select(.tool == "AskUserQuestion") | .dur // 0] | sum),
+    by_tool: ([$CALLS | group_by(.tool)[]
+               | {tool: .[0].tool, n: length,
+                  s: ([.[] | .dur // 0] | sum),
+                  p50: ([.[] | select(.dur != null) | .dur] | p50),
+                  max: ([.[] | .dur // 0] | max)}] | sort_by(-.s)),
+    denials: tally($F[] | .denials[]),
+    decisions: tally($CALLS[] | select(.src != null) | .src),
+    # Subagent records carry the PARENT sessionId, so a session and the subagents it
+    # spawned group together -- which is also how they share one hook state file.
+    by_session: ([$CALLS | group_by(.sid)[]
+                  | {sid: .[0].sid, n: length,
+                     bash: ([.[] | select(.tool == "Bash")] | length),
+                     s: ([.[] | .dur // 0] | sum),
+                     err: ([.[] | select(.err)] | length)}] | sort_by(-.bash))
+  },
+  waits: {
+    fires: ($BW | length),
+    bash_calls: ($BASH | length),
+    total_s: ([$BW[] | .dur // 0] | sum),
+    max_s: ([$BW[] | .dur // 0] | max),
+    p50_s: ([$BW[] | select(.dur != null) | .dur] | p50)
+  },
+  suite: {
+    runs: ($FS | length),
+    nudges: ([$BASH[] | select($VB[.id].fsn == true)] | length),
+    total_s: ([$FS[] | .dur // 0] | sum),
+    failures: ([$FS[] | select(.err)] | length),
+    sessions_with_runs: ([$FS[] | .sid] | unique | length)
+  },
+  astgrep: {
+    candidate_calls: ([$V[] | select(.ev == "pre_bash" and .grepish)] | length),
+    fires: ([$V[] | select(.ag)] | length),
+    native_grep_calls: ([$CALLS[] | select(.tool == "Grep" or .tool == "Glob")] | length)
+  },
+  ghguard: { fires: ([$V[] | select(.gw)] | length) },
+  stophooks: {
+    logged_events: ([$F[] | .stops[]] | length),
+    derived_events: $stop_events,
+    prevented: ([$F[] | .stops[] | select(.prevented)] | length),
+    with_reason: ([$F[] | .stops[] | select(.reason)] | length),
+    phrase_guard_replay_fires: ([$V[] | select(.sp)] | length),
+    by_hook: ([[$F[] | .hookfires[]] | group_by(.cmd)[]
+               | {cmd: .[0].cmd, fires: length, ms: ([.[] | .ms] | sum)}] | sort_by(-.fires))
+  },
+  turns: {
+    n: ([$F[] | .turns[]] | length),
+    total_s: (([$F[] | .turns[]] | sum) / 1000),
+    max_s: (([$F[] | .turns[]] | max // 0) / 1000)
+  },
+  cost: {
+    sessions_reporting: ($COST | length),
+    logged_tool_s: (([$COST[] | .toolMs] | sum) / 1000),
+    logged_total_s: (([$COST[] | .totalMs] | sum) / 1000),
+    logged_api_s: (([$COST[] | .apiMs] | sum) / 1000),
+    usd: ([$COST[] | .usd] | sum)
+  },
+  config: {
+    plugins_enabled: ($INV.plugins_enabled // [] | length),
+    plugins_disabled: ($INV.plugins_disabled // [] | length),
+    plugins_used: $PLUGUSED,
+    plugins_unused: (($INV.plugins_enabled // []) | map(sub("@.*$"; "")) - $PLUGUSED),
+    # Claude Code logs a plugin hook command with ${CLAUDE_PLUGIN_ROOT} UNEXPANDED, so a
+    # fire proves a plugin ran but never says which one. Counting these is the only honest
+    # way to bound the error in `plugins_unused`: a hook-only plugin lands there having run.
+    plugin_hook_fires: ([$F[] | .hookfires[] | select(.cmd | test("CLAUDE_PLUGIN_ROOT"))] | length),
+    skills_installed: ($SKIDS | length),
+    skills_installed_files: ($SKFILES | length),
+    skills_installed_names: $SKIDS,
+    # SKILL.md on disk is not SKILL.md in the system prompt: a disabled plugin stays
+    # installed, and this tree holds several. Only the enabled subset is a context cost,
+    # so that is the one the report leads with -- the disk count without it reads as a
+    # bigger dead-weight claim than the config actually makes.
+    skills_enabled: ($SKIDS | map(select((sub(":.*$"; "")) as $p | $PLUGENABLED | index($p)))),
+    # Built-in skills carry no plugin prefix and live in no --skills-root, so they appear
+    # in neither list; this counts INSTALLED plugin skills only.
+    skills_unattributed: ($SKIDS - $SKATTR),
+    skills_unattributed_enabled:
+      (($SKIDS | map(select((sub(":.*$"; "")) as $p | $PLUGENABLED | index($p)))) - $SKATTR),
+    skills_used: (tally($F[] | .skillmsgs[])),
+    skill_calls: (tally($F[] | .skillcmds[])),
+    agents_installed: ($AGFILES | map(sub("\\.md$"; "") | basename)),
+    agents_used: ([($agentuse[0] // [])[] | .agent] | group_by(.) | map({k: .[0], n: length}) | sort_by(-.n)),
+    hooks_configured: ($INV.hooks_configured // []),
+    allow_rules: ($INV.allow // 0), ask_rules: ($INV.ask // 0), deny_rules: ($INV.deny // 0)
+  },
+  replay: {
+    enabled: ($replay == 1),
+    hook_invocations: $replay_runs,
+    elapsed_s: $replay_elapsed,
+    hooks_missing: $hooks_missing
+  }
+}' >"$tmp/metrics.json" || die "aggregation failed"
+
+[ -s "$tmp/metrics.json" ] || die "aggregation produced nothing"
+
+if [ "$AS_JSON" -eq 1 ]; then
+  cat "$tmp/metrics.json"
+  exit 0
+fi
+
+# ---------------------------------------------------------------- report
+jq -r '
+def pad($n): tostring | . + ((" " * (($n - length) | if . < 1 then 0 else . end)) // "");
+def lp($n): tostring | (((" " * (($n - length) | if . < 1 then 0 else . end)) // "") + .);
+def hms: if . == null then "-"
+  elif . >= 3600 then ((. / 3600 * 100 | round / 100 | tostring) + "h")
+  elif . >= 60 then ((. / 60 * 10 | round / 10 | tostring) + "m")
+  else ((. * 100 | round / 100 | tostring) + "s") end;
+def ratio($n; $d): if ($d // 0) == 0 then "-" else (($n / $d * 1000 | round / 10 | tostring) + "%") end;
+
+"claude-corpus — \(.corpus.root)",
+"",
+"CORPUS",
+"  \(.corpus.files) transcript(s): \(.corpus.files_top) session, \(.corpus.files_sub) subagent" +
+  (if .corpus.files_unreadable > 0 then "  (\(.corpus.files_unreadable) unreadable, skipped)" else "" end),
+"  \(.corpus.lines) records, \(.corpus.sessions) session id(s), \(.corpus.projects) project dir(s)" +
+  (if .corpus.lines_unparsed > 0 then ", \(.corpus.lines_unparsed) unparsable line(s) skipped" else "" end),
+"  window  \(.corpus.window_start // "?") .. \(.corpus.window_end // "?")",
+"  client  \(.corpus.versions | join(", "))",
+"",
+"WHAT IS INSTALLED BUT NEVER ATTRIBUTED IN THIS WINDOW",
+"  plugins   \(.config.plugins_enabled) enabled, \(.config.plugins_used | length) named by a record in this window",
+(if (.config.plugins_unused | length) > 0 then
+  "            never named: \(.config.plugins_unused | join(", "))" else empty end),
+(if (.config.plugin_hook_fires // 0) > 0 then
+  "            NOT \"never fired\": \(.config.plugin_hook_fires) logged hook fire(s) came from a plugin",
+  "            via ${CLAUDE_PLUGIN_ROOT}, which the log leaves unexpanded — so the plugin that",
+  "            ran cannot be named from the transcript and is listed above as never named."
+ else empty end),
+(if (.config.skills_installed) > 0 then
+  "  skills    \(.config.skills_enabled | length) from an ENABLED plugin, of \(.config.skills_installed) installed under --skills-root",
+  "            (\(.config.skills_installed_files) SKILL.md on disk: the installed tree keeps one copy per install layer)",
+  "            \(.config.skills_unattributed_enabled | length) of the enabled ones were never attributed in this window; \(.config.skills_used | length) skill(s) were"
+ else
+  "  skills    inventory not enumerated (pass --skills-root); \(.config.skills_used | length) attributed here"
+ end),
+(if (.config.skills_used | length) > 0 then
+  (.config.skills_used[] | "              \(.k | pad(38)) \(.n | lp(5)) assistant msg(s)")
+ else "              (none)" end),
+(if (.config.skill_calls | length) > 0 then
+  (.config.skill_calls[] | "              \(.k | pad(38)) \(.n | lp(5)) Skill invocation(s)")
+ else empty end),
+"  agents    \(.config.agents_installed | length) defined in hooks dir, \(.config.agents_used | length) type(s) spawned",
+(if (.config.agents_used | length) > 0 then
+  (.config.agents_used[] | "              \(.k | pad(38)) \(.n | lp(5)) subagent run(s)")
+ else empty end),
+"  rules     \(.config.allow_rules) allow / \(.config.ask_rules) ask / \(.config.deny_rules) deny",
+"",
+"TOOL CALLS   (wall clock = tool_result timestamp - tool_use timestamp)",
+"  \(.tools.calls) call(s): \(.tools.calls_top) in sessions, \(.tools.calls_sub) in subagents",
+"  machine time        \(.tools.machine_s | hms)   (auto-approved calls, AskUserQuestion excluded)",
+"  human approval      \(.tools.human_gated_s | hms)   over \(.tools.human_gated_n) call(s) a human had to approve",
+"                      longest single wait \(.tools.human_gated_max_s | hms) — unattended wall clock, not compute",
+"  AskUserQuestion     \(.tools.ask_user_s | hms)   over \(.tools.ask_user_n) call(s) — human think time, not cost",
+"  unpaired            \(.tools.unpaired) call(s) with no recorded result (counted, zero time)",
+"  errored             \(.tools.errors) is_error, \(.tools.interrupted) interrupted",
+(if .tools.parallel_batches > 0 then
+  "  WARNING  \(.tools.parallel_batches) call(s) share a start timestamp with a sibling: per-call time is double-counted"
+ else "  (no assistant message carried >1 tool_use block, so no concurrent-call double-count)" end),
+"",
+"  per tool, ELAPSED (approval waits included — compare `machine time` above, not this)",
+"  \("tool" | pad(20)) \("calls" | lp(6)) \("total" | lp(9)) \("p50" | lp(9)) \("max" | lp(9))",
+(.tools.by_tool[] | "  \(.tool | pad(20)) \(.n | lp(6)) \(.s | hms | lp(9)) \(.p50 | hms | lp(9)) \(.max | hms | lp(9))"),
+"",
+"  per session (subagent calls counted under the parent session they ran for)",
+"  \("session" | pad(20)) \("calls" | lp(6)) \("bash" | lp(6)) \("elapsed" | lp(9)) \("is_error" | lp(9))",
+(.tools.by_session[] | "  \(.sid[0:18] | pad(20)) \(.n | lp(6)) \(.bash | lp(6)) \(.s | hms | lp(9)) \(.err | lp(9))"),
+"",
+"  logged cross-check: cost-state over \(.cost.sessions_reporting) session(s) reports",
+"    totalToolDuration \(.cost.logged_tool_s | hms), totalAPIDuration \(.cost.logged_api_s | hms), wall \(.cost.logged_total_s | hms), $\(.cost.usd * 100 | round / 100)",
+"",
+"HOOKS — MEASURED (Stop events are the only ones Claude Code logs)",
+"  \(.stophooks.logged_events) logged stop event(s); the turn-boundary rule derives \(.stophooks.derived_events)",
+"  \(.stophooks.prevented) prevented continuation, \(.stophooks.with_reason) carried a stopReason",
+(if (.stophooks.by_hook | length) > 0 then
+  (.stophooks.by_hook[] | "    \(.cmd | pad(46)) \(.fires | lp(5)) fire(s)  \(.ms / 1000 | hms | lp(8)) in-hook")
+ else "    (no stop_hook_summary records in this corpus)" end),
+"",
+(if .replay.enabled then
+  "HOOKS — REPLAYED (PreToolUse/PostToolUse fires are not logged; the real hooks were run)",
+  "  \(.replay.hook_invocations) hook invocation(s) in \(.replay.elapsed_s)s" +
+    (if (.replay.hooks_missing | length) > 0 then "   MISSING: \(.replay.hooks_missing)" else "" end),
+  "  blocking-wait-nudge   \(.waits.fires | lp(5)) fire(s) over \(.waits.bash_calls) Bash call(s)   cost \(.waits.total_s | hms) (max \(.waits.max_s | hms))",
+  "  full-suite-nudge      \(.suite.nudges | lp(5)) nudge(s) over \(.suite.runs) full-suite run(s) in \(.suite.sessions_with_runs) session(s), cost \(.suite.total_s | hms)",
+  "                        \(.suite.failures) of \(.suite.runs) exited non-zero (\(ratio(.suite.failures; .suite.runs)))",
+  "  ast-grep-nudge        \(.astgrep.fires | lp(5)) fire(s) after the once-per-session gate, from \(.astgrep.candidate_calls) leading grep/rg call(s)",
+  "  gh-api-write-guard    \(.ghguard.fires | lp(5)) ask(s) forced",
+  "  stop-phrase-guard     \(.stophooks.phrase_guard_replay_fires | lp(5)) fire(s) over \(.stophooks.derived_events) derived stop event(s)",
+  "  native Grep/Glob tool calls in corpus: \(.astgrep.native_grep_calls)"
+ else
+  "HOOKS — REPLAYED: skipped (--no-replay)"
+ end),
+"",
+"TURNS",
+"  \(.turns.n) logged turn duration(s), total \(.turns.total_s | hms), longest \(.turns.max_s | hms)",
+"",
+"Run with --definitions for the exact rule behind every number above."
+' "$tmp/metrics.json"
+
+# ---------------------------------------------------------------- ledger
+# Long format -- one row per metric, never a column per metric. A new metric appends
+# rows instead of rewriting every historical line, so the diff of a run is the run.
+if [ -n "$LEDGER" ]; then
+  mkdir -p "$(dirname -- "$LEDGER")" 2>/dev/null
+  if [ ! -s "$LEDGER" ]; then
+    {
+      printf '# claude-corpus ledger: one row per metric per run, append-only.\n'
+      printf '# The transcript corpus is deleted after 30 days; these rows outlive it.\n'
+      printf '# Re-derive any row with: claude-corpus --definitions\n'
+      printf 'run_utc\twindow_start\twindow_end\tfiles\tsessions\tmetric\tvalue\n'
+    } >"$LEDGER"
+  fi
+  jq -r --arg run "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    # Bound to $d, never to `.`: the per-tool and per-hook rows are generated inside an
+    # iteration where `.` is one element, so reading the window off `.` wrote rows with an
+    # empty window and no file count — unreadable the moment the corpus they describe is
+    # deleted, which is the one failure this ledger exists to prevent.
+    . as $d
+    | def row($m; $v): [$run, ($d.corpus.window_start // "?" | .[0:10]),
+                        ($d.corpus.window_end // "?" | .[0:10]),
+                        $d.corpus.files, $d.corpus.sessions, $m, $v] | @tsv;
+      row("corpus.records"; .corpus.lines),
+      row("corpus.unparsed"; .corpus.lines_unparsed),
+      row("tools.calls"; .tools.calls),
+      row("tools.machine_s"; .tools.machine_s | . * 100 | round / 100),
+      row("tools.human_gated_s"; .tools.human_gated_s | . * 100 | round / 100),
+      row("tools.human_gated_max_s"; .tools.human_gated_max_s | . * 100 | round / 100),
+      row("tools.askuser_s"; .tools.ask_user_s | . * 100 | round / 100),
+      row("tools.errors"; .tools.errors),
+      row("cost.logged_tool_s"; .cost.logged_tool_s | . * 100 | round / 100),
+      row("cost.usd"; .cost.usd | . * 100 | round / 100),
+      row("astgrep.native_grep_calls"; .astgrep.native_grep_calls),
+      row("stop.logged_events"; .stophooks.logged_events),
+      row("stop.prevented"; .stophooks.prevented),
+      # A --no-replay run knows nothing about fire rates. Writing 0 for them would put a
+      # measurement in the ledger that was never made, and the ledger is the artifact
+      # nobody can re-derive once the corpus expires.
+      (if .replay.enabled then
+        row("waits.fires"; .waits.fires),
+        row("waits.total_s"; .waits.total_s | . * 100 | round / 100),
+        row("suite.runs"; .suite.runs),
+        row("suite.nudges"; .suite.nudges),
+        row("suite.failures"; .suite.failures),
+        row("suite.total_s"; .suite.total_s | . * 100 | round / 100),
+        row("astgrep.fires"; .astgrep.fires),
+        row("astgrep.leading_grep_calls"; .astgrep.candidate_calls),
+        row("ghguard.fires"; .ghguard.fires),
+        row("stop.phrase_guard_fires"; .stophooks.phrase_guard_replay_fires)
+       else empty end),
+      row("config.plugins_enabled"; .config.plugins_enabled),
+      row("config.plugins_used"; .config.plugins_used | length),
+      row("config.plugin_hook_fires"; .config.plugin_hook_fires),
+      row("config.skills_installed"; .config.skills_installed),
+      row("config.skills_installed_files"; .config.skills_installed_files),
+      row("config.skills_enabled"; .config.skills_enabled | length),
+      row("config.skills_unattributed"; .config.skills_unattributed | length),
+      row("config.skills_unattributed_enabled"; .config.skills_unattributed_enabled | length),
+      row("config.skills_used"; .config.skills_used | length),
+      row("config.agents_used"; .config.agents_used | length),
+      ($d.tools.by_tool[] | row("tool." + .tool + ".calls"; .n)),
+      ($d.tools.by_tool[] | row("tool." + .tool + ".s"; .s | . * 100 | round / 100)),
+      # A logged hook command is a shell fragment, not a path: `bash "${CLAUDE_PLUGIN_ROOT}
+      # /hooks/stop-hook.sh"` kept its closing quote in the metric name. Strip anything that
+      # cannot be in a filename so a metric key stays greppable across runs.
+      ($d.stophooks.by_hook[]
+       | row("hook." + (.cmd | sub("^.*/"; "") | gsub("[^A-Za-z0-9._-]"; "")) + ".fires"; .fires)),
+      ($d.config.skills_used[] | row("skill." + .k + ".msgs"; .n)),
+      ($d.config.agents_used[] | row("agent." + .k + ".runs"; .n))
+  ' "$tmp/metrics.json" >>"$LEDGER" \
+    && printf '\n%s: appended %s metric row(s) to %s\n' \
+         "$SELF" "$(grep -c . "$LEDGER")" "$LEDGER"
+fi
