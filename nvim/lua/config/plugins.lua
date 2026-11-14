@@ -37,6 +37,12 @@ M.setup_core = function()
       silent = false,
     })
 
+    -- Mini.icons
+    -- Must precede mini.statusline: its `use_icons` resolves filetype icons
+    -- through _G.MiniIcons, and with no icon provider set up it drops the icon
+    -- without complaining instead of falling back to text.
+    require('mini.icons').setup()
+
     -- Mini.statusline
     require('mini.statusline').setup({
       use_icons = true,
@@ -85,8 +91,9 @@ end
 -- Editing helpers that are useful for real buffers, but not needed for first paint
 M.setup_editing = function()
   setup_once('editing', function()
-    -- Mini.comment
-    require('mini.comment').setup()
+    -- Commenting is Neovim's own since 0.10: gc/gcc, with 'commentstring'
+    -- resolved per cursor position through treesitter injections. mini.comment
+    -- was removed rather than kept as a duplicate set of the same maps.
 
     -- Mini.surround
     require('mini.surround').setup()

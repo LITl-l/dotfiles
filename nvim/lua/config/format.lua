@@ -39,14 +39,14 @@ M.setup = function()
       javascriptreact = { 'oxfmt' },
       typescriptreact = { 'oxfmt' },
 
-      -- Web (oxfmt covers JSON; prettier covers CSS/SCSS/HTML/YAML/MD)
+      -- Web (oxfmt covers JSON; prettierd covers CSS/SCSS/HTML/YAML/MD)
       json = { 'oxfmt' },
       jsonc = { 'oxfmt' },
-      css = { 'prettier' },
-      scss = { 'prettier' },
-      html = { 'prettier' },
-      yaml = { 'prettier' },
-      markdown = { 'prettier' },
+      css = { 'prettierd' },
+      scss = { 'prettierd' },
+      html = { 'prettierd' },
+      yaml = { 'prettierd' },
+      markdown = { 'prettierd' },
 
       -- Fallback
       ['_'] = { 'trim_whitespace' },

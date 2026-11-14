@@ -28,8 +28,15 @@
       oxfmt # JS/TS/JSON formatter (Rust, prettier-compatible output → zero style churn)
       prettierd # Used for CSS/SCSS/HTML/YAML/Markdown (oxfmt doesn't cover those yet)
       gofumpt # Stricter superset of gofmt
+      gotools # Ships goimports, which conform runs after gofumpt on Go files
       rustfmt
       stylua # Lua formatter (used by conform)
+      fish # Ships fish_indent; conform formats fish files with it
+
+      # Debug adapters
+      # Ships `debugpy-adapter` (nvim-dap's Python adapter) plus a `python` that
+      # can import debugpy, which is what the debuggee needs outside a venv.
+      (python3.withPackages (ps: [ ps.debugpy ]))
 
       # Tools
       ripgrep
@@ -94,8 +101,6 @@
       # LSP defaults and UI enhancement (loaded when editing files)
       { plugin = nvim-lspconfig; optional = true; }
       { plugin = lspsaga-nvim; optional = true; }
-
-      # init.lua keeps a standalone mini.nvim bootstrap fallback for non-Nix use
     ];
   };
 

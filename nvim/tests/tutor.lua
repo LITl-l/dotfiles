@@ -1,18 +1,16 @@
 -- Headless assertions for the :Dojo tutor.
 local inv = require('tutor.inventory')
 
--- Precondition. Everything below inspects a configured editor, so check that
--- the config actually loaded before asserting on its contents. Without this
+-- Preconditions. Everything below inspects a configured editor, so check that
+-- the config actually loaded before asserting on its contents. Without these
 -- the first failure is a cryptic `normalise(" ff") = " ff"` rather than the
--- real cause: init.lua aborting at `packadd mini.nvim` before config.options
--- runs, which is what happens when mini.nvim is missing (e.g. a sandbox with
--- no network, where the bootstrap clone cannot work).
+-- real cause: init.lua aborting part-way, which is what happens when
+-- mini.nvim is missing from the packpath (it aborts in setup_core) or
+-- config.options itself errors.
 assert(vim.g.mapleader == ' ', 'precondition failed: config.options should have '
-  .. 'set mapleader to <Space>, got ' .. vim.inspect(vim.g.mapleader)
-  .. '. A nil leader means init.lua aborted early -- usually mini.nvim missing '
-  .. 'from packpath.')
-assert(pcall(require, 'mini.deps'), 'precondition failed: mini.nvim must be on '
-  .. 'packpath; the plugin keymaps the drills pin come from it')
+  .. 'set mapleader to <Space>, got ' .. vim.inspect(vim.g.mapleader))
+assert(pcall(require, 'mini.surround'), 'precondition failed: mini.nvim must be '
+  .. 'on packpath; the plugin keymaps the drills pin come from it')
 
 -- normalise() re-folds an expanded leader. nvim_get_keymap() returns lhs with
 -- the leader already expanded to its literal key, so " ff" not "<leader>ff".

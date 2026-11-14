@@ -82,6 +82,8 @@ Leader key: `<Space>`
 | `<` / `>` | v | Indent left/right (keeps selection) |
 | `<Esc>` | i, n | Clear search highlight |
 | `<leader>sr` | n | Search and replace word under cursor |
+| `gc` | n, v | Toggle comment (takes a motion) |
+| `gcc` | n | Toggle comment on line |
 
 ## Windows & Splits
 
@@ -165,10 +167,6 @@ Leader key: `<Space>`
 - `sf` - Find surrounding (forward)
 - `sF` - Find surrounding (backward)
 - `sh` - Highlight surrounding
-
-### mini.comment
-- `gc` - Toggle comment (works with motion)
-- `gcc` - Toggle comment on line
 
 ### mini.splitjoin
 - `gS` - Toggle split/join

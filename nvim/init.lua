@@ -6,37 +6,18 @@ if vim.loader then
   vim.loader.enable()
 end
 
--- Bootstrap mini.nvim. Nix provides mini.nvim for the Home Manager setup;
--- cloning is only a fallback for standalone use.
-local path_package = vim.fn.stdpath('data') .. '/site/'
-local mini_path = path_package .. 'pack/deps/start/mini.nvim'
-local has_mini_deps = pcall(require, 'mini.deps')
-if not has_mini_deps then
-  local uv = vim.uv or vim.loop
-  local installed = false
-  if not uv.fs_stat(mini_path) then
-    vim.cmd('echo "Installing `mini.nvim`" | redraw')
-    local clone_cmd = {
-      'git', 'clone', '--filter=blob:none',
-      'https://github.com/echasnovski/mini.nvim', mini_path,
-    }
-    vim.fn.system(clone_cmd)
-    installed = true
-    vim.cmd('echo "Installed `mini.nvim`" | redraw')
-  end
-  vim.cmd('packadd mini.nvim')
-  if installed then
-    vim.cmd('helptags ALL')
-  end
-end
+-- mini.nvim comes from Nix (modules/neovim.nix), on the packpath before this
+-- file runs. There is deliberately no clone-on-startup fallback: it cloned a
+-- second mini.nvim into pack/deps/start/ beside the Nix one in pack/hm/start/,
+-- both eager `start` packages, and `deps` sorts first -- so the editor silently
+-- ran an unpinned copy while nix flake check tested the pinned one. The
+-- standalone path installs the plugin in nvim/install.sh instead, where a human
+-- runs it on purpose.
 
 -- Load configuration modules
 require('config.options')   -- Basic options and settings
 require('config.keymaps')   -- Key mappings
 require('config.autocmds')  -- Auto commands
-
--- Plugin manager
-require('mini.deps').setup({ path = { package = path_package } })
 
 -- Plugin configuration helpers
 local plugins = require('config.plugins')

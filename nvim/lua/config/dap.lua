@@ -86,10 +86,15 @@ M.setup = function()
   vim.fn.sign_define('DapBreakpointRejected', { text = '○', texthl = 'DapBreakpointRejected', linehl = '', numhl = '' })
 
   -- Python configuration (using debugpy)
+  --
+  -- `debugpy-adapter` rather than the usual `python -m debugpy.adapter`: it is
+  -- debugpy's own entry point for the same main(), and it is one name instead of
+  -- an interpreter plus a module -- a pair that can half-resolve to a python
+  -- without debugpy and then fail at the first breakpoint. Nix provides it via
+  -- python3.withPackages in modules/neovim.nix.
   dap.adapters.python = {
     type = 'executable',
-    command = 'python',
-    args = { '-m', 'debugpy.adapter' },
+    command = 'debugpy-adapter',
   }
   dap.configurations.python = {
     {

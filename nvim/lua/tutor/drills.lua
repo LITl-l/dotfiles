@@ -67,7 +67,7 @@ local EXERCISES = {
     hint = 'Works for any bracket pair, not just quotes.',
   },
 
-  -- mini.comment ----------------------------------------------------------
+  -- built-in commenting ---------------------------------------------------
   {
     id = 'comment-line',
     lhs = 'gcc', mode = 'n', group = 'comment',

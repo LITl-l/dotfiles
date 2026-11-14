@@ -30,5 +30,17 @@ if ! command -v nvim >/dev/null 2>&1; then
     fi
 fi
 
+# Install mini.nvim. The Nix setup provides it under site/pack/hm; this is the
+# standalone equivalent, and it lives here rather than in init.lua so the clone
+# only ever happens when a human runs this script -- a clone-on-startup
+# fallback once installed a second copy beside the Nix one and silently
+# shadowed it.
+MINI_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/site/pack/deps/start/mini.nvim"
+if [ ! -d "$MINI_DIR" ]; then
+    echo "Installing mini.nvim..."
+    git clone --filter=blob:none https://github.com/echasnovski/mini.nvim "$MINI_DIR"
+    nvim --headless +'helptags ALL' +qa
+fi
+
 echo "Neovim setup complete!"
-echo "Run 'nvim' to start and mini.nvim will auto-install on first run."
+echo "Run 'nvim' to start."
