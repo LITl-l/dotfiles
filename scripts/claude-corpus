@@ -27,7 +27,25 @@ set -uo pipefail
 
 SELF=${0##*/}
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" >/dev/null 2>&1 && pwd)
-REPO_DIR=$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)
+
+# $SCRIPT_DIR/.. is the repo only while this runs as <repo>/scripts/claude-corpus.
+# Installed into the store it is reached as ~/.nix-profile/bin/claude-corpus, where that
+# `..` resolved to ~/.nix-profile -- a directory that exists, so every "<repo>/..."
+# default below pointed somewhere real and wrong, and --ledger silently aimed at
+# ~/.nix-profile/docs/claude-corpus-ledger.tsv. A candidate is therefore accepted only
+# if it LOOKS like this repo, and an unresolved REPO_DIR is left EMPTY rather than
+# pointing at a wrong directory: the `-r "$REPO_DIR/claude/settings.json"` and
+# `-d "$REPO_DIR/claude"` tests further down then fail into their documented ~/.claude
+# fallback, which is the right answer for an installed copy.
+REPO_DIR=""
+for cand in \
+  "$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)" \
+  "${DOTFILES_REPO:-}" \
+  "$HOME/.config/dotfiles"
+do
+  [ -n "$cand" ] || continue
+  if [ -r "$cand/claude/settings.json" ]; then REPO_DIR=$cand; break; fi
+done
 
 die() { printf '%s: %s\n' "$SELF" "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"; }
@@ -180,6 +198,7 @@ while [ $# -gt 0 ]; do
       if [ -n "${2:-}" ] && case "${2:-}" in --*) false ;; *) true ;; esac; then
         LEDGER=$2; shift 2
       else
+        [ -n "$REPO_DIR" ] || die "--ledger: no repo checkout found, so the default ledger path cannot be resolved (set DOTFILES_REPO, or pass --ledger FILE)"
         LEDGER="$REPO_DIR/docs/claude-corpus-ledger.tsv"; shift
       fi ;;
     -h|--help)     usage; exit 0 ;;
@@ -791,15 +810,25 @@ def ratio($n; $d): if ($d // 0) == 0 then "-" else (($n / $d * 1000 | round / 10
 # ---------------------------------------------------------------- ledger
 # Long format -- one row per metric, never a column per metric. A new metric appends
 # rows instead of rewriting every historical line, so the diff of a run is the run.
+#
+# Every write below is checked and fatal. A measurement tool that cannot persist its
+# measurement must not report success: the ledger is what outlives the corpus, so a row
+# that was never appended is a window nobody can recover. These were three unchecked
+# writes -- the mkdir, the header redirect and the append -- and a run whose ledger path
+# did not exist printed its report in full, let the shell's "No such file or directory"
+# scroll past with it, and still exited 0.
 if [ -n "$LEDGER" ]; then
-  mkdir -p "$(dirname -- "$LEDGER")" 2>/dev/null
+  ledger_dir=$(dirname -- "$LEDGER")
+  mkdir -p "$ledger_dir" 2>/dev/null
+  [ -d "$ledger_dir" ] \
+    || die "ledger not written: directory $ledger_dir does not exist and cannot be created (ledger: $LEDGER)"
   if [ ! -s "$LEDGER" ]; then
     {
       printf '# claude-corpus ledger: one row per metric per run, append-only.\n'
       printf '# The transcript corpus is deleted after 30 days; these rows outlive it.\n'
       printf '# Re-derive any row with: claude-corpus --definitions\n'
       printf 'run_utc\twindow_start\twindow_end\tfiles\tsessions\tmetric\tvalue\n'
-    } >"$LEDGER"
+    } >"$LEDGER" || die "ledger not written: cannot create $LEDGER"
   fi
   jq -r --arg run "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
     # Bound to $d, never to `.`: the per-tool and per-hook rows are generated inside an
@@ -858,6 +887,7 @@ if [ -n "$LEDGER" ]; then
       ($d.config.skills_used[] | row("skill." + .k + ".msgs"; .n)),
       ($d.config.agents_used[] | row("agent." + .k + ".runs"; .n))
   ' "$tmp/metrics.json" >>"$LEDGER" \
-    && printf '\n%s: appended %s metric row(s) to %s\n' \
-         "$SELF" "$(grep -c . "$LEDGER")" "$LEDGER"
+    || die "ledger not written: append to $LEDGER failed"
+  printf '\n%s: appended %s metric row(s) to %s\n' \
+    "$SELF" "$(grep -c . "$LEDGER")" "$LEDGER"
 fi

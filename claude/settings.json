@@ -23,6 +23,7 @@
       "Bash(dirname *)",
       "Bash(dirname:*)",
       "Bash(echo *)",
+      "Bash(echo)",
       "Bash(env)",
       "Bash(file:*)",
       "Bash(find *)",
@@ -160,6 +161,9 @@
       "Bash(wc:*)",
       "Bash(which *)",
       "Bash(which:*)",
+      "Bash(xxd *)",
+      "Bash(xxd)",
+      "Bash(xxd:*)",
       "Edit",
       "Glob",
       "Grep",
@@ -215,6 +219,10 @@
             "type": "command",
             "command": "~/.claude/gh-api-write-guard.sh",
             "if": "Bash(gh api:*)"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/pipeline-status-guard.sh"
           },
           {
             "type": "command",
