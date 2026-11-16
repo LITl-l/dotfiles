@@ -74,6 +74,8 @@
         p.python
         p.rust
         p.go
+        p.c
+        p.cpp
         p.html
         p.css
         p.json
