@@ -135,6 +135,10 @@ local server_configs = {
     },
   },
 
+  -- C/C++: clice. The binary is not installed by this config, so the server
+  -- stays skipped until `clice` is on PATH.
+  clice = {},
+
   -- Bash
   bashls = {},
 
@@ -178,6 +182,7 @@ local server_executables = {
   rust_analyzer = 'rust-analyzer',
   vtsls = 'vtsls',
   gopls = 'gopls',
+  clice = 'clice',
   bashls = 'bash-language-server',
   jsonls = 'vscode-json-language-server',
   yamlls = 'yaml-language-server',
