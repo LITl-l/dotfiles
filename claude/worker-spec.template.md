@@ -18,11 +18,14 @@ What outcome is wanted, in one or two sentences. State the intent, not the steps
   session's `/tmp` scratchpad blocked on its first tool call; `wkspace` is what has been
   shown to work.
 - `cp`, `mv` and `rm` match no `allow` pattern and will stall the worker: create files
-  with the Write tool, read with `cat`. If a baseline snapshot is wanted, stage it under
-  `/home/nixos/wkspace/` yourself and name the path here.
-- Reading is allowlisted: `cat`, `jq`, `grep`, `sed`, `find`, `head`, `tail`, `wc`,
-  `mkdir` and `diff`. `od` is not — use `tail -c 1 <file> | wc -l` for the
-  trailing-newline check.
+  with the `Write` tool, read them with the `Read` tool. If a baseline snapshot is wanted,
+  stage it under `/home/nixos/wkspace/` yourself and name the path here.
+- Read files with the `Read` tool, not through Bash. `Read` is an allowlisted non-Bash
+  tool entry, so it cannot gate; a Bash read can, and three workers in one session
+  blocked on one — `readlink`, a `for` loop, and an on-PATH binary invoked by name.
+  `cat`, `jq`, `grep`, `sed`, `find`, `head`, `tail`, `wc`, `mkdir` and `diff` are
+  allowlisted for the cases that genuinely need a pipeline; `od` is not — use
+  `tail -c 1 <file> | wc -l` for the trailing-newline check.
 
 ## Termination condition
 

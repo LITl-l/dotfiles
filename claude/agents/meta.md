@@ -41,11 +41,13 @@ catch yourself about to produce code, stop and dispatch a worker instead.
    then `claude rm <id>`. `fleet gc` does **not** reap finished sessions: with a `done`
    worker present it reports `no orphaned job state` and removes nothing — it only
    collects orphaned state that `claude rm` refuses. Reaping is per worker: `claude rm
-   <id>`, then `claude agents --all` to confirm it is gone. Do not confirm with bare
-   `fleet ls`: it lists only live sessions, so a finished worker drops out of it the
-   moment it stops — before any reap — and the check would pass whether or not the
-   reap actually worked. Unreaped sessions leak: one sat `blocked` for six weeks
-   unnoticed.
+   <id>`, then `claude agents --json --all` to confirm it is gone. Both flags are load
+   bearing: without `--json` the command requires a TTY and exits 1 with an empty stdout,
+   so a stdout-reading check sees nothing; without `--all` it hides `stopped` rows, so it
+   passes the moment the session stops being live — whether or not the reap worked. Bare
+   `fleet ls` fails that same second way: it lists only live sessions, so a finished
+   worker drops out of it the moment it stops, before any reap. Unreaped sessions leak:
+   one sat `blocked` for six weeks unnoticed.
 9. **Land it** — dispatch is a three-phase contract and the gated tail is yours: you
    stage the input, the worker produces a described change plus a result file, and you
    run `jj git push`, `gh pr create` and `gh pr edit` from this session, where the human
