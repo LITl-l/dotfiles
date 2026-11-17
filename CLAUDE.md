@@ -118,17 +118,15 @@ Rules that exist because they were measured, not assumed:
   spawn` defaults to `--permission-mode acceptEdits`, so a cross-session `SendMessage`
   from another mode is held for approval and is indistinguishable in `fleet watch` from a
   tool prompt. It clears on its own — do not panic-reap.
-- **A worker's *path* can be gated, not just its termination condition.** The `advisor`
-  tool appears in no permissions list at all: `allow` carries nine non-Bash tool entries
-  (`Edit`, `Glob`, `Grep`, `Read`, `Skill`, `WebFetch`, `WebSearch`, `Write`,
-  `mcp__context7`) and `advisor` is not one of them, even though `advisorModel` is
-  configured. A background worker that decides to consult it therefore blocks forever.
-  No termination condition named it, and the done-condition rule above does not catch
-  it: the gate was on a path the worker chose, not on a step the spec wrote down. The
-  first worker died there before writing a line. Say "do not call `advisor`" outright in
-  the spec, with the reason — a worker reaches for it exactly when the task looks
-  consequential. And unlike the held-message case above, a real tool prompt never
-  clears: if you sent no `SendMessage`, stop waiting and reap.
+- **A real tool prompt never clears: if you sent no `SendMessage`, stop waiting and
+  reap.** The complement of the held-message case above — and the two workers that
+  taught it both died this way, on the `advisor` tool that no permissions list names.
+  That particular trap is now closed, not merely narrow: #235 dropped `advisorModel`
+  from `claude/settings.json`, and in the 2.1.325 bundle the advisor tool schema is
+  appended to the request only `if(Ma)`, where `Ma` resolves from `advisorModel` and is
+  `undefined` when the setting is absent — the model is never offered the tool, and the
+  docs agree that unset means the advisor is off. Specs no longer need a "do not call
+  `advisor`" line; `--advisor`, `/advisor` or restoring the setting would reopen it.
 - **Staging under `wkspace` is necessary but not sufficient — and a few tool calls do
   not need a fleet worker at all.** The second worker, dispatched with `advisor`
   explicitly forbidden in its spec, blocked anyway: during an orientation *read* of

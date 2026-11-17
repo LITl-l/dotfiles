@@ -34,9 +34,7 @@ already died, so the forbidden set is always one worker behind; the allowed set 
   `jj git push`, read-only `git` (`show`, `log`, `diff`, `status`, also through
   `git -C <path>`), and `curl` to `localhost` or `127.0.0.1` only.
 - Outside that set it stalls, including `cp`, `mv`, `rm`, `od`, `yq`, `python3` outside
-  `tools/`, `curl` to any other host, `gh pr edit`, and the `advisor` tool — `advisor`
-  appears in no permissions list at all, and a worker reaches for it exactly when the
-  task starts to look consequential. For a trailing-newline check use
+  `tools/`, `curl` to any other host, and `gh pr edit`. For a trailing-newline check use
   `tail -c 1 <file> | wc -l`, not `od`.
 
 ### Shapes that gate although the command name is allowlisted
