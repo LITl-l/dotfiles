@@ -12,8 +12,20 @@
 #
 # DENY, not ask. A background worker cannot answer an `ask` at all, and asking is not a
 # cheap default here -- approval waiting already measures 148h in this corpus. A deny
-# costs one retry, and the reason text carries the corrected command so the retry is a
-# single edit away.
+# costs one retry, and the reason text names the shape to write instead, so the retry is
+# a single edit away.
+#
+# WHY NO `Corrected command:` ANY MORE. Both denies used to hand back the original
+# command with its status read rewritten into bash's braced array read of the pipeline
+# status. Measured under `--permission-mode acceptEdits`: a bare `echo` whose only
+# unusual content was that braced array read -- no pipe, no parentheses -- still raised
+# a permission prompt, although both `Bash(echo *)` and `Bash(echo)` are allowlisted;
+# the same line ran silently in an interactive `auto` session. So the ready-made fix was
+# unrunnable in exactly the regime that cannot answer a prompt, and a background worker
+# died holding it. The redirect-then-read shape below needs no array read at all, so it
+# is the only one offered. Rewriting a pipeline into it cannot be done mechanically --
+# it needs a log path and a decision about which stage's status is wanted -- hence fixed
+# guidance text rather than a generated command.
 #
 # PREDICATE NOTE -- what this deliberately does NOT catch. A false deny blocks a correct
 # command, so the predicate under-fires on purpose:
@@ -53,27 +65,15 @@ deny() {
 # are dropped; `||` is a separator, not a pipe.
 norm=$(printf '%s' "$cmd" | tr '\n' ';' | sed "s/'[^']*'//g" | sed 's/||/ /g')
 
-# fish syntax in bash. Unambiguous: bash's variable is uppercase PIPESTATUS, so a
-# lowercase $pipestatus is the empty string here, every time.
+# fish syntax in bash. Unambiguous: bash spells its own pipeline-status array in
+# capitals, so a lowercase $pipestatus is the empty string here, every time.
 if printf '%s' "$norm" | grep -qE '\$[{]?pipestatus'; then
-  fixed=$cmd
-  # fish arrays are 1-based and bash's PIPESTATUS is 0-based, so the index moves too.
-  for i in 9 8 7 6 5 4 3 2 1; do
-    fixed=$(printf '%s' "$fixed" \
-      | sed -E 's/\$[{]?pipestatus\['"$i"'\][}]?/${PIPESTATUS['"$((i - 1))"']}/g')
-  done
-  fixed=$(printf '%s' "$fixed" | sed -E 's/\$[{]?pipestatus[}]?/${PIPESTATUS[0]}/g')
-  deny "\$pipestatus is fish syntax. The Bash tool runs bash, not your login fish, and bash expands it to the empty string -- 21 commands in this corpus did exactly this and all reported success. Use bash's \${PIPESTATUS[0]} (bash indexes from 0, fish from 1, so \$pipestatus[1] becomes \${PIPESTATUS[0]}). Corrected command: $fixed"
+  deny "\$pipestatus is fish syntax. The Bash tool runs bash, not your login fish, and bash expands it to the empty string -- 21 commands in this corpus did exactly this and all reported success. Do not translate it into bash's braced array read of the pipeline status either: that shape itself raised a permission prompt under --permission-mode acceptEdits and stalled a background worker, even in a bare echo. Drop the pipe instead -- redirect, then read the status on the next line: '<cmd> > <logfile> 2>&1' then 'echo \$?' -- and inspect <logfile> with grep or tail in a separate command."
 fi
 
 # `$?` read after a pipeline: that is the LAST stage's status.
 if printf '%s' "$norm" | grep -qE '\|.*;.*\$\?'; then
-  # Rewrite only the `$?` that follow the last pipe; one before it is a different,
-  # correct read.
-  before=${cmd%|*}
-  after=${cmd##*|}
-  fixed="$before|$(printf '%s' "$after" | sed 's/\$?/${PIPESTATUS[0]}/g')"
-  deny "\$? after a pipeline is the exit status of the LAST stage (tail/head/wc succeed on anything), not of the command you meant to check. This exact shape reported EXIT=0 while home-manager switch had failed its build, and the failure went unnoticed for 24 days. Use \${PIPESTATUS[0]}, or drop the pipe and redirect instead (cmd >/tmp/out 2>&1; echo \$?; tail -30 /tmp/out). Corrected command: $fixed"
+  deny "\$? after a pipeline is the exit status of the LAST stage (tail/head/wc succeed on anything), not of the command you meant to check. This exact shape reported EXIT=0 while home-manager switch had failed its build, and the failure went unnoticed for 24 days. Do not reach for bash's braced array read of the pipeline status: that shape itself raised a permission prompt under --permission-mode acceptEdits and stalled a background worker, even in a bare echo. Drop the pipe instead -- redirect, then read the status on the next line: '<cmd> > <logfile> 2>&1' then 'echo \$?' -- and inspect <logfile> with grep or tail in a separate command."
 fi
 
 # Default: silent, defer to the permission rules.
