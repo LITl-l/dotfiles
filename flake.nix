@@ -385,6 +385,43 @@
             touch "$out"
           '';
 
+          # The CI job this replaces was called "Validate WezTerm Config" and
+          # validated no WezTerm config: it listed eleven wezterm/*.lua files by
+          # name and asserted each existed, then grepped for substrings. mux.lua,
+          # sysinfo.lua and tabline-theme.lua were never on that list, so a syntax
+          # error in one of them reached a terminal before it reached CI. The glob
+          # is the point -- a new wezterm/*.lua is covered the moment it lands,
+          # with no list to remember.
+          #
+          # Parsing is as far as this can go: every one of these modules opens with
+          # `require("wezterm")`, which exists only inside the terminal, so loading
+          # them outside it would assert nothing but the absence of wezterm.
+          wezterm-lua-syntax = pkgs.runCommand "wezterm-lua-syntax"
+            {
+              weztermDir = ./wezterm;
+              nativeBuildInputs = [ pkgs.lua5_4 ];
+            } ''
+            set -o errexit
+
+            count=0
+            for f in "$weztermDir"/*.lua; do
+              echo "wezterm-lua-syntax: parsing $(basename "$f")"
+              luac -p "$f"
+              count=$((count + 1))
+            done
+
+            # Zero files means the glob stopped matching, not that the config is
+            # clean -- the loop would then run no luac at all and this derivation
+            # would be green on an empty assertion.
+            if [ "$count" -eq 0 ]; then
+              echo "wezterm-lua-syntax: matched no wezterm/*.lua"
+              exit 1
+            fi
+
+            echo "wezterm-lua-syntax: $count file(s) parsed as Lua 5.4"
+            touch "$out"
+          '';
+
           # Build crumb (buildGoModule checkPhase runs `go test ./...`).
           crumb-tests = pkgs.crumb;
         } // linuxChecks);
