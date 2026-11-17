@@ -362,10 +362,23 @@ M.setup_treesitter = function()
 end
 
 -- Setup lspsaga
+--
+-- lspsaga is an opt plugin, so its packadd is allowed to find nothing -- in
+-- the nix check sandbox it never does. The bare require that followed turned
+-- that permitted absence into a throw, and because setup_lsp calls this one
+-- before require('config.lsp').setup(), an optional UI layer took every
+-- language server down with it. Skip just this feature when the module will
+-- not load, the way config.lsp's setup_server() skips a single server whose
+-- binary is not on PATH. An error raised by setup() below is a real
+-- misconfiguration and still propagates.
 M.setup_lspsaga = function()
   setup_once('lspsaga', function()
     packadd('lspsaga.nvim')
-    require('lspsaga').setup({
+    local ok, lspsaga = pcall(require, 'lspsaga')
+    if not ok then
+      return
+    end
+    lspsaga.setup({
       ui = {
         border = 'rounded',
         code_action = '󰌵',
