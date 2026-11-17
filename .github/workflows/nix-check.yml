@@ -304,7 +304,6 @@ jobs:
       - name: Check formatting
         run: |
           nix fmt -- --check .
-        continue-on-error: true
 
   summary:
     name: CI Summary
@@ -347,9 +346,7 @@ jobs:
 
           # "success" is the only acceptable result, which makes skipped and
           # cancelled failures too: a job skipped because the one it needed failed
-          # is a hole, not a pass. test-format is in the list and still cannot
-          # block a merge on its own -- its formatting step carries
-          # continue-on-error, so the job's own result stays "success".
+          # is a hole, not a pass.
           failed=$(echo "$NEEDS" | jq -r '
             to_entries[] | select(.value.result != "success") | "   - \(.key): \(.value.result)"
           ')

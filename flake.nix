@@ -224,7 +224,7 @@
                   declaredAttrs = pkgs.writeText "claude-home-file-attrs"
                     (builtins.concatStringsSep "\n"
                       (builtins.attrNames self.homeConfigurations."nixos@wsl".config.home.file)
-                      + "\n");
+                    + "\n");
                 in
                 pkgs.runCommand "claude-config-integrity"
                   {
