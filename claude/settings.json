@@ -22,6 +22,7 @@
       "Bash(direnv:*)",
       "Bash(dirname *)",
       "Bash(dirname:*)",
+      "Bash(docker:*)",
       "Bash(echo *)",
       "Bash(echo)",
       "Bash(env)",
@@ -283,6 +284,9 @@
       }
     ]
   },
+  "worktree": {
+    "baseRef": "fresh"
+  },
   "enabledPlugins": {
     "jj-master@local": true,
     "architect@local": true,
@@ -309,12 +313,18 @@
     "plugin-dev@claude-plugins-official": false,
     "sourcegraph@claude-plugins-official": false
   },
+  "feedbackDrafts": "notify",
   "effortLevel": "xhigh",
-  "advisorModel": "fable",
+  "askUserQuestionTimeout": "never",
+  "dialogExpiry": "never",
+  "timeFormat": "24-hour",
   "showThinkingSummaries": true,
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "theme": "light",
   "editorMode": "vim",
+  "switchModelsOnFlag": true,
+  "crossSessionInbound": "accept",
+  "inputNeededNotifEnabled": false,
   "skipAutoPermissionPrompt": true
 }
