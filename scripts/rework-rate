@@ -1,0 +1,571 @@
+#!/usr/bin/env bash
+# rework-rate — how much of what this repo ships gets rewritten shortly afterwards.
+#
+# WHY THIS AND NOT REVERT RATE. This repo has essentially never run `git revert`: every
+# PR is squash-merged onto a linear `main` and mistakes are fixed forward. A revert-rate
+# metric therefore has no resolution here -- it reads 0% whether the repo is healthy or
+# on fire. What the history actually shows is REWORK: a change lands, and hours or days
+# later another change rewrites the same lines. 2026-11-17 alone produced three such
+# pairs, each within two days of the code it rewrote.
+#
+# WHY NO LEDGER. Nothing is stored; every number is recomputed from the object database
+# on each run. Seven separate defects found in this repo on 2026-11-17 had one shape: a
+# hand-maintained list that drifted out of step with the thing it described -- a hook
+# registered with no file, an allowlist entry for an uninstalled binary, flake checks no
+# CI job ran, a six-name CI matrix for twelve modules. A rework ledger would have been
+# the eighth, and it would have drifted in the one direction that matters: silently
+# understating rework, because nobody updates a ledger about their own mistakes.
+#
+# THE MECHANISM, for a commit C:
+#   1. `git diff --unified=0 C^ C` -- a hunk header `@@ -a,b +c,d @@` with b > 0 names
+#      the b lines at a..a+b-1 of the OLD side, i.e. the lines C deleted or rewrote.
+#   2. `git blame -L a,+b C^ -- <file>` says which commit introduced each of them.
+#   3. C's committer date minus that commit's committer date is the rework interval.
+#   An interval within --window is rework; a longer one is ordinary maintenance of code
+#   that had already settled. Author and committer dates are identical throughout this
+#   repo's history (GitHub's squash-merge sets both to the merge time), so the choice of
+#   committer date changes no number here; it is the right one in general because it is
+#   when the line actually reached main.
+#
+# WHAT IT CANNOT SEE -- read this before quoting the number:
+#   * A REFLOW. Rewrapping a paragraph, or re-splitting a long line, registers as rework
+#     of every line it touches, because the bytes of those lines really did change.
+#     Pure whitespace changes do not register (see --count-whitespace); a reflow is not
+#     a pure whitespace change, and prose files are where this over-counts.
+#   * CODE MOVED BETWEEN FILES. If commit X moved lines from f to g unchanged, blame
+#     attributes them to X in g, so a later rewrite of them looks like rework of X
+#     rather than of whoever wrote them. `--detect-moves` passes `-C -C` to blame and
+#     fixes this, at a large cost in runtime; it is off by default.
+#   * A FILE RENAME is handled: `git diff -M` reports it as a rename rather than as a
+#     delete plus an add, and `git blame` follows the file across it, so a rename alone
+#     produces no rework at all.
+#   * A WHOLE-FILE DELETION counts as rework of every line in the file. That is a real
+#     signal -- shipping something and then removing it is the strongest rework there
+#     is -- but it is lumpy, so the pair listing marks it `del` and the headline reports
+#     how much of the number comes from deletions.
+#   * PATHS CONTAINING A QUOTE, BACKSLASH OR NEWLINE. git quotes those in diff headers
+#     and this parser does not unquote them. No such path exists in this repo; one would
+#     be silently skipped rather than miscounted, because blame on the quoted name fails.
+#
+# EXCLUSIONS, and the reason for each:
+#   * flake.lock -- `nix flake update` rewrites the pinned revisions. That is a
+#     dependency bump, not a human going back over their own work. Measured on the six
+#     bumps in the last 50 commits, each rewrites 12-30 old-side lines, and because
+#     bumps cluster they land on each other: 9 of b2fa11a's 12 lock lines blame to
+#     83dc23a, ONE DAY earlier. Unexcluded, that is in-window "rework" with no human
+#     judgement anywhere in it, and chore(flake) commits that otherwise score 0 would
+#     all score near 100%.
+#   Deliberately NOT excluded, with the check that settled each one:
+#   * docs/claude-corpus-ledger.tsv -- append-only in fact, not merely by intention.
+#     Both commits that have ever touched it (122c4b5, 38ff7ef) produce hunk headers of
+#     the form `@@ -N,0 +M,K @@`: old-side count 0, so they cannot register on the old
+#     side at all. Naming it here would buy nothing today and would hide the one thing
+#     worth knowing tomorrow -- that someone rewrote recorded measurements.
+#   * claude/marketplaces/local/plugins/** -- vendored upstream skills. A vendor refresh
+#     would rewrite them wholesale and would not be this repo's rework, but no refresh
+#     has ever happened (i-have-adhd has exactly one commit, 2021257, the vendoring).
+#     Excluding against a hypothetical would hide the real local edits that do land
+#     there. Add `--exclude` on the day a refresh actually lands.
+#   * Binary files need no rule: git emits no line hunks for them.
+#
+# DEFAULTS, and the measurement behind them (79 consecutive main commits, to 23c2ada):
+#   * --window 14 (days). Gaps between consecutive main commits: median 0.23d, p75
+#     1.43d, p90 6.90d, p95 13.30d. 14 days is that p95 gap, so it is the shortest
+#     window that still reliably contains the next landing even across this repo's quiet
+#     stretches; a mean of 8.3 commits land inside it. A shorter window measures the
+#     burst pattern rather than the rework.
+#   * --last 50 (commits). Enough landings for a rate to mean something -- 50 commits
+#     spans about five months here -- and counted in commits rather than days so a quiet
+#     month does not shrink the sample to nothing. There is no truncation bias at the
+#     recent end: the rate is backward-looking (of the lines C rewrote, how many were
+#     young), so a commit needs no future in order to be scored.
+#
+# Read-only throughout: `diff`, `blame`, `log`, `rev-list`, `rev-parse`, `ls-tree`. It
+# writes nothing outside its own temp directory.
+set -uo pipefail
+
+SELF=${0##*/}
+TAB=$(printf '\t')
+
+WINDOW_DAYS=14
+LAST=50
+SINCE=""
+REV=""
+BASE_OPT=""
+REPO=""
+PAIRS=20
+STAGNANT_TOP=15
+COUNT_WS=0
+DETECT_MOVES=0
+TSV=0
+WANT_A=1
+WANT_B=1
+WANT_C=1
+EXTRA_EXCLUDES=()
+BLAME_L=()
+
+die() { printf '%s: %s\n' "$SELF" "$*" >&2; exit 1; }
+count_lines() { awk 'END { print NR }' "$1"; }
+
+usage() {
+  cat <<'USAGE'
+rework-rate — how much of what this repo ships gets rewritten shortly afterwards.
+
+usage: rework-rate [options]
+
+  --window DAYS     "recently introduced" threshold (default: 14; the header comment
+                    carries the inter-commit-gap measurement behind that number)
+  --last N          score the last N commits of the base rev (default: 50)
+  --since DATE      score commits since DATE instead (any git date: 2026-10-01,
+                    "3 weeks ago", ...)
+  --rev RANGE       score an explicit rev-list argument instead (A..B, a tag, ...)
+  --base REV        the branch the metric is about (default: main, else HEAD)
+  --repo PATH       repo to measure (default: $PWD, then $DOTFILES_REPO, then
+                    ~/.config/dotfiles). A jj workspace works: its colocated git dir
+                    is resolved through .jj/repo/store/git_target.
+  --pairs N         how many rework pairs to list (default: 20; 0 = all)
+  --stagnant N      how many stagnant files to list (default: 15; 0 = all)
+  --exclude SPEC    extra git pathspec to exclude; repeatable
+  --count-whitespace
+                    count whitespace-only changes as rework (default: ignored, so a
+                    re-indent does not register)
+  --detect-moves    pass `-C -C` to blame so code moved between files keeps its
+                    original author (much slower; off by default)
+  --only a|b|c      print only section (a) rates, (b) pairs or (c) stagnation
+  --tsv             machine-readable records instead of the report
+  -h, --help        this text
+
+Output:
+  (a) per-commit rework rate: lines it rewrote that were introduced within the
+      window, over all the lines it rewrote.
+  (b) the pairs: <later> rewrote N lines of <earlier> after D days, with the file.
+      A bare percentage tells nobody where to look; pairs do.
+  (c) stagnation: the age of the lines currently on the base rev. Rework rate alone
+      lies -- zero rework reads the same whether the code was right or whether
+      nobody ever went back to it.
+USAGE
+}
+
+while [ $# -gt 0 ]; do
+  case $1 in
+    --window) WINDOW_DAYS=${2:?--window needs a value}; shift 2 ;;
+    --last) LAST=${2:?--last needs a value}; shift 2 ;;
+    --since) SINCE=${2:?--since needs a value}; shift 2 ;;
+    --rev) REV=${2:?--rev needs a value}; shift 2 ;;
+    --base) BASE_OPT=${2:?--base needs a value}; shift 2 ;;
+    --repo) REPO=${2:?--repo needs a value}; shift 2 ;;
+    --pairs) PAIRS=${2:?--pairs needs a value}; shift 2 ;;
+    --stagnant) STAGNANT_TOP=${2:?--stagnant needs a value}; shift 2 ;;
+    --exclude) EXTRA_EXCLUDES+=(":(exclude)${2:?--exclude needs a value}"); shift 2 ;;
+    --count-whitespace) COUNT_WS=1; shift ;;
+    --detect-moves) DETECT_MOVES=1; shift ;;
+    --only)
+      case ${2:?--only needs a, b or c} in
+        a) WANT_A=1; WANT_B=0; WANT_C=0 ;;
+        b) WANT_A=0; WANT_B=1; WANT_C=0 ;;
+        c) WANT_A=0; WANT_B=0; WANT_C=1 ;;
+        *) die "--only takes a, b or c" ;;
+      esac
+      shift 2 ;;
+    --tsv) TSV=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1 (try --help)" ;;
+  esac
+done
+
+case $WINDOW_DAYS in ''|*[!0-9.]*) die "--window must be a number of days" ;; esac
+case $LAST in ''|*[!0-9]*) die "--last must be a whole number" ;; esac
+case $PAIRS in ''|*[!0-9]*) die "--pairs must be a whole number" ;; esac
+case $STAGNANT_TOP in ''|*[!0-9]*) die "--stagnant must be a whole number" ;; esac
+
+# --- repo and git-dir resolution -------------------------------------------------
+#
+# $SCRIPT_DIR/.. is deliberately NOT a candidate. scripts/claude-corpus used it, and
+# once installed into the store it ran as ~/.nix-profile/bin/claude-corpus, where that
+# `..` resolved to ~/.nix-profile -- a directory that exists, so every default built on
+# it pointed somewhere real and wrong (fixed in 4eff98c). A candidate here is accepted
+# only if a git history can actually be opened through it.
+
+resolve_git_dir() {
+  local start=$1 d jjrepo target gt
+  [ -n "$start" ] || return 1
+  [ -d "$start" ] || return 1
+  d=$(git -C "$start" rev-parse --absolute-git-dir 2>/dev/null)
+  if [ -n "$d" ]; then printf '%s\n' "$d"; return 0; fi
+  # A jj workspace has no .git at all. .jj/repo is either the repo directory itself
+  # (colocated main checkout) or a file holding a path to it, relative to .jj/.
+  jjrepo="$start/.jj/repo"
+  if [ -f "$jjrepo" ]; then
+    target=$(cat "$jjrepo" 2>/dev/null) || return 1
+    case $target in
+      /*) jjrepo=$target ;;
+      *) jjrepo="$start/.jj/$target" ;;
+    esac
+  fi
+  [ -f "$jjrepo/store/git_target" ] || return 1
+  gt=$(cat "$jjrepo/store/git_target" 2>/dev/null) || return 1
+  case $gt in
+    /*) ;;
+    *) gt="$jjrepo/store/$gt" ;;
+  esac
+  d=$(cd -- "$gt" >/dev/null 2>&1 && pwd) || return 1
+  [ -n "$d" ] || return 1
+  printf '%s\n' "$d"
+}
+
+GITDIR=""
+if [ -n "$REPO" ]; then
+  GITDIR=$(resolve_git_dir "$REPO") \
+    || die "--repo $REPO: no git history reachable there (not a git repo, not a jj workspace)"
+else
+  for cand in "$PWD" "${DOTFILES_REPO:-}" "$HOME/.config/dotfiles"; do
+    GITDIR=$(resolve_git_dir "$cand") && break
+    GITDIR=""
+  done
+  [ -n "$GITDIR" ] \
+    || die "no repo found: run from a checkout, set DOTFILES_REPO, or pass --repo PATH"
+fi
+
+g() { git --git-dir="$GITDIR" -c core.quotepath=false "$@"; }
+
+BASE=$BASE_OPT
+if [ -z "$BASE" ]; then
+  if g rev-parse --verify --quiet main >/dev/null; then BASE=main; else BASE=HEAD; fi
+fi
+g rev-parse --verify --quiet "$BASE" >/dev/null || die "base rev not found: $BASE"
+
+# --- pathspecs and diff flags ----------------------------------------------------
+#
+# A pathspec list made only of exclusions is treated by git as "everything, minus
+# these", so no inclusion term is needed -- which matters because this runs with
+# --git-dir and no worktree, where a relative `.` pathspec means nothing.
+EXCLUDES=(':(exclude)flake.lock')
+if [ ${#EXTRA_EXCLUDES[@]} -gt 0 ]; then EXCLUDES+=("${EXTRA_EXCLUDES[@]}"); fi
+
+DIFF_WS=(-w)
+BLAME_WS=(-w)
+if [ "$COUNT_WS" = 1 ]; then DIFF_WS=(); BLAME_WS=(); fi
+BLAME_MOVE=()
+if [ "$DETECT_MOVES" = 1 ]; then BLAME_MOVE=(-C -C); fi
+
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/rework-rate.XXXXXX") || die "cannot create temp dir"
+trap 'rm -rf -- "$TMP"' EXIT INT TERM
+: > "$TMP/pairs"
+: > "$TMP/stag"
+: > "$TMP/meta"
+: > "$TMP/out.a"
+: > "$TMP/out.b"
+: > "$TMP/out.c"
+: > "$TMP/out.s"
+: > "$TMP/out.t"
+
+# --- commit selection ------------------------------------------------------------
+REVARGS=()
+if [ -n "$REV" ]; then
+  REVARGS=("$REV")
+  RANGE_DESC="rev $REV"
+elif [ -n "$SINCE" ]; then
+  REVARGS=(--since="$SINCE" "$BASE")
+  RANGE_DESC="$BASE since $SINCE"
+else
+  REVARGS=(-n "$LAST" "$BASE")
+  RANGE_DESC="last $LAST commits of $BASE"
+fi
+
+g rev-list "${REVARGS[@]}" > "$TMP/commits" 2>"$TMP/err" \
+  || die "rev-list failed: $(cat "$TMP/err")"
+[ -s "$TMP/commits" ] || die "no commits selected ($RANGE_DESC)"
+NCOMMITS=$(count_lines "$TMP/commits")
+
+# --- steps (1) diff and (2) blame ------------------------------------------------
+#
+# Records appended to $TMP/pairs:  P <later> <earlier> <file> <mod|del> <lines>
+
+flush_blame() { # $1 later, $2 parent, $3 file, $4 kind; ranges in BLAME_L
+  local later=$1 parent=$2 file=$3 kind=$4
+  [ ${#BLAME_L[@]} -gt 0 ] || return 0
+  g blame --porcelain "${BLAME_WS[@]+"${BLAME_WS[@]}"}" \
+      "${BLAME_MOVE[@]+"${BLAME_MOVE[@]}"}" \
+      "${BLAME_L[@]}" "$parent" -- "$file" </dev/null 2>/dev/null \
+    | awk -v later="$later" -v file="$file" -v kind="$kind" '
+        # A porcelain header line is "<40-hex> <orig> <final>[ <group>]"; content lines
+        # start with a TAB and the other headers (author, committer-time, summary,
+        # previous, filename, boundary) all contain a non-hex character in word 1.
+        $0 ~ /^[0-9a-f]+ [0-9]+ [0-9]+/ && length($1) == 40 { n[$1]++ }
+        END { for (s in n) printf("P\t%s\t%s\t%s\t%s\t%d\n", later, s, file, kind, n[s]) }
+      ' >> "$TMP/pairs"
+}
+
+while read -r C; do
+  [ -n "$C" ] || continue
+  PARENT=$(g rev-parse --verify --quiet "$C^") || continue   # root commit rewrote nothing
+  g diff --unified=0 -M --no-color --no-ext-diff \
+      "${DIFF_WS[@]+"${DIFF_WS[@]}"}" "$C^" "$C" -- "${EXCLUDES[@]}" </dev/null 2>/dev/null \
+    | awk '
+        # `inheader` matters: with --unified=0 a DELETED line whose content begins with
+        # "-- " is emitted as "--- ...", which is indistinguishable from an old-file
+        # header unless the parser knows it is past the first hunk of the current file.
+        /^diff --git / { oldfile = ""; deleted = 0; inheader = 1; next }
+        inheader && /^deleted file mode/ { deleted = 1; next }
+        inheader && /^--- / {
+          p = substr($0, 5)
+          if (p == "/dev/null") { oldfile = "" } else { sub(/^a\//, "", p); oldfile = p }
+          next
+        }
+        /^@@ / {
+          inheader = 0
+          if (oldfile == "") next
+          h = $2; sub(/^-/, "", h)
+          k = split(h, f, ",")
+          a = f[1] + 0
+          b = (k > 1) ? f[2] + 0 : 1
+          if (b > 0) printf("%s\t%d\t%d\t%s\n", (deleted ? "del" : "mod"), a, b, oldfile)
+        }
+      ' > "$TMP/ranges"
+  [ -s "$TMP/ranges" ] || continue
+  # One blame per file, however many hunks that file contributed.
+  sort -t "$TAB" -k4,4 -k2,2n "$TMP/ranges" > "$TMP/ranges.sorted"
+  CURFILE=""
+  CURKIND=""
+  BLAME_L=()
+  while IFS="$TAB" read -r KIND A B F; do
+    if [ "$F" != "$CURFILE" ]; then
+      [ -n "$CURFILE" ] && flush_blame "$C" "$PARENT" "$CURFILE" "$CURKIND"
+      CURFILE=$F
+      CURKIND=$KIND
+      BLAME_L=()
+    fi
+    BLAME_L+=(-L "$A,+$B")
+  done < "$TMP/ranges.sorted"
+  if [ -n "$CURFILE" ]; then flush_blame "$C" "$PARENT" "$CURFILE" "$CURKIND"; fi
+done < "$TMP/commits"
+
+# --- commit metadata -------------------------------------------------------------
+#
+# Records: M <sha> <committer-epoch> <subject> <R|->   (R marks a commit in range)
+awk -F"$TAB" '$1 == "P" { print $2; print $3 }' "$TMP/pairs" > "$TMP/shas"
+cat "$TMP/commits" >> "$TMP/shas"
+sort -u "$TMP/shas" > "$TMP/shas.u"
+if [ -s "$TMP/shas.u" ]; then
+  g log --no-walk --stdin --format='%H%x09%ct%x09%s' < "$TMP/shas.u" > "$TMP/meta.raw" 2>/dev/null
+  awk -F"$TAB" -v OFS="$TAB" '
+    NR == FNR { inrange[$1] = 1; next }
+    { print "M", $1, $2, $3, ($1 in inrange ? "R" : "-") }
+  ' "$TMP/commits" "$TMP/meta.raw" > "$TMP/meta"
+fi
+
+NOW=$(g log -1 --format='%ct' "$BASE")
+
+# --- (c) stagnation --------------------------------------------------------------
+#
+# "Lines currently in the tree that have never been rewritten" is exactly what blame at
+# the base rev reports: a line attributed to X has not been touched since X, so its age
+# is now - date(X). Measured at the base rev rather than in a working tree, so the
+# report is reproducible for a given rev and describes the same artefact that (a) and
+# (b) score -- what this repo actually ships.
+#
+# `git blame` over 197 files costs a few seconds here, which is cheaper than any proxy
+# that would need its own bookkeeping, so no proxy is used.
+#
+# Records: S <file> <sha> <lines>
+if [ "$WANT_C" = 1 ]; then
+  # `git ls-tree` rejects `:(exclude)` magic ("pathspec magic not supported by this
+  # command"), and it fails LOUDLY but on stderr, so an unchecked ls-tree here produced
+  # a silently empty stagnation section. Diffing the base against the empty tree lists
+  # exactly the same files through a command that does honour the exclusions.
+  EMPTY_TREE=$(g hash-object -t tree /dev/null) || die "cannot derive the empty tree id"
+  g diff --name-only "$EMPTY_TREE" "$BASE" -- "${EXCLUDES[@]}" > "$TMP/tree" \
+    || die "listing the tree at $BASE failed"
+  [ -s "$TMP/tree" ] || die "no files at $BASE after exclusions -- check --exclude"
+  while read -r F; do
+    [ -n "$F" ] || continue
+    g blame --porcelain "${BLAME_WS[@]+"${BLAME_WS[@]}"}" "$BASE" -- "$F" </dev/null 2>/dev/null \
+      | awk -v file="$F" '
+          $0 ~ /^[0-9a-f]+ [0-9]+ [0-9]+/ && length($1) == 40 { n[$1]++ }
+          END { for (s in n) printf("S\t%s\t%s\t%d\n", file, s, n[s]) }
+        ' >> "$TMP/stag"
+  done < "$TMP/tree"
+  awk -F"$TAB" '$1 == "S" { print $3 }' "$TMP/stag" | sort -u > "$TMP/stagshas"
+  if [ -s "$TMP/stagshas" ]; then
+    g log --no-walk --stdin --format='%H%x09%ct%x09%s' < "$TMP/stagshas" 2>/dev/null \
+      | awk -F"$TAB" -v OFS="$TAB" '{ print "M", $1, $2, $3, "-" }' >> "$TMP/meta"
+  fi
+fi
+
+# --- TSV mode --------------------------------------------------------------------
+if [ "$TSV" = 1 ]; then
+  printf 'kind\tlater\tearlier\tfile\tchange\tlines\tdays\n'
+  awk -F"$TAB" '
+    $1 == "M" { ct[$2] = $3 + 0; next }
+    $1 == "P" { printf("pair\t%s\t%s\t%s\t%s\t%s\t%.2f\n", $2, $3, $4, $5, $6, (ct[$2] - ct[$3]) / 86400) }
+  ' "$TMP/meta" "$TMP/pairs"
+  awk -F"$TAB" -v now="$NOW" '
+    $1 == "M" { ct[$2] = $3 + 0; next }
+    $1 == "S" { printf("line-age\t-\t%s\t%s\t-\t%s\t%.2f\n", $3, $2, $4, (now - ct[$3]) / 86400) }
+  ' "$TMP/meta" "$TMP/stag"
+  exit 0
+fi
+
+# --- aggregation -----------------------------------------------------------------
+awk -F"$TAB" \
+    -v win="$WINDOW_DAYS" -v now="$NOW" \
+    -v outa="$TMP/out.a" -v outb="$TMP/out.b" -v outc="$TMP/out.c" \
+    -v outs="$TMP/out.s" -v outt="$TMP/out.t" '
+  function days(a, b) { return (a - b) / 86400 }
+  $1 == "M" { ct[$2] = $3 + 0; subj[$2] = $4; if ($5 == "R") inrange[$2] = 1; next }
+  $1 == "P" {
+    later = $2; earlier = $3; file = $4; kind = $5; n = $6 + 0
+    tot[later] += n
+    gtot += n
+    if (kind == "del") gdel += n
+    d = days(ct[later], ct[earlier])
+    if (d <= win) {
+      wintot[later] += n
+      gwin += n
+      if (kind == "del") gwindel += n
+      pair[later SUBSEP earlier SUBSEP file SUBSEP kind] += n
+    } else {
+      goldpairs++
+    }
+    next
+  }
+  $1 == "S" { sline[$2 SUBSEP $3] += $4 + 0; next }
+  END {
+    for (k in pair) {
+      split(k, p, SUBSEP)
+      printf("%d\t%d\t%s\t%s\t%.2f\t%s\t%s\n",
+             ct[p[1]], pair[k], substr(p[1], 1, 7), substr(p[2], 1, 7),
+             days(ct[p[1]], ct[p[2]]), p[4], p[3]) > outb
+    }
+    for (c in inrange) {
+      nc++
+      t = tot[c] + 0; w = wintot[c] + 0
+      if (t > 0) reworkers++
+      if (w > 0) windowers++
+      printf("%d\t%s\t%d\t%d\t%s\t%s\n",
+             ct[c], substr(c, 1, 7), t, w,
+             (t > 0 ? sprintf("%.1f%%", 100 * w / t) : "-"), subj[c]) > outa
+    }
+    nb = split("14 30 90 180 365", bb, " ")
+    for (k in sline) {
+      split(k, p, SUBSEP)
+      f = p[1]; n = sline[k]
+      age = days(now, ct[p[2]])
+      total_lines += n
+      placed = 0
+      for (i = 1; i <= nb; i++) if (!placed && age <= bb[i] + 0) { bucket[i] += n; placed = 1 }
+      if (!placed) bucket[0] += n
+      if (age > 180) stale180 += n
+      if (!(f in lastct) || ct[p[2]] > lastct[f]) lastct[f] = ct[p[2]]
+      flines[f] += n
+    }
+    for (i = 1; i <= nb; i++)
+      printf("%s-%sd\t%d\n", (i == 1 ? "0" : bb[i - 1]), bb[i], bucket[i] + 0) > outc
+    printf("365+d\t%d\n", bucket[0] + 0) > outc
+    for (f in lastct) printf("%.0f\t%d\t%s\n", days(now, lastct[f]), flines[f], f) > outs
+    printf("commits\t%d\n", nc + 0) > outt
+    printf("reworkers\t%d\n", reworkers + 0) > outt
+    printf("windowers\t%d\n", windowers + 0) > outt
+    printf("rewritten\t%d\n", gtot + 0) > outt
+    printf("in_window\t%d\n", gwin + 0) > outt
+    printf("del_lines\t%d\n", gdel + 0) > outt
+    printf("win_del_lines\t%d\n", gwindel + 0) > outt
+    printf("old_pairs\t%d\n", goldpairs + 0) > outt
+    printf("tree_lines\t%d\n", total_lines + 0) > outt
+    printf("stale180\t%d\n", stale180 + 0) > outt
+  }
+' "$TMP/meta" "$TMP/pairs" "$TMP/stag"
+
+t() { awk -F"$TAB" -v k="$1" '$1 == k { print $2 }' "$TMP/out.t"; }
+
+# --- report ----------------------------------------------------------------------
+printf '%s: %s\n' "$SELF" "$(dirname -- "$GITDIR")"
+printf '  range   %s  (%s..%s, %s commits)\n' \
+  "$RANGE_DESC" "$(tail -n 1 "$TMP/commits" | cut -c1-7)" \
+  "$(head -n 1 "$TMP/commits" | cut -c1-7)" "$NCOMMITS"
+printf '  window  %s days, as of %s\n' "$WINDOW_DAYS" "$(g log -1 --format='%cs' "$BASE")"
+printf '  exclude %s\n\n' "${EXCLUDES[*]}"
+
+if [ "$WANT_A" = 1 ]; then
+  printf '== (a) per-commit rework rate ==\n'
+  printf '%-10s %-7s %9s %9s %7s  %s\n' DATE COMMIT REWROTE IN-WIN RATE SUBJECT
+  sort -k1,1nr "$TMP/out.a" | awk -F"$TAB" '{
+    cmd = "date -u -d @" $1 " +%Y-%m-%d"
+    cmd | getline d
+    close(cmd)
+    s = $6
+    if (length(s) > 58) s = substr(s, 1, 55) "..."
+    printf("%-10s %-7s %9d %9d %7s  %s\n", d, $2, $3, $4, $5, s)
+  }'
+  printf '\n'
+fi
+
+if [ "$WANT_B" = 1 ]; then
+  printf '== (b) rework pairs (within %s days, newest first) ==\n' "$WINDOW_DAYS"
+  if [ -s "$TMP/out.b" ]; then
+    sort -k1,1nr -k2,2nr "$TMP/out.b" > "$TMP/out.b.sorted"
+    NPAIRS=$(count_lines "$TMP/out.b.sorted")
+    if [ "$PAIRS" -gt 0 ]; then
+      head -n "$PAIRS" "$TMP/out.b.sorted" > "$TMP/out.b.shown"
+    else
+      cat "$TMP/out.b.sorted" > "$TMP/out.b.shown"
+    fi
+    awk -F"$TAB" '{
+      printf("  %s rewrote %d line%s of %s after %.1f days  [%s] %s\n",
+             $3, $2, ($2 == 1 ? "" : "s"), $4, $5, $6, $7)
+    }' "$TMP/out.b.shown"
+    if [ "$PAIRS" -gt 0 ] && [ "$NPAIRS" -gt "$PAIRS" ]; then
+      printf '  ... %s more pair(s) inside the window; --pairs 0 for all\n' "$((NPAIRS - PAIRS))"
+    fi
+  else
+    printf '  (none)\n'
+  fi
+  printf '\n'
+fi
+
+if [ "$WANT_C" = 1 ]; then
+  TREE_LINES=$(t tree_lines)
+  printf '== (c) stagnation: age of the lines now on %s ==\n' "$BASE"
+  awk -F"$TAB" -v total="${TREE_LINES:-0}" '{
+    printf("  %-8s %8d  %5.1f%%\n", $1, $2, (total > 0 ? 100 * $2 / total : 0))
+  }' "$TMP/out.c"
+  printf '  %-8s %8s\n\n' total "${TREE_LINES:-0}"
+  printf '  most stagnant files (days since any of their lines last changed):\n'
+  if [ "$STAGNANT_TOP" -gt 0 ]; then
+    sort -k1,1nr "$TMP/out.s" | head -n "$STAGNANT_TOP" > "$TMP/out.s.shown"
+  else
+    sort -k1,1nr "$TMP/out.s" > "$TMP/out.s.shown"
+  fi
+  awk -F"$TAB" '{ printf("  %6s d  %6s lines  %s\n", $1, $2, $3) }' "$TMP/out.s.shown"
+  printf '\n'
+fi
+
+REWROTE=$(t rewritten)
+INWIN=$(t in_window)
+WDELL=$(t win_del_lines)
+OLDP=$(t old_pairs)
+NC=$(t commits)
+RW=$(t reworkers)
+WW=$(t windowers)
+STALE=$(t stale180)
+TREE_LINES=$(t tree_lines)
+
+printf '== headline ==\n'
+if [ "${REWROTE:-0}" -gt 0 ]; then
+  awk -v w="${INWIN:-0}" -v r="$REWROTE" -v d="$WINDOW_DAYS" 'BEGIN {
+    printf("  rework rate          %.1f%%  (%d of %d rewritten lines were younger than %s days)\n", 100 * w / r, w, r, d)
+  }'
+else
+  printf '  rework rate          -  (this range rewrote no lines at all)\n'
+fi
+printf '  commits that rewrote %s of %s, of which %s rewrote something young\n' \
+  "${RW:-0}" "${NC:-0}" "${WW:-0}"
+printf '  whole-file deletions %s of those young lines came from a file removed outright\n' \
+  "${WDELL:-0}"
+printf '  settled-code churn   %s pair(s) fell outside the window and are not counted\n' \
+  "${OLDP:-0}"
+if [ "$WANT_C" = 1 ] && [ "${TREE_LINES:-0}" -gt 0 ]; then
+  awk -v s="${STALE:-0}" -v t="$TREE_LINES" 'BEGIN {
+    printf("  stagnation           %.1f%% of the tree (%d of %d lines) has stood untouched for over 180 days\n", 100 * s / t, s, t)
+  }'
+fi

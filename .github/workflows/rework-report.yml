@@ -1,0 +1,81 @@
+name: Rework Report
+
+# WHY THIS IS A SEPARATE WORKFLOW, AND NOT A JOB IN Nix Build CI.
+# `summary` in nix-check.yml gates on `toJSON(needs)`, so any job added there becomes a
+# merge gate. This must never be one: there is no defensible threshold for "too much
+# rework" -- a repo that fixes its own mistakes within a day scores HIGH on this metric
+# and is healthier for it -- and a gate with an arbitrary threshold is worse than no
+# gate at all, because it teaches people to game the number instead of reading it.
+#
+# WHY IT RUNS AT ALL. A measurement tool nobody runs is inert, which is the exact defect
+# class this repo spent 2026-11-17 removing: a hook registered with no file, an
+# allowlist entry for an uninstalled binary, flake checks no CI job ran. Shipping
+# scripts/rework-rate without running it would have been the next one. This prints the
+# report into the run summary on every push to main, where the number is cheapest to
+# look at: right after the merge, while the pair it names is still fresh enough to act
+# on.
+#
+# It is not a `pull_request` job on purpose. The metric is about what reached main; a PR
+# head has not reached it yet, and scoring a merge preview would make the number depend
+# on when the PR last rebased.
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      last:
+        description: Number of commits to score
+        default: '50'
+      window:
+        description: Rework window, in days
+        default: '14'
+
+permissions:
+  contents: read
+
+jobs:
+  rework-report:
+    name: Rework Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The metric is blame over the full history. At the default depth of 1 every
+          # line would blame to the one commit present and the report would be a
+          # uniform, confident lie.
+          fetch-depth: 0
+
+      - name: Report what this repo rewrote
+        env:
+          LAST: ${{ inputs.last || '50' }}
+          WINDOW: ${{ inputs.window || '14' }}
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          set -o errexit
+          set -o nounset
+
+          ./scripts/rework-rate --repo . --base "$BASE_SHA" \
+            --last "$LAST" --window "$WINDOW" > report.txt
+
+          # The step summary is the artefact; stdout is for the case where someone is
+          # reading the raw log instead.
+          cat report.txt
+          {
+            printf '## Rework report\n\n'
+            printf 'How much of what this repo shipped got rewritten shortly afterwards.\n'
+            printf 'Informational only. No value of this metric fails this job, and no\n'
+            printf 'other job waits on it -- see the comment at the top of the workflow.\n\n'
+            printf '```\n'
+            cat report.txt
+            printf '```\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # An empty report means the tool broke, not that the repo is clean. Without
+          # this the job would stay green while printing nothing, which is the same
+          # vacuous pass the rest of this repo's CI was cured of.
+          if ! grep -q '== headline ==' report.txt; then
+            echo "::error::rework-rate produced no headline -- the tool is broken, not the repo"
+            exit 1
+          fi
