@@ -1,11 +1,10 @@
 # NixOS system configuration for WSL2 + Hyprland
 # This file is a reference copy of /etc/nixos/configuration.nix
 # Apply with: sudo cp nixos/configuration.nix /etc/nixos/configuration.nix && sudo nixos-rebuild switch
-{
-  config,
-  lib,
-  pkgs,
-  ...
+{ config
+, lib
+, pkgs
+, ...
 }:
 {
   imports = [

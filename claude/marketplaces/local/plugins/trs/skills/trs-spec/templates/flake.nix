@@ -8,7 +8,8 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
-    in {
+    in
+    {
       packages = forAll (pkgs: {
         trs = pkgs.python3Packages.buildPythonApplication {
           pname = "trs";
