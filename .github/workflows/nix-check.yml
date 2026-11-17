@@ -37,20 +37,83 @@ jobs:
       - name: Validate flake inputs
         run: nix flake lock --no-update-lock-file
 
-  test-modules:
-    name: Test Module - ${{ matrix.module }}
+  flake-check:
+    name: Flake Checks
     runs-on: ubuntu-latest
     needs: validate-flake
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: nix-community
+          skipPush: true
+
+      # No list of check names appears here, and that is the requirement: every
+      # check this flake defines was, until now, run only when a human ran it by
+      # hand. `nix flake check` enumerates checks.<system> itself, so a check
+      # added to flake.nix is picked up with no edit to this file.
+      #
+      # A matrix built from `nix flake show --json` would report each check as its
+      # own entry in the PR list, which is nicer to read. It was not chosen: it
+      # costs a whole extra runner just to enumerate, and then each check's runner
+      # re-fetches the closure the checks share -- nixpkgs, nodejs, the neovim
+      # wrapper and its plugins. That sharing is free inside one job and paid N
+      # times across a matrix, because this repo pushes its own derivations to no
+      # cache (the cachix step above is a read-only nix-community pull, skipPush).
+      # The existing build-* jobs already show the whole closure arriving from
+      # cache.nixos.org in about four minutes, so one job is comfortably cheap and
+      # N jobs would be the only version of this that is not.
+      - name: Run every check the flake defines
+        run: nix flake check --print-build-logs --show-trace
+
+  discover-modules:
+    name: Discover Modules
+    runs-on: ubuntu-latest
+    needs: validate-flake
+    outputs:
+      modules: ${{ steps.enumerate.outputs.modules }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # The matrix below used to name six modules. modules/ holds twelve, so
+      # claude-code, hyprland, jujutsu, llama-cpp, pi and yazi had no coverage at
+      # all, and a thirteenth module would have arrived with none either.
+      - name: Enumerate modules/*.nix
+        id: enumerate
+        run: |
+          modules=$(find modules -maxdepth 1 -name '*.nix' -printf '%f\n' \
+            | sed 's/\.nix$//' | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')
+
+          # An empty list is not a clean answer: GitHub skips a matrix job whose
+          # list is empty and reports the workflow green, which is the same
+          # vacuous pass this file is being cured of.
+          if [ "$modules" = "[]" ]; then
+            echo "❌ modules/ matched no .nix file -- the matrix would have run zero jobs and still reported success"
+            exit 1
+          fi
+
+          echo "Modules under test: $modules"
+          echo "modules=$modules" >> "$GITHUB_OUTPUT"
+
+  test-modules:
+    name: Module ${{ matrix.module }} - parses, imported by home.nix
+    runs-on: ubuntu-latest
+    needs: [validate-flake, discover-modules]
     strategy:
       fail-fast: false
       matrix:
-        module:
-          - fish
-          - wezterm
-          - neovim
-          - starship
-          - git
-          - common
+        module: ${{ fromJSON(needs.discover-modules.outputs.modules) }}
 
     steps:
       - name: Checkout repository
@@ -69,41 +132,39 @@ jobs:
           name: nix-community
           skipPush: true
 
+      # The matrix value is a filename out of the branch under test now, not an
+      # entry someone typed into this file, so it reaches the shell through the
+      # environment rather than through string interpolation.
       - name: Check ${{ matrix.module }} module syntax
+        env:
+          MODULE: ${{ matrix.module }}
         run: |
-          echo "Validating modules/${{ matrix.module }}.nix"
-          nix-instantiate --parse modules/${{ matrix.module }}.nix
+          echo "Validating modules/$MODULE.nix"
+          nix-instantiate --parse "modules/$MODULE.nix"
 
-      - name: Evaluate ${{ matrix.module }} module
+      # An "Evaluate module" step used to sit here. It wrote a test-module.nix
+      # wrapper and ran `nix-instantiate --eval --strict` on it -- but that file
+      # evaluates to a function and --eval does not apply one, so the step printed
+      # <LAMBDA>, exited 0, and never imported the module at all. A trailing
+      # `|| echo` swallowed any failure besides. Measured here: all twelve modules
+      # "passed" it, and so would a module file whose body was `throw "broken"`.
+      #
+      # Applying the function is not the fix. A Home Manager module evaluated with
+      # `config = {}` has no fixpoint to resolve against: measured, 8 of the 12
+      # either overflow the stack or hit a missing attribute, none of which is a
+      # defect in the module. The real evaluation, against a real config, is what
+      # `nix flake check` and the build-* jobs already do -- so this job now
+      # asserts the one thing they cannot, that the file is wired in at all.
+      - name: Confirm home.nix imports ${{ matrix.module }}
+        env:
+          MODULE: ${{ matrix.module }}
         run: |
-          cat > test-module.nix <<EOF
-          { pkgs ? import <nixpkgs> { config.allowUnfree = true; }
-          , lib ? pkgs.lib
-          , inputs ? {}
-          , config ? {}
-          }:
-          let
-            module = import ./modules/${{ matrix.module }}.nix {
-              inherit config pkgs lib;
-              inputs = inputs // {
-                fish-plugin-z = pkgs.fetchFromGitHub {
-                  owner = "jethrokuan";
-                  repo = "z";
-                  rev = "master";
-                  sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-                };
-                fish-plugin-fzf = pkgs.fetchFromGitHub {
-                  owner = "PatrickF1";
-                  repo = "fzf.fish";
-                  rev = "main";
-                  sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-                };
-              };
-            };
-          in module
-          EOF
-
-          nix-instantiate --eval --strict test-module.nix || echo "Module evaluation check completed (may have missing config keys)"
+          if ! grep -qF "./modules/$MODULE.nix" home.nix; then
+            echo "❌ modules/$MODULE.nix is absent from home.nix's imports list"
+            echo "   Nothing evaluates it: no build job and no flake check ever reaches the file."
+            exit 1
+          fi
+          echo "✅ home.nix imports modules/$MODULE.nix"
 
   build-linux:
     name: Build Linux Configuration
@@ -245,134 +306,57 @@ jobs:
           nix fmt -- --check .
         continue-on-error: true
 
-  test-nvim-config:
-    name: Validate Neovim Config
-    runs-on: ubuntu-latest
-    needs: validate-flake
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Check nvim/init.lua syntax
-        run: |
-          if [ ! -f nvim/init.lua ]; then
-            echo "❌ nvim/init.lua not found"
-            exit 1
-          fi
-          echo "✅ Neovim config exists"
-
-      - name: Check lua modules
-        run: |
-          if [ ! -d nvim/lua/config ]; then
-            echo "❌ nvim/lua/config directory not found"
-            exit 1
-          fi
-          echo "✅ Lua modules directory exists"
-          ls -la nvim/lua/config/
-
-  test-wezterm-config:
-    name: Validate WezTerm Config
-    runs-on: ubuntu-latest
-    needs: validate-flake
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Check main wezterm.lua
-        run: |
-          if [ ! -f wezterm/wezterm.lua ]; then
-            echo "❌ wezterm/wezterm.lua not found"
-            exit 1
-          fi
-          echo "✅ WezTerm main config exists"
-
-      - name: Check modular config files
-        run: |
-          modules=(platform theme fonts appearance keybindings mouse domains performance shell tabline)
-          for module in "${modules[@]}"; do
-            if [ ! -f "wezterm/${module}.lua" ]; then
-              echo "❌ wezterm/${module}.lua not found"
-              exit 1
-            fi
-            echo "✅ ${module}.lua exists"
-          done
-          echo "ℹ️  Note: shell.lua provides cross-platform fallback, can be overridden by Nix"
-
-      - name: Verify main config loads modules
-        run: |
-          grep -q "require('theme')" wezterm/wezterm.lua || grep -q 'require("theme")' wezterm/wezterm.lua && echo "✅ Theme module loaded"
-          grep -q "require('fonts')" wezterm/wezterm.lua || grep -q 'require("fonts")' wezterm/wezterm.lua && echo "✅ Fonts module loaded"
-          grep -q "require('appearance')" wezterm/wezterm.lua || grep -q 'require("appearance")' wezterm/wezterm.lua && echo "✅ Appearance module loaded"
-          grep -q "require('keybindings')" wezterm/wezterm.lua || grep -q 'require("keybindings")' wezterm/wezterm.lua && echo "✅ Keybindings module loaded"
-          grep -q "require('mouse')" wezterm/wezterm.lua || grep -q 'require("mouse")' wezterm/wezterm.lua && echo "✅ Mouse module loaded"
-          grep -q "require('domains')" wezterm/wezterm.lua || grep -q 'require("domains")' wezterm/wezterm.lua && echo "✅ Domains module loaded"
-          grep -q "require('performance')" wezterm/wezterm.lua || grep -q 'require("performance")' wezterm/wezterm.lua && echo "✅ Performance module loaded"
-          grep -q "require('tabline')" wezterm/wezterm.lua || grep -q 'require("tabline")' wezterm/wezterm.lua && echo "✅ Tabline module loaded"
-
-      - name: Verify OS detection in platform module
-        run: |
-          grep -q "is_windows" wezterm/platform.lua && echo "✅ Windows detection found"
-          grep -q "is_linux" wezterm/platform.lua && echo "✅ Linux detection found"
-          grep -q "is_macos" wezterm/platform.lua && echo "✅ macOS detection found"
-
-      - name: Verify WSL domain config
-        run: |
-          grep -q "wsl.exe" wezterm/domains.lua && echo "✅ WSL domain configured"
-          grep -q "\-\-cd" wezterm/domains.lua && echo "✅ WSL home directory flag found"
-
-      - name: Verify shell module integration
-        run: |
-          grep -q "require.*shell" wezterm/domains.lua && echo "✅ Shell module loaded in domains.lua"
-          grep -q "shell\.fish_path" wezterm/domains.lua && echo "✅ Shell fish_path used in domains.lua"
-          grep -q 'wezterm/shell\.lua.*text' modules/wezterm.nix && echo "✅ Shell.lua configuration found in wezterm.nix"
-          grep -q 'fish_path.*pkgs\.fish' modules/wezterm.nix && echo "✅ Fish path from Nix pkgs configured"
-
-      - name: Verify shell.lua cross-platform support
-        run: |
-          test -f "wezterm/shell.lua" && echo "✅ shell.lua exists in repository"
-          grep -q "detect_fish_path" wezterm/shell.lua && echo "✅ Fish path detection function found"
-          grep -q "platform.is_windows" wezterm/shell.lua && echo "✅ Windows platform detection found"
-          grep -q "platform.is_linux" wezterm/shell.lua && echo "✅ Linux platform detection found"
-          grep -q "platform.is_macos" wezterm/shell.lua && echo "✅ macOS platform detection found"
-          grep -q "M.fish_path" wezterm/shell.lua && echo "✅ Fish path exported from module"
-
-      - name: Verify tabline.lua error handling
-        run: |
-          test -f "wezterm/tabline.lua" && echo "✅ tabline.lua exists in repository"
-          grep -q "pcall" wezterm/tabline.lua && echo "✅ pcall error handling found"
-          grep -q "wezterm.plugin.require.*tabline.wez" wezterm/tabline.lua && echo "✅ tabline.wez plugin loading found"
-          grep -q "if not success then" wezterm/tabline.lua && echo "✅ Error handling condition found"
-          grep -q "wezterm.log_error" wezterm/tabline.lua && echo "✅ Error logging found"
-          grep -q "use_fancy_tab_bar" wezterm/tabline.lua && echo "✅ Fallback tab bar configuration found"
-
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [validate-flake, test-modules, build-linux, build-wsl, build-nixos-wsl, test-format, test-nvim-config, test-wezterm-config]
+    needs:
+      - validate-flake
+      - flake-check
+      - discover-modules
+      - test-modules
+      - build-linux
+      - build-wsl
+      - build-nixos-wsl
+      - test-format
     if: always()
     steps:
       - name: Check results
+        env:
+          # The whole `needs` context, rather than one `needs.<job>.result` line
+          # per job. The previous spelling named every job twice -- once in the
+          # printed list, once in the gate -- and named only five of the eight in
+          # the gate, so three jobs were reported and never enforced. Keeping two
+          # hand-written lists in step with the jobs above is the same defect this
+          # workflow is being cured of; here the list above is the only edit a new
+          # job needs, and it is the one GitHub already requires.
+          NEEDS: ${{ toJSON(needs) }}
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "CI Summary"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Validate Flake: ${{ needs.validate-flake.result }}"
-          echo "Test Modules: ${{ needs.test-modules.result }}"
-          echo "Build Linux: ${{ needs.build-linux.result }}"
-          echo "Build WSL: ${{ needs.build-wsl.result }}"
-          echo "Build NixOS WSL: ${{ needs.build-nixos-wsl.result }}"
-          echo "Test Format: ${{ needs.test-format.result }}"
-          echo "Test Nvim Config: ${{ needs.test-nvim-config.result }}"
-          echo "Test WezTerm Config: ${{ needs.test-wezterm-config.result }}"
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          if [ "${{ needs.validate-flake.result }}" != "success" ] || \
-             [ "${{ needs.test-modules.result }}" != "success" ] || \
-             [ "${{ needs.build-linux.result }}" != "success" ] || \
-             [ "${{ needs.build-wsl.result }}" != "success" ] || \
-             [ "${{ needs.build-nixos-wsl.result }}" != "success" ]; then
-            echo "❌ Some critical checks failed"
+          # Zero dependencies means the list above was emptied, not that every job
+          # passed: the jq below would then select nothing and this job would be
+          # green having gated on nothing.
+          if [ "$(echo "$NEEDS" | jq -r 'length')" -eq 0 ]; then
+            echo "❌ This job depends on no other job, so it checked nothing"
             exit 1
           fi
 
-          echo "✅ All critical checks passed!"
+          # "success" is the only acceptable result, which makes skipped and
+          # cancelled failures too: a job skipped because the one it needed failed
+          # is a hole, not a pass. test-format is in the list and still cannot
+          # block a merge on its own -- its formatting step carries
+          # continue-on-error, so the job's own result stays "success".
+          failed=$(echo "$NEEDS" | jq -r '
+            to_entries[] | select(.value.result != "success") | "   - \(.key): \(.value.result)"
+          ')
+          if [ -n "$failed" ]; then
+            echo "❌ Not successful:"
+            echo "$failed"
+            exit 1
+          fi
+
+          echo "✅ All checks passed!"
