@@ -25,6 +25,11 @@ This repo is `LITl-l/dotfiles` on GitHub — use that for every `gh` command.
 - `claude/worker-spec.template.md` — mandatory worker spec fields (fill it via
   `~/.claude/worker-spec.template.md`, which resolves from any project)
 - `scripts/fleet` — background-agent fleet control (installed into the store, on PATH)
+- `scripts/rework-rate` — how much of what this repo ships gets rewritten days later.
+  This repo fixes forward and never reverts, so revert rate reads 0% regardless; rework
+  is the signal that has resolution here. Derived from git on demand, never stored. Run
+  it bare for the defaults, or `--rev A..B` for one range; `Rework Report` CI prints it
+  on every push to main and gates nothing.
 
 ## Code Conventions
 

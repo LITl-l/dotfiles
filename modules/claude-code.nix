@@ -47,6 +47,18 @@ in
       executable = true;
       text = builtins.readFile ../scripts/claude-corpus;
     })
+    # `rework-rate` reports how much of what this repo ships gets rewritten days
+    # later -- the metric that replaces revert rate here, since this repo fixes
+    # forward and never reverts. Installed the same way and for the same reasons as
+    # the two above. It takes its repo from $PWD (or --repo) rather than from its own
+    # path, precisely so that the store copy measures whatever checkout you are
+    # standing in -- including a jj workspace, which has no .git of its own.
+    (pkgs.writeTextFile {
+      name = "rework-rate";
+      destination = "/bin/rework-rate";
+      executable = true;
+      text = builtins.readFile ../scripts/rework-rate;
+    })
   ];
 
   # settings.json and CLAUDE.md are the two files Claude Code writes BACK -- the
