@@ -115,7 +115,9 @@ show_windows_instructions() {
     echo ""
     echo "  3. Create symbolic link to WSL dotfiles wezterm config:"
     echo ""
-    echo "     New-Item -ItemType SymbolicLink -Path \"\$env:USERPROFILE\\.config\\wezterm\" -Target \"\\\\wsl\$\\${wsl_distro}\\home\\${username}\\dotfiles\\wezterm\\\""
+    # printf, not echo: this line is almost entirely backslashes bound for PowerShell,
+    # and an echo that honours escapes (xpg_echo, /bin/sh) would eat them.
+    printf '%s\n' "     New-Item -ItemType SymbolicLink -Path \"\$env:USERPROFILE\\.config\\wezterm\" -Target \"\\\\wsl\$\\${wsl_distro}\\home\\${username}\\dotfiles\\wezterm\\\""
     echo ""
     echo "     (If your WSL distro name is different, check with: wsl -l -v)"
     echo ""

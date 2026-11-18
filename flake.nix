@@ -422,6 +422,66 @@
             touch "$out"
           '';
 
+          # ~2,700 lines of bash run real work here -- the fleet control plane, two
+          # measurement tools whose output is committed, and nine hook scripts that
+          # gate every tool call -- and none of it was analysed. The bug this found on
+          # its first run was in claude-corpus: an unquoted $(grep ...) split a corpus
+          # path on spaces, and the `|| printf '[]'` beside it turned the resulting
+          # failure into `agents_used: []`, a wrong number reported as a real one.
+          #
+          # Membership is decided by SHEBANG, not by filename. scripts/fleet,
+          # scripts/claude-corpus and scripts/rework-rate carry no .sh, so a *.sh glob
+          # would have covered none of them, and a hand-listed set is the defect this
+          # repo removed from seven other places -- it goes stale the moment someone
+          # adds a script. The shebang is the same question the kernel answers when it
+          # picks an interpreter, so it is the right one to ask here. *.sh is unioned
+          # in anyway, so a fragment that is shell but carries no shebang still lands.
+          shellcheck = pkgs.runCommand "shellcheck"
+            {
+              src = self;
+              nativeBuildInputs = [ pkgs.shellcheck ];
+            } ''
+            set -o errexit
+
+            cp -R "$src" source
+            chmod -R u+w source
+            cd source
+
+            : > "$TMPDIR/scripts.list"
+            find . -type f | sort | while IFS= read -r f; do
+              case "$f" in *.sh) echo "$f" >> "$TMPDIR/scripts.list"; continue ;; esac
+              line=$(head -n 1 "$f" 2>/dev/null || true)
+              case "$line" in '#!'*) ;; *) continue ;; esac
+              # Resolve `#!/usr/bin/env bash` to `bash` as well as a direct path, so
+              # the two spellings in this tree are not treated as different languages.
+              # shellcheck disable=SC2086
+              set -- ''${line#\#!}
+              interp=$(basename "''${1:-}")
+              if [ "$interp" = env ]; then shift; interp=$(basename "''${1:-}"); fi
+              case "$interp" in
+                bash|sh|dash|ksh) echo "$f" >> "$TMPDIR/scripts.list" ;;
+              esac
+            done
+
+            count=0
+            while IFS= read -r f; do
+              echo "shellcheck: checking ''${f#./}"
+              shellcheck --format=gcc "$f"
+              count=$((count + 1))
+            done < <(sort -u "$TMPDIR/scripts.list")
+
+            # Zero files means the shebang scan stopped matching, not that the tree is
+            # clean -- the loop would then run no shellcheck at all and this derivation
+            # would be green on an empty assertion.
+            if [ "$count" -eq 0 ]; then
+              echo "shellcheck: matched no shell scripts"
+              exit 1
+            fi
+
+            echo "shellcheck: $count script(s) analysed"
+            touch "$out"
+          '';
+
           # Build crumb (buildGoModule checkPhase runs `go test ./...`).
           crumb-tests = pkgs.crumb;
         } // linuxChecks);

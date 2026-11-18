@@ -2,8 +2,11 @@
 # Git post-checkout hook
 # Automatically copies configured files when creating a new worktree
 
-# Hook arguments
+# Hook arguments. The first two are named to document git's calling convention --
+# only the third is read, but a bare $3 gives no clue what $1 and $2 were.
+# shellcheck disable=SC2034
 prev_head=$1
+# shellcheck disable=SC2034
 new_head=$2
 branch_checkout=$3
 
@@ -27,7 +30,6 @@ fi
 
 # Find the main repository (parent of all worktrees)
 # The main repository is typically where the .git directory is a directory, not a file
-current_dir="$repo_root"
 main_repo=""
 
 # Look for the main .git directory
@@ -42,7 +44,7 @@ else
         # Extract the main .git directory path
         main_git_dir=$(grep 'gitdir:' "$git_file" | cut -d' ' -f2)
         # Remove /worktrees/name to get the main .git directory
-        main_git_dir=$(echo "$main_git_dir" | sed 's|/worktrees/[^/]*$||')
+        main_git_dir=${main_git_dir%/worktrees/*}
         # The main repository is the parent of the .git directory
         main_repo=$(dirname "$main_git_dir")
     fi

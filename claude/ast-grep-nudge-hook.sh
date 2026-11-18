@@ -29,6 +29,9 @@ marker="$state_dir/$sid.astgrep"
 [ -e "$marker" ] && exit 0
 : > "$marker" 2>/dev/null || exit 0
 
+# The backticks are markdown code spans in the text Claude is shown, not command
+# substitution; single quotes are what keeps them literal.
+# shellcheck disable=SC2016
 msg='Tip: for STRUCTURAL code queries (call sites, def/usage shapes, AST patterns) in nix/lua/sh/json/yaml/css, prefer ast-grep — `ast-grep -p <pattern> -l <lang>` (alias `sg`) matches syntax, not text. For plain-text matches (strings, comments, filenames, markdown), grep is correct; carry on. (Shown once per session.)'
 
 jq -n --arg msg "$msg" '{
