@@ -250,6 +250,9 @@ trap 'rm -rf -- "$tmp"' EXIT INT TERM
 # ---------------------------------------------------------------- jq preludes
 # Timestamps are ISO-8601 with a millisecond fraction, which fromdateiso8601 refuses
 # outright ("does not match format %Y-%m-%dT%H:%M:%SZ"). Parse the fraction separately.
+# $m, $s and friends below are jq's own variables, not the shell's: expanding them here
+# would hand jq an empty program.
+# shellcheck disable=SC2016
 PRELUDE='
 def ep:
   if type != "string" then null
@@ -277,6 +280,8 @@ n_files=$(grep -c . "$tmp/all.list" 2>/dev/null || true)
 # One jq per transcript rather than one global slurp: memory stays bounded by the
 # largest single transcript, and a transcript jq cannot parse becomes a counted skip
 # instead of a dead run.
+# $L, $R, $nz below are jq variables -- see the note on PRELUDE.
+# shellcheck disable=SC2016
 FACTS_JQ='
 [inputs] as $L
 | ([$L[] | select(length > 0)] | length) as $nz
@@ -356,6 +361,8 @@ done <"$tmp/all.list"
 # into \\" and hands the hook unparsable JSON. The hook then reads an empty command and
 # exits 0, so a predicate that fires perfectly well is reported as never firing.
 # tojson has already escaped every tab and newline, so the record stays single-line.
+# $L, $R, $r, $t below are jq variables -- see the note on PRELUDE.
+# shellcheck disable=SC2016
 EVENTS_JQ='
 [inputs] as $L
 | [$L[] | select(length > 0) | (fromjson? // empty)] as $R
@@ -499,11 +506,18 @@ find "$HOOKS_DIR/agents" -type f -name '*.md' >>"$tmp/agents.list" 2>/dev/null
 find "$CORPUS_ROOT" -type f -name 'agent-*.meta.json' >"$tmp/meta.list" 2>/dev/null
 : >"$tmp/agentuse.json"
 if [ -s "$tmp/meta.list" ]; then
-  jq -R -n -c '[inputs] as $f | [$f[] | select(length > 0)]' "$tmp/meta.list" >/dev/null 2>&1
-  jq -s -c '[.[] | {agent: (.agentType // "?"), depth: (.spawnDepth // 0),
-                    shape: (.requestShape // "?")}]' \
-     $(grep . "$tmp/meta.list" 2>/dev/null) >"$tmp/agentuse.json" 2>/dev/null \
-    || printf '[]\n' >"$tmp/agentuse.json"
+  # Split the list on newlines ONLY. Unquoted $(grep ...) split on $IFS, so a corpus
+  # path containing a space -- project dirs are derived from a cwd, which may hold one
+  # -- broke into fragments that jq could not open; the `||` below then wrote `[]` and
+  # the run reported `agents_used: []` instead of failing. Measured on a fixture corpus:
+  # `.../projb/` reported the agent, `.../proj a/` reported none, same sidecar files.
+  mapfile -t meta_files < <(grep . "$tmp/meta.list" 2>/dev/null)
+  if [ "${#meta_files[@]}" -gt 0 ]; then
+    jq -s -c '[.[] | {agent: (.agentType // "?"), depth: (.spawnDepth // 0),
+                      shape: (.requestShape // "?")}]' \
+       "${meta_files[@]}" >"$tmp/agentuse.json" 2>/dev/null \
+      || printf '[]\n' >"$tmp/agentuse.json"
+  fi
 else
   printf '[]\n' >"$tmp/agentuse.json"
 fi

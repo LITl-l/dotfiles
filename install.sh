@@ -47,7 +47,8 @@ detect_os() {
 
 # Detect system architecture
 detect_arch() {
-    local arch=$(uname -m)
+    local arch
+    arch=$(uname -m)
     case "$arch" in
         x86_64)
             echo "x86_64"
@@ -90,10 +91,13 @@ install_nix() {
         exit 1
     fi
 
-    # Source Nix
+    # Source Nix. Both paths are created by the Nix installer that just ran, so they
+    # do not exist when this file is linted -- there is no source to follow.
     if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+        # shellcheck source=/dev/null
         . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
     elif [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+        # shellcheck source=/dev/null
         . "$HOME/.nix-profile/etc/profile.d/nix.sh"
     fi
 
@@ -136,9 +140,10 @@ install_home_manager() {
 # Build and activate Home Manager configuration
 activate_configuration() {
     local skip_activation="${1:-false}"
-    local os_type=$(detect_os)
-    local arch=$(detect_arch)
-    local username=$(whoami)
+    local os_type arch username
+    os_type=$(detect_os)
+    arch=$(detect_arch)
+    username=$(whoami)
     local config=""
 
     # Determine which configuration to use
@@ -206,8 +211,9 @@ update_flake() {
 
 # Switch to updated configuration
 rebuild_configuration() {
-    local os_type=$(detect_os)
-    local username=$(whoami)
+    local os_type username
+    os_type=$(detect_os)
+    username=$(whoami)
     local config=""
 
     case "$os_type" in
@@ -235,7 +241,8 @@ rebuild_configuration() {
 setup_fish_shell() {
     log_info "Setting up Fish shell..."
 
-    local fish_path=$(command -v fish 2>/dev/null || echo "")
+    local fish_path
+    fish_path=$(command -v fish 2>/dev/null || echo "")
 
     if [ -z "$fish_path" ]; then
         log_warning "Fish shell not found in PATH yet. It will be available after reloading your shell."
@@ -405,10 +412,12 @@ main() {
     install_nix
     configure_nix
 
-    # Source Nix environment
+    # Source Nix environment -- installer-created paths, absent at lint time.
     if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+        # shellcheck source=/dev/null
         . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
     elif [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+        # shellcheck source=/dev/null
         . "$HOME/.nix-profile/etc/profile.d/nix.sh"
     fi
 

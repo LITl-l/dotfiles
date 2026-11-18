@@ -24,6 +24,9 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Unused today, but kept so the log_* set stays complete: dropping the one severity
+# nothing happens to call yet is how the next caller ends up inventing its own.
+# shellcheck disable=SC2329
 log_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
