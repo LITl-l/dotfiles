@@ -482,6 +482,141 @@
             touch "$out"
           '';
 
+          # WHY SHELLCHECK IS NOT ENOUGH FOR scripts/automerge-eligible. shellcheck
+          # proves the script is valid bash. It cannot prove the policy is right, and
+          # this script decides what merges without a human reading it.
+          #
+          # THE DEFECT THAT MADE THIS NECESSARY, so nobody deletes it as redundant: the
+          # leak scan matched `worktree` as a SUBSTRING, and `tool.EnterWorktree.calls`
+          # is an ordinary metric row that contains it. One refused added line refuses
+          # the whole pull request, and claude-corpus emits roughly eighty `tool.*` rows
+          # per run, so a single use of that tool anywhere in the measurement window
+          # killed auto-merge for every ledger pull request. It shipped that way. Seven
+          # hand-written fixtures all passed, because every one of them was synthetic and
+          # agreed with the author's idea of what a ledger row looks like.
+          #
+          # SO THE ELIGIBLE CASE IS BUILT FROM THE COMMITTED LEDGER, NOT FROM A SAMPLE
+          # PASTED HERE. It re-appends every real data row to the real file, which
+          # exercises every metric name claude-corpus has ever emitted as an ADDED line,
+          # and then asserts the script reported scanning exactly that many. A pasted
+          # sample would keep passing while the real file moved underneath it; this goes
+          # red the day a new metric name trips the scan, and names the row.
+          automerge-selftest = pkgs.runCommand "automerge-selftest"
+            {
+              src = self;
+              nativeBuildInputs = [ pkgs.bash pkgs.git ];
+            } ''
+            set -o errexit
+
+            export HOME="$TMPDIR"
+            cp -R "$src" source
+            chmod -R u+w source
+            cd source
+
+            ledger=docs/claude-corpus-ledger.tsv
+            # Run through `bash` rather than the shebang: the build sandbox has no
+            # /usr/bin/env, so `#!/usr/bin/env bash` cannot resolve here. That is a
+            # property of this sandbox, not of the script -- GitHub's runners have it,
+            # and the workflow invokes ./scripts/automerge-eligible directly.
+            bin=$PWD/scripts/automerge-eligible
+
+            # Each case is an a/ tree and a b/ tree holding the real ledger, diffed by
+            # git rather than written out here, so the fixture has the same shape as what
+            # `gh pr diff` hands the script in CI. The empty prefixes let the literal a/
+            # and b/ directories supply the a//b/ that git normally prepends.
+            newcase() {
+              mkdir -p "$TMPDIR/$1/a/docs" "$TMPDIR/$1/b/docs"
+              cp "$ledger" "$TMPDIR/$1/a/$ledger"
+              cp "$ledger" "$TMPDIR/$1/b/$ledger"
+              echo "$ledger" > "$TMPDIR/$1/files.txt"
+            }
+
+            gendiff() {
+              git -C "$TMPDIR/$1" diff --no-index --src-prefix= --dst-prefix= a b \
+                > "$TMPDIR/$1/diff.txt" || true
+            }
+
+            count=0
+            expect() {
+              name=$1; want=$2; author=$3; what=$4
+              rc=0
+              bash "$bin" --author "$author" --files "$TMPDIR/$name/files.txt" \
+                --diff "$TMPDIR/$name/diff.txt" > "$TMPDIR/$name/verdict" || rc=$?
+              if [ "$rc" -ne "$want" ]; then
+                echo "automerge-selftest: FAIL $name ($what): wanted exit $want, got $rc"
+                cat "$TMPDIR/$name/verdict"
+                exit 1
+              fi
+              echo "automerge-selftest: ok $name -> exit $rc ($what)"
+              count=$((count + 1))
+            }
+
+            rows=$(grep -cEv '^#|^run_utc' "$ledger")
+            if [ "$rows" -eq 0 ]; then
+              echo "automerge-selftest: the ledger has no data rows to build a case from"
+              exit 1
+            fi
+
+            # (1) The case the substring bug broke. Every committed row, re-appended.
+            newcase real-append
+            grep -Ev '^#|^run_utc' "$ledger" >> "$TMPDIR/real-append/b/$ledger"
+            gendiff real-append
+            expect real-append 0 LITl-l "every committed ledger row is eligible as an append"
+
+            # Exit 0 alone would also be reported by a script that scanned nothing, so
+            # make it say how many added lines it actually looked at.
+            if ! grep -q "^eligible: $rows line(s)" "$TMPDIR/real-append/verdict"; then
+              echo "automerge-selftest: FAIL real-append did not scan all $rows row(s)"
+              cat "$TMPDIR/real-append/verdict"
+              exit 1
+            fi
+            echo "automerge-selftest: ok real-append scanned all $rows row(s)"
+            count=$((count + 1))
+
+            # (2) Widening the boundaries must not have widened the hole: a leak spelled
+            # as a whole token still refuses.
+            newcase leak-employer
+            printf '2026-11-18T04:00:00Z\t2026-10-17\t2026-11-18\t540\t280\tproject.Digital.Emc.sessions\t7\n' \
+              >> "$TMPDIR/leak-employer/b/$ledger"
+            gendiff leak-employer
+            expect leak-employer 1 LITl-l "an employer identifier as a whole token is refused"
+
+            newcase leak-wkspace
+            printf '2026-11-18T04:00:00Z\t2026-10-17\t2026-11-18\t540\t280\tcorpus.wkspace.records\t7\n' \
+              >> "$TMPDIR/leak-wkspace/b/$ledger"
+            gendiff leak-wkspace
+            expect leak-wkspace 1 LITl-l "a workspace identifier as a whole token is refused"
+
+            # (3) A path outside the allowlist, which is what keeps the rule from
+            # widening itself: `.github/**` and `scripts/**` are not on it either.
+            mkdir -p "$TMPDIR/foreign-path"
+            cp "$TMPDIR/real-append/diff.txt" "$TMPDIR/foreign-path/diff.txt"
+            printf '%s\nclaude/settings.json\n' "$ledger" > "$TMPDIR/foreign-path/files.txt"
+            expect foreign-path 1 LITl-l "a changed path outside the allowlist is refused"
+
+            # (4) Append-only, verified rather than assumed.
+            newcase removal
+            sed -i '5d' "$TMPDIR/removal/b/$ledger"
+            gendiff removal
+            expect removal 1 LITl-l "removing an existing ledger line is refused"
+
+            # (5) This repository is public; a fork can open a pull request.
+            mkdir -p "$TMPDIR/foreign-author"
+            cp "$TMPDIR/real-append/diff.txt" "$TMPDIR/foreign-author/diff.txt"
+            cp "$TMPDIR/real-append/files.txt" "$TMPDIR/foreign-author/files.txt"
+            expect foreign-author 1 not-the-owner "an author who is not the owner is refused"
+
+            # Zero cases means the case list stopped running, not that the policy is
+            # right -- the same empty assertion this check exists to prevent.
+            if [ "$count" -eq 0 ]; then
+              echo "automerge-selftest: no cases ran"
+              exit 1
+            fi
+
+            echo "automerge-selftest: $count case(s) asserted over $rows real ledger row(s)"
+            touch "$out"
+          '';
+
           # Build crumb (buildGoModule checkPhase runs `go test ./...`).
           crumb-tests = pkgs.crumb;
         } // linuxChecks);

@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+# automerge-eligible — may this pull request merge without a human looking at it?
+#
+# DEFAULT DENY. The answer is "no" unless every condition below is proved from the
+# diff. Exit 0 = eligible. Exit 1 = refused, reason on stdout. Exit 2 = the script was
+# called wrongly, which is a wiring fault and must be LOUD: a refusal and a broken
+# check must never look alike, because a check that silently stops checking is the
+# defect class this repository spent 2026-11-17 removing.
+#
+# WHY ELIGIBILITY IS COMPUTED, NEVER ASSERTED. There is no label, no branch-name
+# convention, no magic string in the pull request body. Every one of those is writable
+# by whoever opened the pull request, so an agent able to set one would have granted
+# itself the merge. The only inputs are the changed-path list and the unified diff --
+# both read back from the API by the caller -- plus the author login, which GitHub
+# fills in and the author cannot forge.
+#
+# WHY THIS RULE CANNOT WIDEN ITSELF. ALLOWED_PATHS names one path. `.github/**` is not
+# on it, and neither is this file. A pull request that edits the workflow, or edits
+# this script to add a path, therefore touches a path outside the allowlist and is
+# refused BY THE RULE IT IS TRYING TO CHANGE. That non-self-extendability is the whole
+# reason a narrow allowlist is safe to run unattended. Never add `.github/**` or
+# `scripts/**` to ALLOWED_PATHS; widening it is a decision for a human reviewing a pull
+# request that, by construction, cannot merge itself.
+#
+# WHY A SHAPE WHITELIST AND NOT ONLY A FORBIDDEN-PATTERN SCAN. A blocklist only refuses
+# what someone thought to list. The ledger is machine-generated today, but
+# scripts/claude-corpus could grow a column tomorrow and the refusal has to come from
+# the content, not from trusting that tool to stay the same. So every added line must
+# positively match a ledger row (ROW_RE); anything else -- a new column, a comment, a
+# stray field -- is refused and goes to a human. The forbidden-pattern scan runs on top
+# of that, so the refusal reason names a path or an employer string when that is what
+# is actually there, and so the property survives any future loosening of ROW_RE.
+#
+# WHY IT TAKES FILES, AND NOT A PULL REQUEST NUMBER. Taking `--files`/`--diff` as local
+# files is what makes this testable: the seven refusal cases are fixtures on disk, run
+# with no network and no repository. A `--pr N` interface would make the refusals
+# unprovable, and an unprovable refusal is indistinguishable from no check at all.
+# It also keeps every API call, and therefore every credential, in the caller.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+SELF=${0##*/}
+
+# The repository owner. Hardcoded, deliberately NOT an option: an option would let the
+# caller nominate any login as trusted, which is precisely the decision this script
+# exists to make. This repository is public, so anyone may open a pull request from a
+# fork under their own login.
+REPO_OWNER=LITl-l
+
+# The one eligible path -- see "WHY THIS RULE CANNOT WIDEN ITSELF" above before
+# touching this list.
+ALLOWED_PATHS=(
+  docs/claude-corpus-ledger.tsv
+)
+
+TAB=$'\t'
+
+# A ledger row spelled out positively: run timestamp, window start, window end, file
+# count, session count, metric name, value. Checked against all 185 data rows on main
+# at 7b23a76 -- 185 match, 0 do not, so this is strict without being vacuous.
+ROW_RE="^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z${TAB}"
+ROW_RE="${ROW_RE}[0-9]{4}-[0-9]{2}-[0-9]{2}${TAB}[0-9]{4}-[0-9]{2}-[0-9]{2}${TAB}"
+ROW_RE="${ROW_RE}[0-9]+${TAB}[0-9]+${TAB}[A-Za-z0-9._:-]+${TAB}[0-9]+(\\.[0-9]+)?\$"
+
+# Matched against a lowercased copy of each added line. `/` covers filesystem paths and
+# the `//` of every URL scheme; the scheme pattern is kept anyway so the reason names a
+# URL when it is one. Measured: the whole ledger on main contains none of these
+# characters -- its 185 rows use only alphanumerics, `-`, `.`, `:` and `_`.
+#
+# THE IDENTIFIERS MATCH A WHOLE TOKEN, NOT A SUBSTRING, BECAUSE OF
+# `tool.EnterWorktree.calls`. That is a Claude Code tool name and an entirely ordinary
+# metric row, and lowercased it contains `worktree`. Spelled as a substring this rule
+# refused 2 of the 185 rows on main -- both `tool.EnterWorktree.*` -- and one refused
+# added line refuses the whole pull request, while claude-corpus emits roughly eighty
+# `tool.*` rows per run. So a single use of that tool anywhere in the measurement window
+# killed auto-merge for every ledger pull request, and a gate that never fires is
+# indistinguishable from "no eligible pull requests yet". Re-measured over the same 185
+# rows: whole-token refuses 0. The vocabulary is unchanged, only its boundaries -- a
+# metric named `project.Digital.Emc.sessions` is a real leak and still refuses.
+FORBIDDEN_RE='[/~@]|\\|[a-z][a-z0-9+.-]*://'
+FORBIDDEN_RE="${FORBIDDEN_RE}|(^|[^a-zA-Z0-9])(digital|emc|fixer|wkspace|worktree)([^a-zA-Z0-9]|\$)"
+
+AUTHOR=
+FILES_FILE=
+DIFF_FILE=
+
+usage() {
+  cat <<'USAGE'
+automerge-eligible — may this pull request merge without a human looking at it?
+
+usage: automerge-eligible --author LOGIN --files PATH --diff PATH
+
+  --author LOGIN   the pull request author's GitHub login, from the event payload
+                   (github.event.pull_request.user.login). Must be the repository
+                   owner; the owner is hardcoded, not configurable.
+  --files PATH     file holding the changed paths, one per line, as returned by
+                   `gh api repos/OWNER/REPO/pulls/N/files --paginate --jq .[].filename`.
+                   `--paginate` matters: an unpaginated list stops at 100 entries and a
+                   truncated list is a lie about what the pull request changes.
+  --diff PATH      file holding the unified diff, as returned by `gh pr diff N`.
+  -h, --help       this text
+
+Exit status:
+  0  eligible      every condition proved from the diff; the caller may enable automerge
+  1  refused       reason printed on stdout; the caller does nothing and a human decides
+  2  usage error   the check did not run; the caller must fail loudly, not merge
+USAGE
+}
+
+refuse() { printf 'refused: %s\n' "$*"; exit 1; }
+die() { printf '%s: %s\n' "$SELF" "$*" >&2; exit 2; }
+
+is_allowed_path() {
+  local p=$1 a
+  for a in "${ALLOWED_PATHS[@]}"; do
+    if [ "$p" = "$a" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Resolve a diff header against the allowlist by literal comparison instead of parsing
+# a path out of it. `diff --git a/P b/P` is ambiguous for paths containing spaces, and
+# an ambiguous parse in a security check is a bug waiting to be written; comparing the
+# whole remainder to `a/<allowed> b/<allowed>` cannot be ambiguous. It also refuses
+# /dev/null (a file added or deleted outright) and renames for free, because neither
+# spells a header that any allowed path can produce.
+header_path() {
+  local kind=$1 rest=$2 a
+  for a in "${ALLOWED_PATHS[@]}"; do
+    case $kind in
+      git) [ "$rest" = "a/$a b/$a" ] && { printf '%s\n' "$a"; return 0; } ;;
+      old) [ "$rest" = "a/$a" ] && { printf '%s\n' "$a"; return 0; } ;;
+      new) [ "$rest" = "b/$a" ] && { printf '%s\n' "$a"; return 0; } ;;
+    esac
+  done
+  return 1
+}
+
+while [ $# -gt 0 ]; do
+  case $1 in
+    --author) AUTHOR=${2:?--author needs a value}; shift 2 ;;
+    --files) FILES_FILE=${2:?--files needs a value}; shift 2 ;;
+    --diff) DIFF_FILE=${2:?--diff needs a value}; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1 (try --help)" ;;
+  esac
+done
+
+[ -n "$AUTHOR" ] || die "--author is required"
+[ -n "$FILES_FILE" ] || die "--files is required"
+[ -n "$DIFF_FILE" ] || die "--diff is required"
+[ -f "$FILES_FILE" ] || die "no such file: $FILES_FILE"
+[ -f "$DIFF_FILE" ] || die "no such file: $DIFF_FILE"
+
+# (1) Author. First, so a fork's pull request is refused on identity before its content
+# is even described.
+if [ "$AUTHOR" != "$REPO_OWNER" ]; then
+  refuse "author is $AUTHOR, not the repository owner $REPO_OWNER"
+fi
+
+# (2) The changed-path list: non-empty, and every entry allowlisted. An empty
+# enumeration is a REFUSAL, not a pass. A check that reports success because it found
+# nothing to check is the exact failure this repository keeps finding in itself.
+CHANGED=()
+while IFS= read -r path || [ -n "$path" ]; do
+  [ -n "$path" ] || continue
+  if ! is_allowed_path "$path"; then
+    refuse "changed path is not on the allowlist: $path"
+  fi
+  CHANGED+=("$path")
+done < "$FILES_FILE"
+
+if [ ${#CHANGED[@]} -eq 0 ]; then
+  refuse "the changed-path list is empty -- nothing was proved, so nothing may merge"
+fi
+
+# (3) The diff. Walked with the hunk line counts rather than by looking for lines that
+# start with `+` or `-`, so that content which happens to begin with `--- ` or
+# `diff --git ` cannot be mistaken for a header: inside a hunk, the header dispatch is
+# unreachable until the counts for that hunk are spent.
+DIFF_PATHS=()
+ADDED=0
+HUNKS=0
+in_hunk=0
+old_rem=0
+new_rem=0
+
+while IFS= read -r line || [ -n "$line" ]; do
+  if [ "$in_hunk" -eq 1 ] && [ "$old_rem" -eq 0 ] && [ "$new_rem" -eq 0 ]; then
+    in_hunk=0
+  fi
+
+  if [ "$in_hunk" -eq 0 ]; then
+    case $line in
+      'diff --git '*)
+        p=$(header_path git "${line#diff --git }") ||
+          refuse "diff header names a path outside the allowlist: $line"
+        DIFF_PATHS+=("$p")
+        ;;
+      '--- '*)
+        header_path old "${line#--- }" > /dev/null ||
+          refuse "diff header names a path outside the allowlist: $line"
+        ;;
+      '+++ '*)
+        header_path new "${line#+++ }" > /dev/null ||
+          refuse "diff header names a path outside the allowlist: $line"
+        ;;
+      '@@ '*)
+        if [[ $line =~ ^@@\ -([0-9]+)(,([0-9]+))?\ \+([0-9]+)(,([0-9]+))?\ @@ ]]; then
+          old_rem=${BASH_REMATCH[3]:-1}
+          new_rem=${BASH_REMATCH[6]:-1}
+        else
+          refuse "unparsable hunk header: $line"
+        fi
+        HUNKS=$((HUNKS + 1))
+        if [ "$old_rem" -gt 0 ] || [ "$new_rem" -gt 0 ]; then
+          in_hunk=1
+        fi
+        ;;
+      '+'*|'-'*|' '*)
+        # A content line that no hunk header accounted for. Reached when a hunk header
+        # understates its own line counts, which would otherwise leave the lines after
+        # the declared count unscanned -- refusing here is what stops a crafted header
+        # from smuggling content past the content check.
+        refuse "content line outside any hunk -- the diff is malformed: $line"
+        ;;
+      *)
+        # `index`, `old mode`, `new mode`, `similarity index`, `Binary files ... differ`
+        # and the like. They carry no content, and any path they imply has already been
+        # checked on the `diff --git` line that must precede them.
+        : ;;
+    esac
+    continue
+  fi
+
+  case $line in
+    '+'*)
+      content=${line#+}
+      lower=${content,,}
+      if [[ $lower =~ $FORBIDDEN_RE ]]; then
+        refuse "added line contains a path, URL or employer identifier: $content"
+      fi
+      if ! [[ $content =~ $ROW_RE ]]; then
+        refuse "added line is not a ledger row: $content"
+      fi
+      ADDED=$((ADDED + 1))
+      new_rem=$((new_rem - 1))
+      ;;
+    '-'*)
+      # Append-only is the property that makes this file safe to merge unread, so it is
+      # verified rather than assumed. A rewritten row shows up here as a removal paired
+      # with an addition, and is refused on the removal.
+      refuse "diff removes or rewrites an existing line: ${line#-}"
+      ;;
+    \\*)
+      # "\ No newline at end of file" belongs to neither side's line count.
+      : ;;
+    *)
+      # A context line: ' ' plus the text, or -- if some transport stripped the trailing
+      # space -- an empty line.
+      case $line in
+        ' '*|'') old_rem=$((old_rem - 1)); new_rem=$((new_rem - 1)) ;;
+        *) refuse "unparsable line inside a hunk: $line" ;;
+      esac
+      ;;
+  esac
+
+  if [ "$old_rem" -lt 0 ] || [ "$new_rem" -lt 0 ]; then
+    refuse "hunk line counts do not match its header -- the diff is malformed"
+  fi
+done < "$DIFF_FILE"
+
+if [ "$in_hunk" -eq 1 ] && { [ "$old_rem" -gt 0 ] || [ "$new_rem" -gt 0 ]; }; then
+  refuse "the diff ends mid-hunk -- it is truncated, so nothing was proved"
+fi
+
+if [ ${#DIFF_PATHS[@]} -eq 0 ] || [ "$HUNKS" -eq 0 ]; then
+  refuse "the diff contains no hunks -- nothing was proved, so nothing may merge"
+fi
+
+if [ "$ADDED" -eq 0 ]; then
+  refuse "the diff adds no lines -- a mode or metadata change is not an append"
+fi
+
+# (4) The two inputs must agree. They come from different endpoints, and a path that
+# the API says changed but the diff does not show means one of them is truncated.
+for path in "${CHANGED[@]}"; do
+  seen=0
+  for p in "${DIFF_PATHS[@]}"; do
+    if [ "$path" = "$p" ]; then
+      seen=1
+      break
+    fi
+  done
+  if [ "$seen" -eq 0 ]; then
+    refuse "changed path does not appear in the diff: $path"
+  fi
+done
+
+printf 'eligible: %d line(s) appended to %s, nothing else touched\n' \
+  "$ADDED" "${CHANGED[*]}"
