@@ -617,6 +617,433 @@
             touch "$out"
           '';
 
+          # WHY A SELF-TEST WITH A FAKE DAEMON. The guard's whole job is to believe the
+          # session inventory and act on it, so what has to be tested is what it does
+          # when the inventory says each of the things it can say: a live session here,
+          # a finished one, one in another directory, an interactive one, a state no
+          # version has used yet, a daemon that will not answer. None of that is
+          # reachable by dispatching real workers -- you get the happy path and nothing
+          # else -- and the paths you cannot exercise are the ones that ship broken. So
+          # `claude` is replaced on PATH by a fake whose answers the cases control.
+          #
+          # EVERY CASE WAS WATCHED FAILING. Each assertion was run against a copy of the
+          # script with the check it covers removed, and each went red before the check
+          # was restored. A test never seen failing proves nothing.
+          #
+          # THE CONTENTION CASE NEEDS A STARTING GATE, which is why it takes one. A
+          # dispatch takes seconds and the session appears only at the end of it, so two
+          # spawns that merely take turns asking both see an empty directory and both
+          # dispatch -- the original incident. Started in a plain loop the two contenders
+          # never overlap and the case passes with the locking deleted; a flock barrier
+          # releases them in the same instant, and then the unlocked variant dispatches
+          # twice.
+          fleet-spawn-guard-selftest = pkgs.runCommand "fleet-spawn-guard-selftest"
+            {
+              src = self;
+              nativeBuildInputs = [ pkgs.bash pkgs.jq pkgs.util-linux ];
+            } ''
+            export HOME="$TMPDIR"
+            cp -R "$src" source
+            chmod -R u+w source
+            cd source
+
+            set -o errexit
+            set -o nounset
+            set -o errtrace
+            # Stated rather than inherited. The nix builder turns pipefail on and an interactive
+            # shell leaves it off, so a harness that does not say which it wants runs two different
+            # programs in the two places -- and the one that only runs in CI is the one nobody
+            # watches fail.
+            set -o pipefail
+
+            # Without this an unexpected failure anywhere below leaves a bare exit 1 and no clue --
+            # a check that stopped checking and said nothing.
+            trap 'echo "guard-selftest: ABORTED on line $LINENO running: $BASH_COMMAND" >&2' ERR
+
+            SRC_GUARD=''${GUARD_BIN:-$PWD/scripts/fleet-spawn-guard}
+            SRC_FLEET=''${FLEET_BIN:-$PWD/scripts/fleet}
+
+            work=$(mktemp -d)
+            mkdir -p "$work/bin"
+            export FAKE_INV="$work/inventory.json"
+
+            # A FAKE DAEMON. The guard's whole job is to believe the authority and act on what it
+            # says, so the test has to be able to make the authority say things -- a live session
+            # here, a finished one there, an unreachable daemon, a dispatch that registers nothing.
+            # None of that is reachable by dispatching real workers, and a test that can only
+            # observe the happy path is the one that lets the other paths ship.
+            # The shebang is written out rather than spelled `#!/usr/bin/env bash`, for the same
+            # reason as the two copies below: the build sandbox has no /usr/bin/env, and a fake
+            # daemon that cannot start looks exactly like a daemon that will not answer.
+            BASH_BIN=$(command -v bash)
+            {
+              printf '#!%s\n' "$BASH_BIN"
+              cat <<'FAKE'
+            set -o nounset
+            INV=''${FAKE_INV:?}
+            if [ "''${1:-}" = agents ]; then
+              if [ -n "''${FAKE_AUTHORITY_BROKEN:-}" ]; then echo "could not reach the daemon" >&2; exit 1; fi
+              if [ -n "''${FAKE_AUTHORITY_GARBAGE:-}" ]; then echo "<html>gateway timeout</html>"; exit 0; fi
+              # Accepts the question and never answers -- the shape that parks a holder forever.
+              if [ -n "''${FAKE_AUTHORITY_HANG:-}" ]; then sleep 300; exit 0; fi
+              # A well-formed array whose rows use different field names.
+              if [ -n "''${FAKE_AUTHORITY_RENAMED:-}" ]; then
+                echo '[{"session_kind":"background","directory":"/somewhere","run_state":"working"}]'
+                exit 0
+              fi
+              cat "$INV"
+              exit 0
+            fi
+            # Anything else is a dispatch.
+            if [ -n "''${FAKE_DISPATCH_FAIL:-}" ]; then echo "dispatch exploded" >&2; exit 7; fi
+            if [ -n "''${FAKE_DISPATCH_LINGER:-}" ]; then ( exec sleep 30 ) > /dev/null 2>&1 & fi
+            sleep "''${FAKE_DISPATCH_SECONDS:-1}"
+            if [ -n "''${FAKE_DISPATCH_SILENT:-}" ]; then echo "backgrounded (but registering nothing)"; exit 0; fi
+            id=$(tr -dc a-f0-9 < /dev/urandom 2>/dev/null | head -c 8 || echo deadbeef)
+            tmp=$(mktemp)
+            jq --arg id "$id" --arg cwd "$PWD" --arg n "''${FAKE_NAME:-worker}" \
+              --argjson pid "''${FAKE_LIVE_PID:-1}" \
+              '. + [{id:$id, sessionId:($id+"-0000-0000"), cwd:$cwd, kind:"background", name:$n, state:"working", pid:$pid}]' \
+              "$INV" > "$tmp" && mv "$tmp" "$INV"
+            echo "backgrounded · $id · ''${FAKE_NAME:-worker}"
+            exit 0
+            FAKE
+            } > "$work/bin/claude"
+            chmod +x "$work/bin/claude"
+
+            # Copying both scripts side by side with a resolvable shebang also keeps fleet's "look
+            # beside myself first" lookup of the guard exactly as it is in a checkout.
+            { printf '#!%s\n' "$BASH_BIN"; tail -n +2 "$SRC_GUARD"; } > "$work/bin/fleet-spawn-guard"
+            { printf '#!%s\n' "$BASH_BIN"; tail -n +2 "$SRC_FLEET"; } > "$work/bin/fleet"
+            chmod +x "$work/bin/fleet-spawn-guard" "$work/bin/fleet"
+            GUARD=$work/bin/fleet-spawn-guard
+            FLEET=$work/bin/fleet
+            PATH="$work/bin:$PATH"
+            export PATH
+
+            pass=0
+            fail() { echo "guard-selftest: FAIL $*"; exit 1; }
+            ok() { echo "guard-selftest: ok $*"; pass=$((pass + 1)); }
+
+            RC=0
+            run() { RC=0; "$@" > "$work/out" 2> "$work/err" || RC=$?; }
+
+            newdir() { mkdir -p "$work/$1"; printf '%s\n' "$work/$1"; }
+            set_inv() { printf '%s\n' "$1" > "$FAKE_INV"; }
+            row() { # id cwd name kind state [pid]
+              if [ -n "''${6:-}" ]; then
+                printf '{"id":"%s","sessionId":"%s-0000-0000","cwd":"%s","name":"%s","kind":"%s","state":"%s","pid":%s}' \
+                  "$1" "$1" "$2" "$3" "$4" "$5" "$6"
+              else
+                printf '{"id":"%s","sessionId":"%s-0000-0000","cwd":"%s","name":"%s","kind":"%s","state":"%s"}' \
+                  "$1" "$1" "$2" "$3" "$4" "$5"
+              fi
+            }
+            # The daemon reports no `state` for some rows and no `pid` for others; neither absence
+            # may be read as "this directory is free".
+            row_nostate() { # id cwd name kind pid
+              printf '{"id":"%s","sessionId":"%s-0000-0000","cwd":"%s","name":"%s","kind":"%s","pid":%s}' \
+                "$1" "$1" "$2" "$3" "$4" "$5"
+            }
+
+            # One process that stays alive for the whole run, and one pid that is definitively gone.
+            ( exec sleep 900 ) > /dev/null 2>&1 &
+            LIVE_PID=$!
+            export FAKE_LIVE_PID=$LIVE_PID
+            ( exec sleep 900 ) > /dev/null 2>&1 &
+            DEAD_PID=$!
+            kill -9 "$DEAD_PID" 2> /dev/null || true
+            wait "$DEAD_PID" 2> /dev/null || true
+            live_bg_count() { # $1 dir
+              jq -r --arg d "$1" '[.[] | select(.kind=="background" and .cwd==$d and .state=="working")] | length' "$FAKE_INV"
+            }
+            RAN_MARKER=$work/ran
+            didrun() { [ -f "$RAN_MARKER" ]; }
+            clear_ran() { rm -f "$RAN_MARKER"; }
+            # A command that records that it ran, so "refused" can be distinguished from "ran and
+            # happened to change nothing". Only for cases that must be REFUSED: a command that
+            # registers no session would otherwise sit out the confirmation wait.
+            MARK=(touch "$RAN_MARKER")
+
+            # The allowed path has to dispatch something the fake daemon then reports, because the
+            # guard does not let go until the directory answers "live" -- which is the property
+            # being tested, not an inconvenience to work around.
+            dispatch_into() {
+              export FAKE_DISPATCH_SECONDS=0
+              run "$GUARD" guard --dir "$1" -- claude --bg -n probe
+              unset FAKE_DISPATCH_SECONDS
+            }
+
+            # ------------------------------------------------- P1: a live session refuses a spawn
+            d=$(newdir d1)
+            set_inv "[$(row aaaaaaaa "$d" incumbent background working "$LIVE_PID")]"
+            clear_ran
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            [ "$RC" -eq 1 ] || fail "P1: wanted refusal 1, got $RC -- $(cat "$work/out" "$work/err")"
+            grep -q 'aaaaaaaa' "$work/out" || fail "P1: the refusal does not name the session -- $(cat "$work/out")"
+            grep -q 'incumbent' "$work/out" || fail "P1: the refusal does not name the session's name"
+            if didrun; then fail "P1: refused, but the guarded command ran anyway"; fi
+            ok "P1 a live worker session refuses a second spawn, names it, and runs nothing"
+
+            # ---------------------------------------- P4: a refusal displaces nothing
+            before=$(cat "$FAKE_INV")
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            [ "$RC" -eq 1 ] || fail "P4: wanted refusal 1, got $RC"
+            [ "$(cat "$FAKE_INV")" = "$before" ] || fail "P4: the contender changed the incumbent's session"
+            ok "P4 a refused contender leaves the live session exactly as it was"
+
+            # ------------------------------- P2: a finished session releases the directory
+            d=$(newdir d2)
+            set_inv "[$(row bbbbbbbb "$d" finished background done)]"
+            dispatch_into "$d"
+            [ "$RC" -eq 0 ] || fail "P2: a directory whose only session is done must be free, got $RC -- $(cat "$work/out" "$work/err")"
+            [ "$(live_bg_count "$d")" -eq 1 ] || fail "P2: allowed, but nothing was dispatched"
+            ok "P2 a session that has finished no longer holds its directory, with no cleanup step"
+
+            # ------------------------------- a live session in ANOTHER directory is irrelevant
+            d=$(newdir d3)
+            other=$(newdir d3-other)
+            set_inv "[$(row cccccccc "$other" elsewhere background working)]"
+            dispatch_into "$d"
+            [ "$RC" -eq 0 ] || fail "other-dir: a worker elsewhere must not block this directory, got $RC"
+            [ "$(live_bg_count "$d")" -eq 1 ] || fail "other-dir: allowed, but nothing was dispatched"
+            ok "a live worker in another directory does not block this one"
+
+            # ------------------- SCOPE: an interactive session in the directory does NOT block
+            # The orchestrator's own session sits in the project directory. If that counted, no
+            # worker could ever be dispatched into the project at all. This is also the honest
+            # boundary of the guard: it governs dispatched worker sessions and nothing else.
+            d=$(newdir d4)
+            set_inv "[$(row dddddddd "$d" orchestrator interactive working)]"
+            dispatch_into "$d"
+            [ "$RC" -eq 0 ] || fail "scope: an interactive session must not block a spawn, got $RC"
+            [ "$(live_bg_count "$d")" -eq 1 ] || fail "scope: allowed, but nothing was dispatched"
+            ok "an interactive session does not block a spawn (and is not what this guards)"
+
+            # ----------------------------------- fail closed: an unrecognised state counts as live
+            d=$(newdir d5)
+            set_inv "[$(row eeeeeeee "$d" mystery background teleporting "$LIVE_PID")]"
+            clear_ran
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            [ "$RC" -eq 1 ] || fail "fail-closed state: an unknown state must refuse, got $RC -- $(cat "$work/out")"
+            if didrun; then fail "fail-closed state: refused, but the guarded command ran"; fi
+            ok "a session state this guard does not recognise counts as live and refuses"
+
+            # ------------------------------- fail closed: an unreadable authority refuses, loudly
+            d=$(newdir d6)
+            set_inv "[]"
+            clear_ran
+            export FAKE_AUTHORITY_BROKEN=1
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            unset FAKE_AUTHORITY_BROKEN
+            [ "$RC" -eq 2 ] || fail "fail-closed authority: wanted a loud 2, got $RC"
+            if didrun; then fail "fail-closed authority: the check never ran, but the command did"; fi
+            [ ! -s "$work/out" ] || fail "fail-closed authority: wrote to stdout, where refusals live"
+            grep -q 'inventory' "$work/err" || fail "fail-closed authority: stderr does not say what failed"
+            clear_ran
+            export FAKE_AUTHORITY_GARBAGE=1
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            unset FAKE_AUTHORITY_GARBAGE
+            [ "$RC" -eq 2 ] || fail "fail-closed authority: non-JSON answer wanted a loud 2, got $RC"
+            if didrun; then fail "fail-closed authority: non-JSON answer still dispatched"; fi
+            ok "an inventory that cannot be read, or is not JSON, refuses loudly and dispatches nothing"
+
+            # ------------------------------------------- the guarded command's own failure is its own
+            d=$(newdir d7)
+            set_inv "[]"
+            export FAKE_DISPATCH_FAIL=1
+            run "$GUARD" guard --dir "$d" -- "$work/bin/claude" --bg
+            unset FAKE_DISPATCH_FAIL
+            [ "$RC" -eq 3 ] || fail "command failure: wanted 3, got $RC -- $(cat "$work/out" "$work/err")"
+            grep -q '7' "$work/out" || fail "command failure: the command's own status is not reported"
+            ok "a guarded command that fails is reported as itself, not as a refusal"
+
+            # -------------------------- a dispatch the authority never confirms is loud, not silent
+            d=$(newdir d8)
+            set_inv "[]"
+            export FAKE_DISPATCH_SILENT=1 FAKE_DISPATCH_SECONDS=0
+            run "$GUARD" guard --dir "$d" -- "$work/bin/claude" --bg
+            unset FAKE_DISPATCH_SILENT FAKE_DISPATCH_SECONDS
+            [ "$RC" -eq 4 ] || fail "unconfirmed: wanted 4, got $RC -- $(cat "$work/out" "$work/err")"
+            grep -qi 'unguarded' "$work/out" || fail "unconfirmed: the operator is not told a worker may be loose"
+            ok "a dispatch the daemon never confirms exits 4 and says a worker may be running unguarded"
+
+            # ------------------------------------------ the lock does not outlive the guard
+            # A child that inherits the lock fd inherits the lock. If that happens the next spawn
+            # blocks on a directory nobody is working in.
+            d=$(newdir d9)
+            set_inv "[]"
+            export FAKE_DISPATCH_LINGER=1 FAKE_DISPATCH_SECONDS=0
+            run "$GUARD" guard --dir "$d" -- "$work/bin/claude" --bg
+            unset FAKE_DISPATCH_LINGER FAKE_DISPATCH_SECONDS
+            [ "$RC" -eq 0 ] || fail "fd-leak: setup dispatch wanted 0, got $RC -- $(cat "$work/err")"
+            lrc=0
+            ( exec 9< "$d"; flock -n -x 9 ) > /dev/null 2>&1 || lrc=$?
+            [ "$lrc" -eq 0 ] || fail "fd-leak: the directory is still locked after the guard exited (a child inherited the lock)"
+            ok "the lock is released when the guard exits, even if the dispatch left a child running"
+
+            # ----------------------------- P2: a `blocked` session whose process is gone
+            # `blocked` never becomes a finished state on its own. Without the process check its
+            # directory is unspawnable forever and the only cure is deleting the row by hand, which
+            # is precisely what P2 forbids -- and this repository has a session that sat `blocked`
+            # for six weeks. A guard that can permanently wedge a directory is worse than no guard,
+            # because today a spawn always succeeds.
+            d=$(newdir d12)
+            set_inv "[$(row 11111111 "$d" wedged background blocked "$DEAD_PID")]"
+            dispatch_into "$d"
+            [ "$RC" -eq 0 ] || fail "P2-blocked: a blocked session whose process is gone must release its directory, got $RC -- $(cat "$work/out" "$work/err")"
+            [ "$(live_bg_count "$d")" -eq 1 ] || fail "P2-blocked: allowed, but nothing was dispatched"
+            ok "P2 a blocked session whose process is gone no longer holds its directory"
+
+            # ----------------------------- P1: a `blocked` session whose process is alive
+            # The other half of the same rule. A worker parked on a permission prompt is still
+            # there and can still resume and write, so it must keep its directory.
+            d=$(newdir d13)
+            set_inv "[$(row 22222222 "$d" parked background blocked "$LIVE_PID")]"
+            clear_ran
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            [ "$RC" -eq 1 ] || fail "P1-blocked: a blocked session that is still running must keep its directory, got $RC"
+            if didrun; then fail "P1-blocked: refused, but the guarded command ran"; fi
+            ok "P1 a blocked session whose process is still running keeps its directory"
+
+            # ----------------------------- fail closed: a row with no pid counts live
+            d=$(newdir d14)
+            set_inv "[$(row 33333333 "$d" pidless background blocked)]"
+            clear_ran
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            [ "$RC" -eq 1 ] || fail "no-pid: a row that reports no pid must count live, got $RC"
+            if didrun; then fail "no-pid: refused, but the guarded command ran"; fi
+            ok "a session row that reports no pid counts live, not free"
+
+            # ----------------------------- fail closed: a row with no state counts live
+            # Process-backed rows carry no `state` at all. An absent field must not be the thing
+            # that frees a directory.
+            d=$(newdir d15)
+            set_inv "[$(row_nostate 44444444 "$d" stateless background "$LIVE_PID")]"
+            clear_ran
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            [ "$RC" -eq 1 ] || fail "no-state: a row with no state but a running process must count live, got $RC"
+            if didrun; then fail "no-state: refused, but the guarded command ran"; fi
+            ok "a session row with no state, whose process is running, counts live"
+
+            # ----------------------- a daemon that never answers must not park the holder
+            # The read happens while the directory lock is held, so an unbounded read parks this
+            # spawn and every later one behind it. The outer timeout is the test's own bound: if
+            # the guard does not bound its read, it is what ends this case, and the exit code says so.
+            d=$(newdir d16)
+            set_inv "[]"
+            clear_ran
+            export FAKE_AUTHORITY_HANG=1
+            t0=$(date +%s)
+            RC=0
+            timeout 45 "$GUARD" guard --dir "$d" -- "''${MARK[@]}" > "$work/out" 2> "$work/err" || RC=$?
+            t1=$(date +%s)
+            unset FAKE_AUTHORITY_HANG
+            [ "$RC" -eq 2 ] || fail "hang: wanted a loud 2, got $RC (124 means the guard never bounded its own read)"
+            [ $((t1 - t0)) -lt 35 ] || fail "hang: the guard waited $((t1 - t0))s before giving up"
+            if didrun; then fail "hang: dispatched without ever getting an answer"; fi
+            ok "a daemon that accepts the question and never answers fails closed, bounded, and dispatches nothing"
+
+            # ----------------------- an inventory whose rows were renamed is not an empty one
+            d=$(newdir d17)
+            clear_ran
+            export FAKE_AUTHORITY_RENAMED=1
+            run "$GUARD" guard --dir "$d" -- "''${MARK[@]}"
+            unset FAKE_AUTHORITY_RENAMED
+            [ "$RC" -eq 2 ] || fail "renamed-fields: an inventory missing the fields this guard reads wanted 2, got $RC"
+            if didrun; then fail "renamed-fields: read as a free directory and dispatched"; fi
+            ok "an inventory whose rows lack the fields this guard reads refuses, instead of reading as free"
+
+            # ------------------------------------------------- P1 under real contention
+            # The question and the dispatch are one critical section or they are nothing: a dispatch
+            # takes seconds and the session appears only at the end of it, so two guards that merely
+            # take turns ASKING both see an empty directory and both dispatch. That is the original
+            # incident. Both contenders are released by a flock barrier in the same instant.
+            d=$(newdir d10)
+            set_inv "[]"
+            res=$work/race; rm -rf "$res"; mkdir -p "$res"
+            : > "$d.gate"
+            exec 8> "$d.gate"
+            flock -x 8
+            cs=""
+            for i in 1 2; do
+              ( flock -s 7
+                rc=0
+                FAKE_DISPATCH_SECONDS=2 FAKE_NAME="racer$i" \
+                  "$GUARD" guard --dir "$d" -- claude --bg -n "racer$i" > "$res/$i.out" 2>&1 || rc=$?
+                echo "$rc" > "$res/$i.rc" ) 7< "$d.gate" 8>&- &
+              cs="$cs $!"
+            done
+            sleep 0.3
+            exec 8>&-
+            for p in $cs; do wait "$p" || true; done
+            won=0
+            refused=0
+            recorded=0
+            for f in "$res"/*.rc; do
+              [ -f "$f" ] || continue
+              recorded=$((recorded + 1))
+              r=$(cat "$f")
+              if [ "$r" = "0" ]; then won=$((won + 1)); fi
+              if [ "$r" = "1" ]; then refused=$((refused + 1)); fi
+            done
+            [ "$recorded" -eq 2 ] || fail "P1-contended: only $recorded of 2 contenders recorded a result"
+            [ "$won" -eq 1 ] || fail "P1-contended: $won of 2 contenders dispatched, wanted exactly 1 -- $(cat "$res"/*.out)"
+            [ "$refused" -eq 1 ] || fail "P1-contended: $refused of 2 contenders were refused, wanted exactly 1"
+            n=$(live_bg_count "$d")
+            [ "$n" -eq 1 ] || fail "P1-contended: the directory ended with $n live worker sessions, wanted exactly 1"
+            ok "P1 two simultaneous spawns into one directory: exactly one dispatches, exactly one is refused"
+
+            # --------------------------------------------------------------------- status
+            d=$(newdir d11)
+            set_inv "[$(row ffffffff "$d" busyone background working)]"
+            run "$GUARD" status --dir "$d"
+            [ "$RC" -eq 0 ] || fail "status: a directory with a live session wanted 0, got $RC"
+            grep -q 'busyone' "$work/out" || fail "status: does not name the session"
+            set_inv "[$(row ffffffff "$d" goneone background done)]"
+            run "$GUARD" status --dir "$d"
+            [ "$RC" -eq 1 ] || fail "status: a directory whose session finished wanted 1, got $RC"
+            ok "status reports a live worker session, and reports free once it has finished"
+
+            # ------------------------------------------------------------- usage is loud
+            set_inv "[]"
+            run "$GUARD" guard --dir "$work" --bogus -- true
+            [ "$RC" -eq 2 ] || fail "usage: an unknown option wanted 2, got $RC"
+            [ ! -s "$work/out" ] || fail "usage: a usage error wrote to stdout, where refusals live"
+            grep -q 'unknown option' "$work/err" || fail "usage: stderr does not explain the misuse"
+            run "$GUARD" guard --dir "$work/does-not-exist" -- true
+            [ "$RC" -eq 2 ] || fail "usage: a missing directory wanted 2, got $RC"
+            run "$GUARD" guard --dir "$work"
+            [ "$RC" -eq 2 ] || fail "usage: no command after -- wanted 2, got $RC"
+            run "$GUARD" nonsense --dir "$work"
+            [ "$RC" -eq 2 ] || fail "usage: an unknown subcommand wanted 2, got $RC"
+            ok "a usage error exits 2, says so on stderr, and never looks like a refusal"
+
+            # ------------------------------------------- the incident, through fleet spawn
+            printf '## Boundary\nb\n\n## Termination condition\nt\n\n## Output\no\n' > "$work/spec.md"
+            d=$(newdir wk)
+            set_inv "[]"
+            export FAKE_DISPATCH_SECONDS=0
+            run "$FLEET" spawn --name first --dir "$d" --spec "$work/spec.md"
+            [ "$RC" -eq 0 ] || fail "fleet: the first spawn wanted 0, got $RC -- $(cat "$work/err")"
+            [ "$(live_bg_count "$d")" -eq 1 ] || fail "fleet: the first spawn did not register a session"
+            run "$FLEET" spawn --name second --dir "$d" --spec "$work/spec.md"
+            [ "$RC" -ne 0 ] || fail "fleet: a SECOND worker was dispatched into a directory already being worked in"
+            [ "$(live_bg_count "$d")" -eq 1 ] || fail "fleet: the directory now has $(live_bg_count "$d") live sessions"
+            grep -qi 'already has a live worker session' "$work/out" "$work/err" \
+              || fail "fleet: the refusal does not say why -- $(cat "$work/out" "$work/err")"
+            ok "fleet spawn refuses a second worker where one is already working"
+
+            if [ "$pass" -eq 0 ]; then
+              echo "guard-selftest: no cases ran"
+              exit 1
+            fi
+            kill -9 "$LIVE_PID" 2> /dev/null || true
+            echo "guard-selftest: $pass case(s) asserted"
+
+            touch "$out"
+          '';
+
           # Build crumb (buildGoModule checkPhase runs `go test ./...`).
           crumb-tests = pkgs.crumb;
         } // linuxChecks);

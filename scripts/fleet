@@ -255,20 +255,26 @@ cmd_spawn() {
     die "refusing to dispatch an underspecified worker (see claude/worker-spec.template.md)"
   fi
 
-  # One project = one session: warn if this dir already has a live worker.
-  local existing; existing="$(snapshot --cwd "$dir" | cut -d"$SEP" -f1 | grep -c . || true)"
-  [ "${existing:-0}" -gt 0 ] && echo "fleet: note — $existing session(s) already live in $dir" >&2
-
-  # An unattended worker cannot answer a permission prompt: in a prompting mode it parks
-  # in `waiting` indefinitely. Say which mode is in force so that is never a surprise.
-  echo "fleet: dispatching '$name' with --permission-mode $mode" >&2
   local flags=(--bg -n "$name" --permission-mode "$mode")
   [ -n "$model" ] && flags+=(--model "$model")
   # Read the spec BEFORE cd: a relative --spec path would not resolve inside the subshell,
   # and an unreadable spec would silently dispatch a worker with an empty prompt.
   local prompt; prompt="$(cat "$spec")"
   [ -n "$prompt" ] || die "spec file is empty: $spec"
-  ( cd "$dir" && claude "${flags[@]}" -- "$prompt" )
+
+  # An unattended worker cannot answer a permission prompt: in a prompting mode it parks
+  # in `waiting` indefinitely. Say which mode is in force so that is never a surprise.
+  echo "fleet: dispatching '$name' with --permission-mode $mode" >&2
+
+  # One project = one live worker, ENFORCED rather than noted. What stood here counted
+  # the live sessions in $dir, printed a note and dispatched anyway; on 2026-11-19 the
+  # note went unread and two workers ran in one checkout. The guard asks the daemon --
+  # which owns worker sessions -- and holds the directory across the question AND the
+  # dispatch, so two spawns cannot both find it empty. It guards THIS path only; it does
+  # not stop anything else running in the same checkout.
+  local guard
+  guard="${0%/*}/fleet-spawn-guard"; [ -x "$guard" ] || guard=fleet-spawn-guard
+  "$guard" guard --dir "$dir" -- claude "${flags[@]}" -- "$prompt"
 }
 
 usage() {
@@ -286,7 +292,10 @@ fleet — Claude Code background-agent fleet control
                                  with --stopped. A `done` session is never collected.
   fleet watch [interval]         emit one line per state transition (for Monitor)
   fleet spawn --name N --dir PATH --spec FILE [--model M] [--permission-mode M]
-                                 dispatch a worker, refusing underspecified specs
+                                 dispatch a worker, refusing underspecified specs and
+                                 refusing a second worker where one is already working
+                                 (see `fleet-spawn-guard status --dir PATH`; it guards
+                                 this path only, not everything in the checkout)
 USAGE
 }
 

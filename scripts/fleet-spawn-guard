@@ -1,0 +1,331 @@
+#!/usr/bin/env bash
+# fleet-spawn-guard — do not start a second worker session where one is already working.
+#
+# SCOPE, STATED NARROWLY ON PURPOSE. This guards `fleet spawn`, and only that. It stops
+# a second DISPATCHED WORKER SESSION entering a directory where a live one is already
+# working. It does NOT stop the orchestrator -- or a human, an editor, a build -- from
+# running commands in that same checkout, and on 2026-11-19 that is what actually
+# collided. Read this as "fleet will not dispatch a second worker here", never as "this
+# checkout is protected".
+#
+# WHO DECIDES, AND WHY IT IS NOT /proc. The background daemon owns worker sessions: it
+# creates them, assigns their directories, and knows when they end. An earlier version
+# of this guard asked /proc about a process it picked out by its working directory --
+# but the worker is not a process this side ever creates. `claude --bg` is a request to
+# the daemon, which CLAIMS AN ALREADY-RUNNING PROCESS from a pre-warmed pool and chdirs
+# it into place. Measured on 2.1.325: pid 3851140 was sitting idle in the daemon's spare
+# directory at 09:50 and was serving a worktree at 10:45, same pid, same parent, only
+# the cwd moved. So any pid this script could name is a process it guessed at, and a
+# guess is exactly what the inventory does not have to make. Ask the owner.
+#
+# THE PROPERTIES, in the domain that actually has the entities:
+#   P1  at no time are two live worker sessions working in one directory
+#   P2  when a session ends, by exit or crash, the directory becomes available again
+#       with no manual cleanup
+#   P3  MOOT BY CONSTRUCTION -- see below
+#   P4  a live session is never displaced by a contender
+#
+# P3 IS MOOT, AND THAT IS THE POINT. There is nothing to reclaim because nothing is
+# stored. This guard writes no lease, no record, no pid, no timestamp and no expiry; it
+# asks a question and either refuses or dispatches. A reclaim step can only exist where
+# a grant outlives the thing it was granted to, and here none does. The previous design
+# needed P3 precisely because it kept a shadow copy of state the daemon already owned,
+# and a shadow copy is the thing that can disagree with reality.
+#
+# P4 IS ALSO STRUCTURAL: this script has no code that ends, evicts, rewrites or
+# displaces a session. Its only effects are "refuse" and "run the command".
+#
+# WHY THE LOCK SPANS THE DISPATCH AND NOT ONLY THE QUESTION. A dispatch takes seconds
+# (measured: 2112 ms) and the new session only becomes visible at the end of it. Two
+# spawns that merely take turns ASKING both see an empty directory and both dispatch --
+# that is the original incident, reproduced through a lock. So flock(2) is held across
+# ask-and-dispatch, and released only once the answer a later contender will get has
+# changed. The lock is on the DIRECTORY's own inode: there is no lock file to create,
+# name, collide or leave behind, and two spellings of one directory are one lock for
+# free.
+#
+# AND WHY IT IS CONFIRMED BEFORE THE LOCK DROPS. The dispatch returns the new session's
+# id, so the daemon has registered it by then; measured, it was in the inventory on the
+# first read after return. But that read took 1689 ms to complete, so the measurement
+# proves visibility within about 1.7 s of the return, NOT at the instant of it -- and
+# the instant of it is exactly when the next contender would look. Rather than rest P1
+# on a gap the measurement could not close, the guard re-asks under the still-held lock
+# and only releases once the directory answers "live". P1 then does not depend on how
+# fast registration is, which is not a promise anything made us.
+#
+# FAIL CLOSED, IN BOTH DIRECTIONS. A state this script does not recognise counts as
+# LIVE, and an inventory it cannot read at all is a refusal to dispatch. The harm is
+# asymmetric and the user chose this side: a wrong "not live" puts a second writer in a
+# checkout that already has one, while a wrong "live" makes somebody wait.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+SELF=${0##*/}
+
+# Bounded, because a spawn that blocks forever is its own kind of outage. Generous
+# enough to cover a dispatch (~2 s) plus the inventory reads around it (~1.7 s each).
+LOCK_WAIT=60
+CONFIRM_WAIT=20
+
+# A SLOW OWNER MUST NOT BLOCK THE HOLDER. LOCK_WAIT bounds a contender waiting for the
+# lock and CONFIRM_WAIT bounds the confirmation loop, but neither bounds a single read
+# of the inventory, and that read happens WHILE THE DIRECTORY LOCK IS HELD. A daemon
+# that accepts the question and never answers would otherwise park the holder forever
+# and every later spawn behind it. Each read gets its own deadline; expiry is the loud
+# fail-closed exit, not a shrug.
+INVENTORY_WAIT=10
+
+# The states that mean a session is FINISHED. Everything else -- including a state this
+# script has never heard of, and including a missing state -- is NOT finished, and then
+# the process check below decides. Listing the terminal states rather than the live ones
+# is what makes an unknown state refuse instead of dispatch. `stopped` is terminal
+# because a stopped session is not working; a human can still `claude --resume` it, and
+# that path is outside this guard, which is about `fleet spawn`.
+#
+# `blocked` IS DELIBERATELY NOT ON THIS LIST. A worker parked on a permission prompt is
+# still there and can still resume and write, so calling it finished would break P1.
+TERMINAL_STATES='["done","failed","stopped"]'
+
+die() { printf '%s: %s\n' "$SELF" "$*" >&2; exit 2; }
+need() { command -v "$1" > /dev/null 2>&1 || die "missing dependency: $1"; }
+
+usage() {
+  cat <<'USAGE'
+fleet-spawn-guard — do not start a second worker session where one is already working
+
+usage: fleet-spawn-guard guard  --dir PATH -- COMMAND [ARGS...]
+       fleet-spawn-guard status --dir PATH
+
+  guard    ask the daemon whether a live worker session is already working in PATH.
+           If one is, refuse and run nothing. If none is, run COMMAND with PATH as its
+           working directory, then wait until the daemon reports a live session there
+           before letting go. The whole sequence is one critical section, so a second
+           guard on the same directory cannot slip between the question and the answer.
+  status   report any live worker sessions working in PATH.
+
+  --dir PATH   the directory to ask about
+  -h, --help   this text
+
+This guards `fleet spawn` only. It does not stop anything else -- a shell command, an
+editor, a build -- from running in the same checkout at the same time.
+
+Exit status:
+  0  dispatched   COMMAND ran and the directory now reports a live worker session.
+                  For status: a live worker session is working there.
+  1  refused      a live worker session is already working there; COMMAND did not run.
+                  For status: no live worker session is working there.
+  2  usage error, or the inventory could not be read. The question was NOT answered and
+                  nothing was dispatched. Never treat this as a free directory.
+  3  COMMAND itself failed; its status is in the message. Nothing is held.
+  4  COMMAND ran, but the daemon never reported a live session in the directory. The
+     directory's state is UNKNOWN and a worker may be running unguarded.
+USAGE
+}
+
+need jq
+need flock
+need claude
+need timeout
+
+# The authority's answer, or failure. Two ways to fail are checked, because only one of
+# them is loud on its own: a non-zero exit, and output that is not a JSON array. The
+# second matters -- `2>/dev/null` plus a silent fallback is how a check stops checking
+# and still reports success.
+inventory() {
+  local out rc=0
+  out=$(timeout "$INVENTORY_WAIT" claude agents --json --all 2> /dev/null) || rc=$?
+  if [ "$rc" -eq 124 ]; then
+    printf '%s: the daemon did not answer within %ss\n' "$SELF" "$INVENTORY_WAIT" >&2
+    return 1
+  fi
+  [ "$rc" -eq 0 ] || return 1
+  # The shape check names the two fields the filter below actually reads. A bare
+  # `type == "array"` would accept an inventory whose rows had been renamed: the filter
+  # would then match nothing, and "no rows" reads as "free directory" -- fail-open, the
+  # one direction this guard must never fail in. Requiring the fields it depends on
+  # turns that into a loud refusal instead. It stops there on purpose: validating the
+  # rest of the schema would be this script keeping its own model of the daemon's data,
+  # which is the shadow copy the whole design exists to avoid.
+  jq -e 'type == "array" and all(.[]; has("kind") and has("cwd"))' > /dev/null 2>&1 <<< "$out" \
+    || return 1
+  printf '%s\n' "$out"
+}
+
+# Rows in the directory that are not FINISHED, as "pid<US>description". The pid field is
+# empty when the row does not report one.
+# $1 inventory JSON, $2 the directory resolved, $3 the directory as the caller spelled
+# it. Both spellings are compared because the daemon records a session's cwd as the
+# process has it, and a caller may well name the same directory through a symlink.
+#
+# THE SEPARATOR MUST NOT BE WHITESPACE, and a tab is whitespace. With `IFS=$'\t'` bash
+# strips the leading separator of a row whose pid is empty and slides the description
+# into the pid field, leaving the description blank -- so a row reporting no pid
+# DISAPPEARED from the live list and its directory read as free. That is fail-open, the
+# one direction this guard must never fail in, and it was caught by the case for exactly
+# that row. scripts/fleet carries the same warning over the same bug; US (0x1f) is what
+# it uses, and what this uses.
+SEP=$'\x1f'
+candidate_sessions() {
+  jq -r --argjson term "$TERMINAL_STATES" --arg d "$2" --arg g "$3" '
+    .[]
+    | select(.kind == "background")
+    | select(.cwd == $d or .cwd == $g)
+    | (.state // "") as $s
+    | select(($term | index($s)) == null)
+    | ((.pid // "") | tostring) as $p
+    | "\($p)\u001fsession \(.id // .sessionId[0:8]) (\(.name // "unnamed")) state=\(if $s == "" then "unreported" else $s end) pid=\(if $p == "" then "unreported" else $p end)"
+  ' <<< "$1"
+}
+
+# Is this pid still a running process?
+#
+# WHY /proc IS BACK, AND WHY IT IS NOT THE MISTAKE IT WAS BEFORE. The version this
+# replaced went looking for a process by its working directory and leased the directory
+# to whatever it found -- it GUESSED which process was the worker, and guessed wrong.
+# Here the daemon names the pid in the row it owns, and the only question put to the
+# kernel is "does that pid still exist". The authority still decides which process a
+# session is; the kernel only answers whether it is there.
+#
+# THIS CAN ONLY MOVE A ROW FROM LIVE TO FINISHED, NEVER THE OTHER WAY, so P1 does not
+# weaken: a directory is released only when the daemon's own pid for the session is one
+# the kernel says is gone. Fail closed everywhere else -- a row with no pid, an
+# unreadable pid, or no /proc to ask, all count as live.
+#
+# A ZOMBIE IS NOT RUNNING. /proc survives exit until the parent reaps, with the state
+# field at 'Z'. Counting that as live would hand P2 back to whether somebody remembers
+# to call wait(), which is the same bug in a new costume.
+PROC_AVAILABLE=0
+if [ -d /proc/self ]; then PROC_AVAILABLE=1; fi
+
+pid_is_running() {
+  local stat rest
+  [ "$PROC_AVAILABLE" -eq 1 ] || return 0
+  case $1 in '' | *[!0-9]*) return 0 ;; esac
+  stat=$(cat "/proc/$1/stat" 2> /dev/null) || return 1
+  rest=${stat##*')'}
+  # shellcheck disable=SC2086
+  set -- $rest
+  [ "${1:-}" != Z ] || return 1
+  return 0
+}
+
+# One line per live worker session working in the directory: a row that is not finished
+# AND whose process the kernel still has.
+#
+# WHY THE SECOND HALF EXISTS AT ALL, in one sentence: without it a session that stops at
+# `blocked` holds its directory forever, because `blocked` is not a finished state and
+# never becomes one on its own. scripts/fleet's own header records a session that sat
+# `blocked` for six weeks. A guard that can make a directory permanently unspawnable is
+# worse than no guard, since today a spawn always succeeds.
+live_sessions() {
+  local rows pid desc
+  rows=$(candidate_sessions "$@") || return 1
+  [ -n "$rows" ] || return 0
+  while IFS="$SEP" read -r pid desc; do
+    [ -n "$desc" ] || continue
+    if pid_is_running "$pid"; then printf '%s\n' "$desc"; fi
+  done <<< "$rows"
+}
+
+DIR=""
+GIVEN=""
+REST=()
+
+parse_args() {
+  REST=()
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --dir) GIVEN=${2:?--dir needs a value}; shift 2 ;;
+      -h | --help) usage; exit 0 ;;
+      --) shift; REST=("$@"); break ;;
+      *) die "unknown option: $1 (try --help)" ;;
+    esac
+  done
+  [ -n "$GIVEN" ] || die "--dir is required"
+  DIR=$( (cd -P -- "$GIVEN" 2> /dev/null && pwd -P) ) || die "no such directory: $GIVEN"
+  [ -n "$DIR" ] || die "no such directory: $GIVEN"
+}
+
+report_live() {
+  local rows=$1 r
+  while IFS= read -r r; do
+    if [ -n "$r" ]; then printf '  %s\n' "$r"; fi
+  done <<< "$rows"
+}
+
+cmd_guard() {
+  parse_args "$@"
+  [ ${#REST[@]} -gt 0 ] || die "guard needs a command after --"
+
+  # The lock is the directory itself. Opened read-only: flock(2) needs an open file
+  # description, not write permission.
+  exec 9< "$DIR" || die "cannot open $DIR to lock it"
+  flock -w "$LOCK_WAIT" -x 9 \
+    || die "another spawn has held $DIR for more than ${LOCK_WAIT}s; not dispatching"
+
+  local inv rows rc=0
+  inv=$(inventory) \
+    || die "could not read the session inventory; refusing to dispatch into $DIR (fail closed)"
+  rows=$(live_sessions "$inv" "$DIR" "$GIVEN") \
+    || die "the inventory did not have the shape this guard understands; refusing to dispatch into $DIR"
+  if [ -n "$rows" ]; then
+    printf 'refused: %s already has a live worker session\n' "$DIR"
+    report_live "$rows"
+    exit 1
+  fi
+
+  # fd 9 is closed for the command. A child that inherits it inherits the open file
+  # description the lock belongs to, and the lock then outlives this process -- which
+  # is a deadlock for the next spawn, not a tighter guarantee.
+  ( cd "$DIR" && "${REST[@]}" ) 9<&- || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf 'the guarded command exited %s; nothing was dispatched into %s\n' "$rc" "$DIR"
+    exit 3
+  fi
+
+  # Hold the lock until the directory answers the way the next contender will ask.
+  local deadline=$((SECONDS + CONFIRM_WAIT))
+  while :; do
+    if inv=$(inventory); then
+      # A reading that fails here is not confirmation; it just is not an answer yet, so
+      # the loop keeps asking and the timeout below is what reports the ambiguity.
+      rows=$(live_sessions "$inv" "$DIR" "$GIVEN") || rows=""
+      if [ -n "$rows" ]; then
+        printf 'dispatched: %s now has a live worker session\n' "$DIR"
+        report_live "$rows"
+        return 0
+      fi
+    fi
+    [ "$SECONDS" -lt "$deadline" ] || break
+    sleep 1
+  done
+  printf 'dispatched into %s, but no live worker session was reported there within %ss.\n' \
+    "$DIR" "$CONFIRM_WAIT"
+  printf 'A worker may be running unguarded; check: %s status --dir %s\n' "$SELF" "$DIR"
+  exit 4
+}
+
+cmd_status() {
+  parse_args "$@"
+  local inv rows
+  inv=$(inventory) || die "could not read the session inventory; the state of $DIR is unknown"
+  rows=$(live_sessions "$inv" "$DIR" "$GIVEN") \
+    || die "the inventory did not have the shape this guard understands; the state of $DIR is unknown"
+  if [ -n "$rows" ]; then
+    printf 'working: %s has a live worker session\n' "$DIR"
+    report_live "$rows"
+    return 0
+  fi
+  printf 'free: no live worker session is working in %s\n' "$DIR"
+  exit 1
+}
+
+case ${1:-} in
+  guard) shift; cmd_guard "$@" ;;
+  status) shift; cmd_status "$@" ;;
+  -h | --help | help) usage ;;
+  '') usage >&2; die "no subcommand given" ;;
+  *) usage >&2; die "unknown subcommand: $1" ;;
+esac
