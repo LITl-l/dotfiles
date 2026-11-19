@@ -1,0 +1,195 @@
+name: Auto-merge Ledger
+
+# WHAT THIS IS FOR. Waiting for an approval is not only a cost, it is unused capacity.
+# One class of change here is machine-checkable end to end -- an append to the
+# measurement ledger -- and a human approving it is a rubber stamp, not a decision. This
+# workflow merges exactly that class and nothing else, so that what is left waiting is
+# worth deciding.
+#
+# WHY A SEPARATE WORKFLOW, AND NOT A JOB IN Nix Build CI. Since #239 the `summary` job in
+# nix-check.yml gates on `toJSON(needs)`, so any job added there becomes a merge
+# requirement. A merge gate that merges is a cycle. Keeping this in its own file leaves
+# the gate graph exactly as it was.
+#
+# WHY `pull_request_target` AND NOT `pull_request` -- READ BEFORE CHANGING IT.
+# The design depends on a pull request being unable to change the rule that judges it.
+# Under `pull_request`, GitHub runs the workflow file AS IT EXISTS IN THE PULL REQUEST,
+# and `actions/checkout` defaults to `refs/pull/N/merge`, which also carries the pull
+# request's version of scripts/automerge-eligible. A pull request that rewrote either
+# would therefore be judged by its own rewritten rule, and `.github/**` being outside the
+# allowlist would prove nothing. `pull_request_target` runs the BASE branch's workflow
+# file, and the checkout below pins the BASE branch's scripts; both are what is already
+# on main. A pull request touching `.github/**` or `scripts/**` is then refused by a rule
+# it cannot reach -- which is the property that makes running this unattended defensible.
+#
+# `pull_request_target` is dangerous when a workflow checks out and EXECUTES the pull
+# request's code with a write token. This one never does: it checks out the base branch
+# explicitly, runs only the base branch's script, and hands the pull request's diff to
+# that script as DATA in a file -- never interpolated into a shell command, never
+# evaluated. Keep it that way. Do not add a checkout of the head ref, and do not add a
+# build or test step here; those belong in nix-check.yml, where PR code belongs.
+#
+# WHY THESE ACTIVITY TYPES.
+#   opened            the pull request exists and has never been judged.
+#   synchronize       a push changed the diff, so the verdict must be recomputed.
+#                     Without this a pull request could open as a ledger append, get
+#                     auto-merge enabled, and then grow a second commit touching
+#                     anything at all.
+#   reopened          closing a pull request clears auto-merge; reopening needs a verdict.
+#   ready_for_review  auto-merge cannot be enabled on a draft, so a pull request that was
+#                     a draft when it opened needs a second look when it leaves draft.
+# Deliberately absent: `edited` and `labeled`. Title, body and labels are written by
+# whoever opened the pull request. Reacting to them would suggest that something other
+# than the diff can change the verdict, which is the one thing this must never allow.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+# WHAT `gh pr merge --auto` ACTUALLY NEEDS, and how that was determined. GitHub publishes
+# permission tables for REST endpoints but not for GraphQL mutations, and enabling
+# auto-merge is the `enablePullRequestAutoMerge` mutation. The measured answer in
+# community/discussions/24686 is `contents: write` (someone bisected it in a test repo);
+# a later report in the same thread, and the README of the de-facto action
+# peter-evans/enable-pull-request-automerge, both say `pull-requests: write` is needed as
+# well. `pull-requests` also covers reading the file list and the diff. Nothing here
+# writes issues, packages, pages, deployments or checks, so nothing else is granted, and
+# the repository default is read-only (`default_workflow_permissions: read`), which means
+# every scope not named below is `none`.
+permissions:
+  contents: write
+  pull-requests: write
+
+# A second push while the first verdict is still running would race it. Newest wins,
+# because the newest head is the one that would be merged.
+concurrency:
+  group: automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  automerge:
+    name: Auto-merge ledger appends
+    runs-on: ubuntu-latest
+    # Auto-merge cannot be enabled on a draft, so there is nothing to do until it is
+    # marked ready -- at which point `ready_for_review` fires.
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Check out the base branch
+        uses: actions/checkout@v4
+        with:
+          # NOT the merge ref and NOT the head ref. See the header: the script that
+          # judges a pull request has to be the one already on main, or a pull request
+          # could ship its own judge. The `branches:` filter above pins this to main.
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+
+      - name: Decide whether this pull request may merge unattended
+        id: verdict
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          # Interpolated into the environment rather than into the script body: a login
+          # is attacker-chosen text, and text that reaches a shell through `${{ }}` is
+          # executed, not quoted.
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -o errexit
+          set -o nounset
+          set -o pipefail
+
+          # `--paginate` is load-bearing. Without it the file list stops at 100 entries,
+          # and a truncated list is not a smaller truth, it is a different pull request.
+          gh api "repos/$GH_REPO/pulls/$PR/files" --paginate --jq '.[].filename' \
+            > "$RUNNER_TEMP/files.txt"
+          gh pr diff "$PR" > "$RUNNER_TEMP/diff.txt"
+
+          rc=0
+          ./scripts/automerge-eligible \
+            --author "$PR_AUTHOR" \
+            --files "$RUNNER_TEMP/files.txt" \
+            --diff "$RUNNER_TEMP/diff.txt" > "$RUNNER_TEMP/verdict.txt" || rc=$?
+          cat "$RUNNER_TEMP/verdict.txt"
+
+          # 0 eligible, 1 refused, anything else means the check did not run. A wiring
+          # fault must look different from a refusal: this repository has spent a week
+          # removing checks that reported success without checking anything, and a
+          # broken eligibility check that merely declined to merge would be invisible.
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            echo "::error::automerge-eligible exited $rc -- the check did not run"
+            exit 1
+          fi
+
+          echo "eligible=$rc" >> "$GITHUB_OUTPUT"
+          {
+            printf '## Auto-merge verdict\n\n```\n'
+            cat "$RUNNER_TEMP/verdict.txt"
+            printf '```\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Queue the merge behind the required checks
+        if: steps.verdict.outputs.eligible == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -o errexit
+          set -o nounset
+
+          # --squash          the only method the `individual` ruleset allows.
+          # --auto            queue rather than merge now, so the merge happens through
+          #                   the same path a human's would.
+          #
+          #                   READ THIS BEFORE TRUSTING `--auto` TO MEAN "AFTER CI".
+          #                   It queues behind REQUIRED checks, and as of 2026-11-18 main
+          #                   has none: ruleset 5926664 carries deletion,
+          #                   non_fast_forward, required_linear_history and pull_request
+          #                   (0 approvals), and `branches/main/protection` is 404. So
+          #                   Nix Build CI runs on this pull request but does not gate it,
+          #                   and `--auto` queues behind nothing. Making CI actually gate
+          #                   this is one ruleset change -- add a required_status_checks
+          #                   rule naming the `CI Summary` job -- and it is worth making,
+          #                   because it is also what guarantees a pull request is never
+          #                   already mergeable at the moment this step runs.
+
+          # --match-head-commit
+          #                   the verdict was computed over one specific head. If another
+          #                   commit landed between the check and this call, that head is
+          #                   unjudged, and GitHub refuses rather than merging it.
+          # --delete-branch   asked for, and harmless, but it is NOT what deletes the
+          #                   branch: gh returns as soon as auto-merge is enabled and
+          #                   never reaches its delete step (cli/cli#9073). The branch
+          #                   goes away because the repository has
+          #                   delete_branch_on_merge = true.
+          gh pr merge "$PR" --squash --auto --delete-branch \
+            --match-head-commit "$HEAD_SHA"
+
+      - name: Withdraw a queued merge that is no longer eligible
+        if: steps.verdict.outputs.eligible == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -o errexit
+          set -o nounset
+
+          # Default deny has to hold over time, not just at the moment a pull request is
+          # opened. Auto-merge enabled on an earlier, eligible head stays enabled after a
+          # push makes the pull request ineligible, and would merge the new content once
+          # the checks go green. Refusing the new head is not enough; the old permission
+          # has to be withdrawn.
+          #
+          # This also withdraws auto-merge that a human enabled by hand on a pull request
+          # this script refuses. That is the conservative direction -- it costs a click
+          # and never merges anything unexamined -- and it is why this step is quiet when
+          # there is nothing queued, which is the normal case.
+          queued=$(gh pr view "$PR" --json autoMergeRequest --jq '.autoMergeRequest // empty')
+          if [ -z "$queued" ]; then
+            exit 0
+          fi
+          echo "Pull request is not eligible but has auto-merge queued; withdrawing it."
+          gh pr merge "$PR" --disable-auto
