@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# T2 hidden grader. Usage: grade <solution_dir>. Contract: ../../../lib/grader.sh.
+# The checks live in kvgrade.py (hypothesis); this wrapper adds the kill rate and emits.
+# Set T2_STATS=<file> to also get per-group results and the kill -9 count as JSON.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$here/../../../lib/grader.sh"
+
+sol="${1:?usage: grade <solution_dir>}"
+errf="$(mktemp)"
+trap 'rm -f "$errf"' EXIT
+
+counts="$(python3 -I "$here/kvgrade.py" "$sol" "$errf")" || exit 2
+read -r passed total <<< "$counts"
+ktr="$(kill_rate "$sol" "$here/../solution/run" "$here"/broken/*/)"
+emit "$passed" "$total" "$ktr" null 0 "$errf"

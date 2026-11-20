@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Broken T2: SET is logged and fsynced, but DEL only drops the key from memory.
+
+A deleted key comes back after any restart.
+"""
+
+import os
+import sys
+
+
+def load(data):
+    path = os.path.join(data, "kv.log")
+    store = {}
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+    except FileNotFoundError:
+        raw = b""
+    end = raw.rfind(b"\n") + 1
+    for rec in raw[:end].decode().splitlines():
+        parts = rec.split(" ")
+        if parts[0] == "S":
+            store[parts[1]] = parts[2]
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    if end < len(raw):
+        os.ftruncate(fd, end)
+        os.fsync(fd)
+    return store, fd
+
+
+def append(fd, rec):
+    buf = (rec + "\n").encode()
+    while buf:
+        buf = buf[os.write(fd, buf):]
+    os.fsync(fd)
+
+
+def main():
+    store, fd = load(sys.argv[2])
+    for raw in iter(sys.stdin.buffer.readline, b""):
+        parts = raw.decode().split()
+        if not parts:
+            continue
+        cmd = parts[0]
+        if cmd == "SET":
+            append(fd, f"S {parts[1]} {parts[2]}")
+            store[parts[1]] = parts[2]
+            reply = "OK"
+        elif cmd == "DEL":
+            store.pop(parts[1], None)
+            reply = "OK"
+        elif cmd == "GET":
+            reply = f"VAL {store[parts[1]]}" if parts[1] in store else "NIL"
+        else:
+            reply = " ".join(["KEYS", *sorted(k for k in store if k.startswith(parts[1]))])
+        sys.stdout.write(reply + "\n")
+        sys.stdout.flush()
+    os.close(fd)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Broken T2: appends through a buffered file object and acknowledges at once.
+
+Records sit in the process's own buffer until it fills or the file is closed at end of
+input, so a clean restart loses nothing and kill -9 loses every unflushed OK.
+"""
+
+import os
+import sys
+
+
+def main():
+    data = sys.argv[2]
+    path = os.path.join(data, "kv.log")
+    store = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            for rec in f.read().splitlines():
+                parts = rec.split(" ")
+                if parts[0] == "S" and len(parts) == 3:
+                    store[parts[1]] = parts[2]
+                elif parts[0] == "D" and len(parts) == 2:
+                    store.pop(parts[1], None)
+    log = open(path, "a")
+    for raw in iter(sys.stdin.buffer.readline, b""):
+        parts = raw.decode().split()
+        if not parts:
+            continue
+        cmd = parts[0]
+        if cmd == "SET":
+            log.write(f"S {parts[1]} {parts[2]}\n")
+            store[parts[1]] = parts[2]
+            reply = "OK"
+        elif cmd == "DEL":
+            log.write(f"D {parts[1]}\n")
+            store.pop(parts[1], None)
+            reply = "OK"
+        elif cmd == "GET":
+            reply = f"VAL {store[parts[1]]}" if parts[1] in store else "NIL"
+        else:
+            reply = " ".join(["KEYS", *sorted(k for k in store if k.startswith(parts[1]))])
+        sys.stdout.write(reply + "\n")
+        sys.stdout.flush()
+    log.close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

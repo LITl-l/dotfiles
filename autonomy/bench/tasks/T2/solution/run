@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Reference solution for T2: an append-only log, fsynced before every OK.
+
+Log records are "S <k> <v>\n" and "D <k>\n". A crash can leave the last record without
+its newline; load drops it and truncates the file so the next append starts clean.
+"""
+
+import os
+import sys
+
+LOG = "kv.log"
+
+
+def load(data):
+    path = os.path.join(data, LOG)
+    store = {}
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+    except FileNotFoundError:
+        raw = b""
+    end = raw.rfind(b"\n") + 1
+    for rec in raw[:end].decode().splitlines():
+        parts = rec.split(" ")
+        if parts[0] == "S" and len(parts) == 3:
+            store[parts[1]] = parts[2]
+        elif parts[0] == "D" and len(parts) == 2:
+            store.pop(parts[1], None)
+    new = not os.path.exists(path)
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    if end < len(raw):
+        os.ftruncate(fd, end)
+        os.fsync(fd)
+    if new:
+        # The log's directory entry must be durable too, or the first OK can vanish.
+        dfd = os.open(data, os.O_RDONLY)
+        try:
+            os.fsync(dfd)
+        finally:
+            os.close(dfd)
+    return store, fd
+
+
+def append(fd, rec):
+    buf = (rec + "\n").encode()
+    while buf:
+        buf = buf[os.write(fd, buf):]
+    os.fsync(fd)
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) != 2 or args[0] != "--data":
+        print("usage: run --data <dir>", file=sys.stderr)
+        return 2
+    store, fd = load(args[1])
+    out = sys.stdout
+    for raw in iter(sys.stdin.buffer.readline, b""):
+        parts = raw.decode().split()
+        if not parts:
+            continue
+        cmd = parts[0]
+        if cmd == "SET" and len(parts) == 3:
+            append(fd, f"S {parts[1]} {parts[2]}")
+            store[parts[1]] = parts[2]
+            reply = "OK"
+        elif cmd == "DEL" and len(parts) == 2:
+            append(fd, f"D {parts[1]}")
+            store.pop(parts[1], None)
+            reply = "OK"
+        elif cmd == "GET" and len(parts) == 2:
+            reply = f"VAL {store[parts[1]]}" if parts[1] in store else "NIL"
+        elif cmd == "SCAN" and len(parts) == 2:
+            reply = " ".join(["KEYS", *sorted(k for k in store if k.startswith(parts[1]))])
+        else:
+            reply = "ERR"
+        out.write(reply + "\n")
+        out.flush()
+    os.close(fd)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
