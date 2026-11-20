@@ -1,0 +1,9 @@
+[
+  {"name": "single-line",      "in": "hello world\n",        "out": "HELLO WORLD\n"},
+  {"name": "mixed-and-digits", "in": "MiXeD 123 !?\n",       "out": "MIXED 123 !?\n"},
+  {"name": "multi-line",       "in": "abc\ndef\nghi\n",      "out": "ABC\nDEF\nGHI\n"},
+  {"name": "empty",            "in": "",                     "out": ""},
+  {"name": "no-final-newline", "in": "tail",                 "out": "TAIL"},
+  {"name": "already-upper",    "in": "ALREADY_UPPER-z\tq\n", "out": "ALREADY_UPPER-Z\tQ\n"},
+  {"name": "non-ascii",        "in": "café ü\n",   "out": "CAFé ü\n"}
+]

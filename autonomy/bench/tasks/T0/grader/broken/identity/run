@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Broken T0: echoes the input without uppercasing it.
+exec cat

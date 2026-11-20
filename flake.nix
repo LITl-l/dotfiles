@@ -289,6 +289,25 @@
                   echo "claude-config-integrity: every hook command resolves to a declared, executable file"
                   touch "$out"
                 '';
+
+              # The bench selftest drives fixtures through the real run -> grade ->
+              # record -> report path. It needs only the bench's own runtime, not
+              # the agent toolchains in devShells.bench, so the check stays cheap.
+              # patchShebangs: the sandbox has no /usr/bin/env, and the graders exec
+              # each solution's `./run` directly, as they would an agent's.
+              bench-selftest = pkgs.runCommand "bench-selftest"
+                {
+                  src = ./autonomy;
+                  nativeBuildInputs = [ pkgs.jq pkgs.util-linux ];
+                } ''
+                mkdir source
+                cp -R "$src" source/autonomy
+                chmod -R u+w source
+                patchShebangs source/autonomy
+                cd source
+                bash autonomy/bench/selftest
+                touch "$out"
+              '';
             } else { };
         in
         {
@@ -1058,6 +1077,29 @@
               nixpkgs-fmt
               nil # Nix LSP
               pkgs.home-manager
+            ];
+          };
+        } // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          # The only place the bench's verifiers and the agents' toolchains exist:
+          # no global python or node (autonomy bench design D12).
+          bench = pkgs.mkShell {
+            name = "autonomy-bench";
+            packages = with pkgs; [
+              jq
+              z3
+              hyperfine
+              bubblewrap
+              coreutils
+              util-linux
+              (python3.withPackages (p: [ p.z3-solver p.pyyaml p.jsonschema p.hypothesis ]))
+              go
+              rustc
+              cargo
+              nodejs
+              gcc
+              llama-cpp
+              # Not in the plan's list, but WP6 must read `pi --help` through this shell.
+              pi-coding-agent
             ];
           };
         });

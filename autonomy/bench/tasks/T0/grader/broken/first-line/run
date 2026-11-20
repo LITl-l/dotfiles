@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Broken T0: uppercases only the first line and passes the rest through unchanged.
+# It ships a DONE marker, so the selftest sees a confident-but-wrong agent (false_done).
+LC_ALL=C sed '1y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'
