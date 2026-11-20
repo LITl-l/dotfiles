@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "defaultMode": "auto",
+    "additionalDirectories": ["/home/nixos/wkspace", "/home/nixos/.config/dotfiles"],
+    "allow": [
+      "Bash(echo *)",
+      "Bash(echo)",
+      "Bash(find *)",
+      "Bash(find:*)",
+      "Bash(jq *)",
+      "Bash(jq:*)",
+      "Bash(ls *)",
+      "Bash(ls:*)",
+      "Bash(jj:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(jj git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(nix flake update:*)"
+    ]
+  }
+}
