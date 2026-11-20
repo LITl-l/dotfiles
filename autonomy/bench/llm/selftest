@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+# selftest — autonomy/bench/llm, fixture-only: no model download, no llama-server.
+#
+#   nix develop .#bench -c bash autonomy/bench/llm/selftest
+#
+# pi-run is driven end to end against stub-server.py. Its canned tool calls try to read
+# the T0 grader, reach the host network and list the repo from inside the sandbox; every
+# one must fail while a write into the workspace succeeds.
+set -uo pipefail
+
+LLM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BENCH="$(dirname "$LLM_DIR")"
+REPO="$(cd "$BENCH/../.." && pwd)"
+LLM="$LLM_DIR/llm"
+MODELS="$BENCH/models.json"
+GRADER="$BENCH/tasks/T0/grader/grade"
+MODEL=gemma-4-26b-a4b # the thinking:false candidate, so that path is exercised too
+
+pass=0 fail=0
+ok()     { pass=$((pass + 1)); printf 'ok   %s\n' "$1"; }
+not_ok() { fail=$((fail + 1)); printf 'FAIL %s\n' "$1"; }
+check()  { local d="$1"; shift; if "$@" > /dev/null; then ok "$d"; else not_ok "$d"; fi; }
+# exits CODE CMD… — the exact exit code, so a missing script (127) never passes a
+# rejection check.
+exits()  { local want="$1"; shift; "$@" > /dev/null 2>&1; [ $? -eq "$want" ]; }
+# failed FILE — FILE holds an exit code written by the probe, and it is not 0.
+failed() { [ -s "$1" ] && [ "$(cat "$1")" != 0 ]; }
+
+T="$(mktemp -d)"
+pids=()
+cleanup() {
+  local p
+  for p in "${pids[@]}"; do kill "$p" 2> /dev/null; done
+  wait 2> /dev/null
+  rm -rf "$T"
+}
+trap cleanup EXIT
+
+free_port() {
+  python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])'
+}
+answers() { # answers PORT — does anything accept TCP connections there?
+  (exec 3<> "/dev/tcp/127.0.0.1/$1") 2> /dev/null
+}
+wait_port() {
+  local _
+  for _ in $(seq 100); do answers "$1" && return 0; sleep 0.1; done
+  return 1
+}
+start_stub() { # start_stub PORT MODEL SCENARIO LOG
+  python3 "$LLM_DIR/stub-server.py" --port "$1" --model "$2" --scenario "$3" --log "$4" \
+    2> /dev/null &
+  pids+=("$!")
+  wait_port "$1"
+}
+
+# --- 1. models.json -------------------------------------------------------------------
+
+check "models.json: is valid JSON" jq -e . "$MODELS"
+check "models.json: matches models.schema.json" python3 -c '
+import json, sys, jsonschema
+jsonschema.validate(json.load(open(sys.argv[1])), json.load(open(sys.argv[2])))' \
+  "$MODELS" "$LLM_DIR/models.schema.json"
+check "models.json: the 3 design-spec candidates, exactly" jq -e '
+  [.models[] | "\(.hf_repo):\(.quant)"] | sort == [
+    "prism-ml/Ternary-Bonsai-27B-gguf:Q2_0",
+    "unsloth/Qwen3.6-35B-A3B-GGUF:UD-IQ3_S",
+    "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ4_XS"]' "$MODELS"
+check "models.json: ids are unique" jq -e '[.models[].id] | length == (unique | length)' "$MODELS"
+check "models.json: every candidate has --jinja -c 32768 -fa on" jq -e '
+  all(.models[]; .server_flags | join(" ") | test("(^| )--jinja( |$)")
+    and test("(^| )-c 32768( |$)") and test("(^| )-fa on( |$)"))' "$MODELS"
+check "models.json: Gemma has thinking:false" jq -e '
+  .models[] | select(.hf_repo | test("gemma")) | .thinking == false' "$MODELS"
+check "models.json: tool_cpu_s note says it includes pi" jq -e '
+  .notes.tool_cpu_s | test("includes pi")' "$MODELS"
+# Non-vacuity: the schema check must reject a candidate that lost a required field.
+jq 'del(.models[2].thinking)' "$MODELS" > "$T/bad-models.json"
+check "models.schema.json: rejects a candidate without thinking" exits 1 python3 -c '
+import json, sys, jsonschema
+jsonschema.validate(json.load(open(sys.argv[1])), json.load(open(sys.argv[2])))' \
+  "$T/bad-models.json" "$LLM_DIR/models.schema.json"
+
+# --- 2. CLI contract (dry run: argv printed as JSON, nothing executed) ----------------
+
+check "llm: no subcommand is a usage error (exit 2)" exits 2 bash "$LLM"
+check "llm: unknown model is a usage error (exit 2)" exits 2 bash "$LLM" serve no-such-model --port 8081
+check "llm pi-run: missing arguments are a usage error (exit 2)" exits 2 bash "$LLM" pi-run "$T"
+check "llm pi-run: non-numeric timeout is a usage error (exit 2)" \
+  exits 2 bash "$LLM" pi-run "$T" "$MODEL" soon
+
+serve_argv="$(LLM_DRY_RUN=1 bash "$LLM" serve "$MODEL" --port 8081)"
+check "serve: runs llama-server -hf <repo>:<quant> offline on 127.0.0.1:8081" jq -e '
+  .[0] == "llama-server" and (join(" ") | test("-hf unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ4_XS")
+    and test("--offline") and test("--host 127.0.0.1") and test("--port 8081"))' <<< "$serve_argv"
+check "serve: passes the model's server flags and alias" jq -e '
+  join(" ") | test("--jinja -c 32768 -fa on") and test("--alias gemma-4-26b-a4b")' <<< "$serve_argv"
+check "serve: passes vendor sampling" jq -e '
+  join(" ") | test("--temp 1(\\.0)?( |$)") and test("--top-k 64( |$)") and test("--top-p 0.95")' \
+  <<< "$serve_argv"
+check "serve: thinking:false turns reasoning off" jq -e 'join(" ") | test("--reasoning off")' \
+  <<< "$serve_argv"
+check "serve: a thinking model keeps reasoning" jq -e 'join(" ") | test("--reasoning") | not' \
+  <<< "$(LLM_DRY_RUN=1 bash "$LLM" serve bonsai-27b --port 8081)"
+
+bench_argv="$(LLM_DRY_RUN=1 bash "$LLM" bench "$MODEL")"
+check "bench: runs llama-bench at -t 16 and -t 8" jq -se '
+  length == 2 and (map(join(" ")) | (.[0] | test("-t 16( |$)")) and (.[1] | test("-t 8( |$)")))' \
+  <<< "$bench_argv"
+check "bench: -p 512,4096 -n 128, jsonl output" jq -se '
+  all(.[]; .[0] == "llama-bench" and (join(" ") | test("-p 512,4096 -n 128") and test("-o jsonl")))' \
+  <<< "$bench_argv"
+check "fetch: downloads through llama-bench -hf" jq -e '
+  .[0] == "llama-bench" and (join(" ") | test("-hf unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ4_XS"))' \
+  <<< "$(LLM_DRY_RUN=1 bash "$LLM" fetch "$MODEL")"
+
+# --- 3. pi-run end to end against the stub --------------------------------------------
+
+check "control: the grader is readable outside the sandbox" test -r "$GRADER"
+check "control: the repo checkout is listable outside the sandbox" test -d "$REPO/autonomy"
+secret="$(grep -v '^#' "$GRADER" | grep -m1 -E '[a-z]{4}')" # a grader line to search for
+
+port="$(free_port)"
+mkdir -p "$T/ws"
+# The probe runs as one bash tool call inside the sandbox. Each attempt writes its exit
+# code into the workspace, and rw-ok proves the call really ran there.
+probe="cat '$GRADER' > leaked.txt 2> read.err; echo \$? > read.exit
+(exec 3<> /dev/tcp/127.0.0.1/$port) 2> /dev/null; echo \$? > net.exit
+ls '$REPO' > repo.ls 2>&1; echo \$? > repo.exit
+touch /run/pi-agent-src/bench-probe 2> /dev/null; echo \$? > agent.exit
+touch \"\$HOME/.pi/agent/bench-probe\" 2> /dev/null
+python3 -c 'import time
+t = time.process_time()
+while time.process_time() - t < 1.0: pass'
+echo ok > rw-ok"
+jq -n --arg probe "$probe" '[
+  {tool_calls: [{name: "bash", arguments: ({command: $probe} | tojson)}]},
+  {tool_calls: [{name: "bash", arguments: "{not json"}]},
+  {tool_calls: [{name: "bash", arguments: ({command: "true"} | tojson)}]},
+  {tool_calls: [{name: "bash", arguments: ({command: "true"} | tojson)}]},
+  {tool_calls: [{name: "bash", arguments: ({command: "true"} | tojson)}]},
+  {content: "Finished."}
+]' > "$T/scenario.json"
+
+# pi-run must start serve itself when nothing answers; the serve command is swapped for
+# a wrapper that starts the stub, so the start/stop path runs without llama-server.
+cat > "$T/serve-stub" <<EOF
+exec python3 '$LLM_DIR/stub-server.py' --port '$port' --model "\$1" \
+  --scenario '$T/scenario.json' --log '$T/requests.jsonl'
+EOF
+check "pi-run: nothing listens on the endpoint before the run" exits 1 answers "$port"
+out="$(BENCH_LLM_PORT="$port" BENCH_LLM_SERVE_CMD="$T/serve-stub" BENCH_LLM_LOAD_TIMEOUT=30 \
+  bash "$LLM" pi-run "$T/ws" "$MODEL" 120 2> "$T/pi-run.err")"
+rc=$?
+check "pi-run: exits 0 (rc=$rc)" test "$rc" -eq 0
+[ "$rc" -eq 0 ] || sed 's/^/  pi-run stderr: /' "$T/pi-run.err" | tail -n 20
+printf '  pi-run output: %s\n' "$out"
+jq -e '.exit == 0' <<< "$out" > /dev/null 2>&1 ||
+  sed 's/^/  sandbox stderr: /' "$T/ws.pi/stderr.txt" 2> /dev/null | tail -n 20
+check "pi-run: prints one JSON object with exactly the contract keys" jq -e '
+  keys == (["exit","timeout","wall_s","tool_cpu_s","malformed_tool_calls","loops"] | sort)' \
+  <<< "$out"
+check "pi-run: pi exited 0, no timeout" jq -e '.exit == 0 and .timeout == false' <<< "$out"
+check "pi-run: wall_s is a positive number" jq -e '.wall_s | type == "number" and . > 0' <<< "$out"
+# The probe burns 1 s of CPU in a tool call, so a figure below that means the tool's
+# process tree is not being counted.
+check "pi-run: tool_cpu_s counts the 1 s CPU burn in the tool call" jq -e '
+  .tool_cpu_s | type == "number" and . >= 1' <<< "$out"
+check "pi-run: counts the one malformed tool call" jq -e '.malformed_tool_calls == 1' <<< "$out"
+check "pi-run: counts the one loop (3 identical calls)" jq -e '.loops == 1' <<< "$out"
+check "pi-run: stopped the serve it started" exits 1 answers "$port"
+check "pi-run: pi talked to the endpoint (6 chat requests)" \
+  test "$({ wc -l < "$T/requests.jsonl"; } 2> /dev/null)" -eq 6
+# shellcheck disable=SC2016 # $m is a jq variable
+check "pi-run: requests name the model through the bench provider" \
+  jq -se --arg m "$MODEL" 'all(.[]; .model == $m)' "$T/requests.jsonl"
+check "pi-run: event log kept beside the workspace" test -s "$T/ws.pi/events.jsonl"
+
+check "sandbox: the tool call ran in the workspace, read-write" test -f "$T/ws/rw-ok"
+check "sandbox: reading the T0 grader failed" failed "$T/ws/read.exit"
+check "sandbox: nothing of the grader leaked into the workspace" \
+  exits 1 grep -rqF -- "$secret" "$T/ws"
+check "sandbox: nothing of the grader reached the model" \
+  exits 1 grep -qF -- "$secret" "$T/requests.jsonl"
+check "sandbox: the host loopback (stub port) is unreachable" failed "$T/ws/net.exit"
+check "sandbox: the repo checkout is not mounted" failed "$T/ws/repo.exit"
+if [ -d "$HOME/.pi/agent" ]; then
+  check "sandbox: the user's ~/.pi/agent is mounted read-only" failed "$T/ws/agent.exit"
+  check "sandbox: the probe file did not reach the real ~/.pi/agent" \
+    test ! -e "$HOME/.pi/agent/bench-probe"
+fi
+
+# --- 4. timeout and a mismatched endpoint ---------------------------------------------
+
+port2="$(free_port)"
+mkdir -p "$T/ws2"
+jq -n '[{tool_calls: [{name: "bash", arguments: ({command: "sleep 60"} | tojson)}]},
+        {content: "Finished."}]' > "$T/scenario-slow.json"
+start_stub "$port2" "$MODEL" "$T/scenario-slow.json" "$T/requests-slow.jsonl"
+out2="$(BENCH_LLM_PORT="$port2" bash "$LLM" pi-run "$T/ws2" "$MODEL" 5 2> "$T/pi-run2.err")"
+rc2=$?
+printf '  pi-run (timeout) output: %s\n' "$out2"
+check "timeout: pi-run still exits 0 and reports it (rc=$rc2)" test "$rc2" -eq 0
+check "timeout: timeout is true and exit non-zero" jq -e '.timeout == true and .exit != 0' <<< "$out2"
+check "timeout: the run was cut short" jq -e '.wall_s < 30' <<< "$out2"
+check "timeout: tool_cpu_s is still measured" jq -e '.tool_cpu_s | type == "number"' <<< "$out2"
+check "timeout: an already-running endpoint is used, not stopped" answers "$port2"
+
+port3="$(free_port)"
+start_stub "$port3" some-other-model "$T/scenario.json" "$T/requests-other.jsonl"
+check "pi-run: an endpoint serving another model is refused (exit 1)" \
+  exits 1 env BENCH_LLM_PORT="$port3" bash "$LLM" pi-run "$T/ws2" "$MODEL" 30
+check "pi-run: no chat request reached the wrong model" test ! -s "$T/requests-other.jsonl"
+
+printf 'selftest: %d passed, %d failed\n' "$pass" "$fail"
+[ "$fail" -eq 0 ]
