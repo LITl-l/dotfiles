@@ -5,7 +5,8 @@
 #   llm serve <id> [--port N] [ARG…]     llama-server in the foreground (default port 8081)
 #   llm bench <id>                       llama-bench at -t 16 and -t 8; JSON lines on stdout
 #   llm pi-run <ws> <id> <timeout_s>     pi non-interactive inside bwrap; one JSON line:
-#       {"exit":n,"timeout":bool,"wall_s":x,"tool_cpu_s":y,"malformed_tool_calls":n,"loops":n}
+#       {"exit":n,"timeout":bool,"wall_s":x,"tool_cpu_s":y,"malformed_tool_calls":n,"loops":n,
+#        "tokens":n,"prompt_tokens":n,"completion_tokens":n}
 #
 # Environment:
 #   BENCH_LLM_PORT          endpoint port on the host (default 8081)
@@ -27,7 +28,7 @@ INNER_PORT=8081 # what pi sees inside the sandbox, whatever the host port is
 
 die()  { printf 'llm: %s\n' "$*" >&2; exit 2; }
 fail() { printf 'llm: %s\n' "$*" >&2; exit 1; }
-usage() { sed -n '2,9s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2; exit 2; }
+usage() { sed -n '2,10s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2; exit 2; }
 
 model_entry() {
   jq -ce --arg id "$1" '.models[] | select(.id == $id)' "$MODELS" 2> /dev/null ||
@@ -132,6 +133,20 @@ COUNT_JQ='
             | if .run == 3 then .loops += 1 else . end)
         | .loops)
     } end'
+
+# Token totals over every assistant message pi finished. pi splits the server's
+# prompt_tokens into input + cacheRead (+ cacheWrite), so all three count as prompt:
+# llama-server's prompt cache would otherwise make a long run look cheap. All three
+# fields are null when no assistant message carried usage.
+# shellcheck disable=SC2016 # a jq program: $u is a jq variable
+TOKENS_JQ='
+  [inputs | fromjson? | objects
+    | select(.type == "message_end" and .message.role? == "assistant") | .message.usage
+    | objects] as $u
+  | if ($u | length) == 0 then {tokens: null, prompt_tokens: null, completion_tokens: null}
+    else ([$u[] | (.input // 0) + (.cacheRead // 0) + (.cacheWrite // 0)] | add) as $p
+      | ([$u[] | .output // 0] | add) as $c
+      | {tokens: ($p + $c), prompt_tokens: $p, completion_tokens: $c} end'
 
 cmd_pi_run() {
   [ $# -eq 3 ] || usage
@@ -252,9 +267,11 @@ cmd_pi_run() {
   fi
   counts="$(jq -Rnc "$COUNT_JQ" "$logdir/events.jsonl")" ||
     counts='{"malformed_tool_calls":null,"loops":null}'
+  tokens="$(jq -Rnc "$TOKENS_JQ" "$logdir/events.jsonl")" ||
+    tokens='{"tokens":null,"prompt_tokens":null,"completion_tokens":null}'
   jq -cn --argjson exit "$rc" --argjson timeout "$timed_out" --argjson wall "$wall" \
-    --argjson cpu "$cpu" --argjson counts "$counts" \
-    '{exit: $exit, timeout: $timeout, wall_s: $wall, tool_cpu_s: $cpu} + $counts'
+    --argjson cpu "$cpu" --argjson counts "$counts" --argjson tokens "$tokens" \
+    '{exit: $exit, timeout: $timeout, wall_s: $wall, tool_cpu_s: $cpu} + $counts + $tokens'
 }
 
 pi_run_cleanup() {

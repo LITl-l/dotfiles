@@ -162,8 +162,12 @@ printf '  pi-run output: %s\n' "$out"
 jq -e '.exit == 0' <<< "$out" > /dev/null 2>&1 ||
   sed 's/^/  sandbox stderr: /' "$T/ws.pi/stderr.txt" 2> /dev/null | tail -n 20
 check "pi-run: prints one JSON object with exactly the contract keys" jq -e '
-  keys == (["exit","timeout","wall_s","tool_cpu_s","malformed_tool_calls","loops"] | sort)' \
+  keys == (["exit","timeout","wall_s","tool_cpu_s","malformed_tool_calls","loops",
+            "tokens","prompt_tokens","completion_tokens"] | sort)' \
   <<< "$out"
+# The stub answers every chat request with usage 10 prompt / 5 completion tokens.
+check "pi-run: sums the endpoint's usage over its 6 requests (60 + 30 tokens)" jq -e '
+  .prompt_tokens == 60 and .completion_tokens == 30 and .tokens == 90' <<< "$out"
 check "pi-run: pi exited 0, no timeout" jq -e '.exit == 0 and .timeout == false' <<< "$out"
 check "pi-run: wall_s is a positive number" jq -e '.wall_s | type == "number" and . > 0' <<< "$out"
 # The probe burns 1 s of CPU in a tool call, so a figure below that means the tool's
