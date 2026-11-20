@@ -18,7 +18,6 @@
       "Bash(printf:*)",
       "Bash(diff:*)",
       "Bash(cmp:*)",
-      "Bash(grep:*)",
       "Bash(jq:*)",
       "Bash(python3:*)",
       "Bash(node:*)",
@@ -36,6 +35,12 @@
       "Edit(/@ROOT@/**/autonomy/**/grader/**)",
       "Bash(*autonomy*grader*)",
       "Bash(*grader*autonomy*)",
+      "Bash(*grader*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(egrep:*)",
+      "Bash(fgrep:*)",
+      "Bash(find:*)",
       "WebFetch",
       "WebSearch"
     ]

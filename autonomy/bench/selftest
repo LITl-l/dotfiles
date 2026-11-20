@@ -67,6 +67,11 @@ check "run: bench settings.json is valid JSON" exits 0 jq -e . "$ws/.claude/sett
 check "run: bench settings deny reading grader paths" \
   exits 0 jq -e '[.permissions.deny[] | select(test("^Read\\(.*grader"))] | length >= 2' \
   "$ws/.claude/settings.json"
+check "run: bench settings deny the cd-relative and recursive grader reads permcheck found" \
+  exits 0 jq -e '.permissions.deny as $d
+    | ["Bash(*grader*)","Bash(rg:*)","Bash(grep:*)","Bash(egrep:*)","Bash(fgrep:*)","Bash(find:*)"]
+    | all(. as $r | $d | index($r))' \
+  "$ws/.claude/settings.json"
 check "run: no @ROOT@ placeholder survives into the bench settings" \
   exits 1 grep -q '@ROOT@' "$ws/.claude/settings.json"
 
