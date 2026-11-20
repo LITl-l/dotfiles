@@ -101,10 +101,13 @@ Rules that exist because they were measured, not assumed:
 - **A worker cannot answer a permission prompt, so no gated action can be part of its
   termination condition.** One worker ran 37 tool calls clean — `nix flake check` exit 0,
   every file written — then blocked forever launching the PR, on a done-condition that
-  was unsatisfiable by construction. Two cases prompt, and only the first is named in the
-  config: a `permissions.ask` match (`jj git push`, `gh pr create`, `gh pr merge`,
-  `git push`, `nix flake update`), and — the case that keeps surprising people — a
-  command matching no `allow` pattern at all (`gh pr edit`, `cp`, `mv`). Workers
+  was unsatisfiable by construction. Three cases prompt, and only the first is named in
+  the config: a `permissions.ask` match (`jj git push`, `gh pr create`, `gh pr merge`,
+  `git push`, `nix flake update`); a command matching no `allow` pattern at all
+  (`gh pr edit`; under `acceptEdits` a `cp` inside the cwd ran unprompted, observed
+  once); and — the case that keeps surprising people — an allowlisted command whose path
+  argument lies outside the session's directories (cwd + `additionalDirectories`), e.g.
+  `find /home/nixos/.cache` (measured 2026-11-20, see the staging bullet below). Workers
   terminate at "change described, result file written"; the orchestrator runs every gated
   step where a human can approve. Widening the allowlist is not the fix — the gate exists
   so a human approves pushes. (`home-manager switch` is allowlisted and does not prompt.)
@@ -129,15 +132,21 @@ Rules that exist because they were measured, not assumed:
   `advisor`" line; `--advisor`, `/advisor` or restoring the setting would reopen it.
 - **Staging under `wkspace` is necessary but not sufficient — and a few tool calls do
   not need a fleet worker at all.** The second worker, dispatched with `advisor`
-  explicitly forbidden in its spec, blocked anyway: during an orientation *read* of
-  paths that `permissions.additionalDirectories` already covers (`/home/nixos/wkspace`,
-  `/home/nixos/.config/dotfiles`), again before writing anything. That cause is still
-  unpinned, so it is a second data point that the `/tmp`-vs-`wkspace` mechanism above is
-  incompletely understood. The rule that follows is about sizing, not paths: for a task
-  of a few tool calls, dispatch an in-process `Agent` instead. It runs under this
-  session's permissions, so a prompt reaches the human instead of deadlocking. The same
-  spec that killed two background workers was executed by an in-process subagent in 19
-  tool calls. Reserve `fleet` for work long enough that staying available matters.
+  explicitly forbidden in its spec, blocked anyway during an orientation read, before
+  writing anything, although its task paths were all under `additionalDirectories`
+  (`/home/nixos/wkspace`, `/home/nixos/.config/dotfiles`). Cause, measured
+  2026-11-20 (`fleet spawn`, `acceptEdits`, one sample each): Bash on a path outside cwd
+  and `additionalDirectories` prompts even when the command is allowlisted — `find
+  /home/nixos/.cache -maxdepth 1 -type d` blocked while the same `find` on
+  `/home/nixos/wkspace/autonomy` ran, and two workers that day died on `find
+  ~/.claude/plugins/cache/...` and `find ~/.cache/llama.cpp ...` right after a `Read` of
+  the same tree had succeeded. The `Read` tool did not prompt; Bash did. Top-level shell
+  expansion (`echo "home=${HOME}"`) also blocked. The rule that follows is about sizing,
+  not paths: for a task of a few tool calls, dispatch an in-process `Agent` instead. It
+  runs under this session's permissions, so a prompt reaches the human instead of
+  deadlocking. The same spec that killed two background workers was executed by an
+  in-process subagent in 19 tool calls. Reserve `fleet` for work long enough that
+  staying available matters.
 - **`jj git fetch` does not move `@`, and `home-manager switch` will build the stale
   working copy and still exit 0.** After fetching two merged PRs the bookmarks had
   advanced but `@`'s parent was still the pre-merge commit; `home-manager switch --flake
