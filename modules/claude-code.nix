@@ -36,6 +36,19 @@ in
       executable = true;
       text = builtins.readFile ../scripts/fleet;
     })
+    # `fleet-spawn-guard` is what makes "one project, one live worker" a rule rather
+    # than a hope -- `fleet spawn` refuses a directory where a worker session is already
+    # working. It guards that one path; it does not stop a shell command or an editor in
+    # the same checkout. A separate executable so it is testable without dispatching
+    # anything. It must be on PATH for the same reason fleet is: fleet looks for it
+    # beside itself first, which only finds it in a checkout, and falls back to PATH,
+    # which is where the store copy lands.
+    (pkgs.writeTextFile {
+      name = "fleet-spawn-guard";
+      destination = "/bin/fleet-spawn-guard";
+      executable = true;
+      text = builtins.readFile ../scripts/fleet-spawn-guard;
+    })
     # `claude-corpus` reports what of this config actually fires. Installed the same way
     # and for the same reasons as fleet above. It finds the hooks and settings.json it
     # measures relative to its own path, so the store copy reads the LIVE ~/.claude while
