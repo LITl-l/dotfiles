@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# permcheck selftest: every verdict is pinned to a fixture, and every rejection is
+# pinned to an exact exit code and a witness, so a missing or crashing permcheck
+# cannot pass a negative case.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../../.." && pwd)"
+FX="$HERE/fixtures"
+PROTECTED='**/autonomy/**/grader/**'
+failures=0
+
+out="" code=0
+pc() {
+  out="$(bash "$HERE/permcheck" "$@")"
+  code=$?
+}
+
+# expect <name> <exit code> <jq predicate over the output line>
+expect() {
+  local name="$1" want="$2" pred="$3"
+  if [ "$code" -ne "$want" ]; then
+    echo "FAIL $name: exit $code, want $want; output: $out"
+    failures=$((failures + 1))
+  elif ! jq -e "$pred" <<<"$out" > /dev/null 2>&1; then
+    echo "FAIL $name: predicate $pred; output: $out"
+    failures=$((failures + 1))
+  else
+    echo "ok   $name"
+  fi
+}
+
+shape='(keys == ["model_coverage","ok","violations"]) and (.model_coverage | index("simple") and index("prefix:*") and index("pipe") and index("&&"))'
+reads='[.violations[] | select(.kind == "reads_protected")]'
+prompts='[.violations[] | select(.kind == "done_prompts")]'
+unverified='[.violations[] | select(.kind == "unverified")]'
+
+# 1. Clean settings: nothing reads the grader, the done-cmd runs unprompted.
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'test -f DONE'
+expect "clean settings -> ok=true" 0 "$shape and .ok == true and .violations == []"
+
+# 2. cat:* allowed and the grader not denied to Bash.
+pc --settings "$FX/user.json" --project "$FX/project-no-bash-deny.json" \
+  --protected "$PROTECTED" --done-cmd 'test -f DONE'
+expect "cat:* with no grader deny -> cat witness" 1 \
+  "$shape and .ok == false and ($reads | any(.rule == \"Bash(cat:*)\" and (.witness | startswith(\"cat \") and test(\"autonomy/(.*/)?grader/\")))) and $prompts == []"
+
+# 3. done-cmd that matches no allow rule.
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'gh pr edit 1'
+expect "done-cmd 'gh pr edit 1' -> no allow" 1 \
+  ".ok == false and $reads == [] and ($prompts | length == 1 and .[0].witness == \"gh pr edit 1\" and .[0].rule == \"<no allow rule>\")"
+
+# 4. done-cmd that matches ask, although jj:* allows it.
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'jj git push'
+expect "done-cmd 'jj git push' -> ask" 1 \
+  ".ok == false and ($prompts | length == 1 and .[0].witness == \"jj git push\" and .[0].rule == \"Bash(jj git push:*)\")"
+
+# 5. Every segment of a compound done-cmd must be allowed.
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'test -f DONE && jj git push --allow-new'
+expect "compound done-cmd -> offending segment" 1 \
+  ".ok == false and ($prompts | length == 1 and .[0].witness == \"jj git push --allow-new\")"
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'test -f DONE && cat DONE | head -1; echo done || echo no'
+expect "compound done-cmd, all segments allowed -> ok" 0 ".ok == true"
+
+# 6. Shell forms outside the model are unverified, never ok.
+# shellcheck disable=SC2016  # the substitution must reach permcheck unexpanded
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'test -f $(cat name)'
+expect "command substitution -> unverified" 1 \
+  ".ok == false and ($unverified | length == 1 and .[0].witness == \"test -f \$(cat name)\")"
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'echo x > DONE'
+expect "redirection -> unverified" 1 ".ok == false and ($unverified | length == 1)"
+
+# 7. A verdict that depends on unknown matcher behaviour is unverified, not guessed:
+#    whether Bash(ls *) matches a bare 'ls' is not pinned down.
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'ls'
+expect "bare 'ls' against Bash(ls *) -> unverified" 1 \
+  ".ok == false and ($unverified | length == 1 and .[0].witness == \"ls\" and .[0].rule == \"Bash(ls *)\")"
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --done-cmd 'cat'
+expect "bare 'cat' against Bash(cat:*) -> allowed" 0 ".ok == true"
+
+# 8. A substring deny on the whole path misses a cd into the tree.
+pc --settings "$FX/user.json" --project "$FX/project-substring-deny.json" \
+  --protected "$PROTECTED"
+expect "substring deny -> cd-relative witness" 1 \
+  ".ok == false and ($reads | any(.witness | test(\"^cd [^ ]*autonomy[^ ]* && \")))"
+
+# 9. A recursive reader pointed at an ancestor of the grader.
+pc --settings "$FX/user-rg.json" --project "$FX/project-substring-deny.json" \
+  --protected "$PROTECTED"
+expect "rg:* -> recursive witness" 1 \
+  ".ok == false and ($reads | any(.rule == \"Bash(rg:*)\" and (.witness | startswith(\"rg \") and (test(\"grader\") | not))))"
+
+# 10. Without a Read deny, the built-in Read tool reaches the grader.
+pc --settings "$FX/user.json" --project "$FX/project-no-read-deny.json" \
+  --protected "$PROTECTED"
+expect "no Read deny -> Read witness" 1 \
+  ".ok == false and ($reads | any(.witness | startswith(\"Read(\") and test(\"/grader/\")))"
+
+# 11. Several roots: the Read deny must hold under each expansion of @ROOT@.
+pc --settings "$FX/user.json" --project "$FX/project-clean.json" \
+  --protected "$PROTECTED" --root /home/u/repo --root /home/u/wt
+expect "clean settings, two roots -> ok=true" 0 ".ok == true"
+
+# 12. Usage errors are exit 2 and print no verdict.
+pc --settings "$FX/user.json" --protected "$PROTECTED"
+if [ "$code" -eq 2 ] && [ -z "$out" ]; then echo "ok   missing --project -> exit 2"
+else echo "FAIL missing --project: exit $code, output: $out"; failures=$((failures + 1)); fi
+pc --settings "$FX/nonexistent.json" --project "$FX/project-clean.json" --protected "$PROTECTED"
+if [ "$code" -eq 2 ] && [ -z "$out" ]; then echo "ok   unreadable settings -> exit 2"
+else echo "FAIL unreadable settings: exit $code, output: $out"; failures=$((failures + 1)); fi
+
+# 13. The real inputs, in the shape orchestrator step O3 uses: a verdict, not a crash.
+pc --settings "$REPO/claude/settings.json" --project "$REPO/autonomy/bench/settings.template.json" \
+  --protected "$PROTECTED" --done-cmd 'test -f DONE'
+if [ "$code" -eq 0 ] || [ "$code" -eq 1 ]; then expect "real settings, O3 shape -> verdict" "$code" "$shape and $prompts == []"
+else echo "FAIL real settings: exit $code, output: $out"; failures=$((failures + 1)); fi
+
+# 14. The real user settings plus the template with the deny entries proposed in
+#     results/WP5.md are clean.
+pc --settings "$REPO/claude/settings.json" --project "$FX/template-proposed.json" \
+  --protected "$PROTECTED" --done-cmd 'test -f DONE'
+expect "real settings + proposed denies -> ok=true" 0 ".ok == true"
+
+if [ "$failures" -ne 0 ]; then
+  echo "permcheck selftest: $failures failure(s)"
+  exit 1
+fi
+echo "permcheck selftest: all passed"
