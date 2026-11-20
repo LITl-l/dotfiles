@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# The reference solution's own tests: they exercise $BENCH_TARGET, never ./run directly,
+# so the grader can point them at a broken implementation and measure the kill rate.
+set -u
+target="${BENCH_TARGET:?BENCH_TARGET must point at a ./run}"
+fail=0
+
+expect() { # expect <name> <order json> <want json>
+  local got
+  got="$(printf '%s\n' "$2" | "$target")"
+  if [ "$got" != "$3" ]; then
+    printf 'FAIL %s: got %s, want %s\n' "$1" "$got" "$3" >&2
+    fail=1
+  fi
+}
+
+expect spec-example     '{"tier": "gold", "qty": 12, "unit_price": 250, "coupon": "PCT10", "day": "sat"}'  '{"price": 2250}'
+expect no-coupon-null   '{"tier": "standard", "qty": 1, "unit_price": 100, "coupon": null, "day": "mon"}'  '{"price": 100}'
+expect no-coupon-absent '{"tier": "standard", "qty": 1, "unit_price": 100, "day": "mon"}'                  '{"price": 100}'
+expect cap-25           '{"tier": "gold", "qty": 50, "unit_price": 100, "coupon": "PCT10", "day": "sat"}'  '{"price": 3750}'
+expect volume-at-10     '{"tier": "standard", "qty": 10, "unit_price": 100, "coupon": null, "day": "mon"}' '{"price": 950}'
+expect volume-at-50     '{"tier": "standard", "qty": 50, "unit_price": 100, "coupon": null, "day": "fri"}' '{"price": 4500}'
+expect round-down       '{"tier": "standard", "qty": 9, "unit_price": 1999, "coupon": "PCT10", "day": "mon"}' '{"price": 16191}'
+expect flat-floor-0     '{"tier": "standard", "qty": 10, "unit_price": 1, "coupon": "FLAT500", "day": "mon"}' '{"price": 0}'
+expect flat-500         '{"tier": "silver", "qty": 10, "unit_price": 100, "coupon": "FLAT500", "day": "tue"}' '{"price": 400}'
+expect bogo-odd         '{"tier": "silver", "qty": 5, "unit_price": 100, "coupon": "BOGO", "day": "wed"}' '{"price": 285}'
+expect bogo-no-volume   '{"tier": "standard", "qty": 20, "unit_price": 100, "coupon": "BOGO", "day": "thu"}' '{"price": 1000}'
+expect bogo-weekend     '{"tier": "silver", "qty": 2, "unit_price": 100, "coupon": "BOGO", "day": "sun"}' '{"error": "coupon_not_applicable"}'
+expect flat-under-10    '{"tier": "gold", "qty": 9, "unit_price": 100, "coupon": "FLAT500", "day": "mon"}' '{"error": "coupon_not_applicable"}'
+expect tier-case        '{"tier": "Gold", "qty": 0, "unit_price": 100, "coupon": "X", "day": "mon"}'     '{"error": "invalid_tier"}'
+expect qty-before-coupon '{"tier": "standard", "qty": 0, "unit_price": 100, "coupon": "X", "day": "mon"}' '{"error": "invalid_quantity"}'
+expect qty-limit        '{"tier": "gold", "qty": 101, "unit_price": 100, "coupon": null, "day": "mon"}'  '{"error": "quantity_limit"}'
+expect coupon-case      '{"tier": "gold", "qty": 1, "unit_price": 100, "coupon": "bogo", "day": "mon"}'  '{"error": "invalid_coupon"}'
+
+exit "$fail"

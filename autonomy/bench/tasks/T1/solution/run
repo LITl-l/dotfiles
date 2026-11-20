@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""T1 reference: order pricing (see ../skeleton/SPEC.md).
+
+Each rule is its own module-level function, looked up at call time, so a broken
+variant under ../grader/broken/ can load this file and replace exactly one rule.
+"""
+import json
+import sys
+
+TIERS = {"standard", "silver", "gold"}
+COUPONS = {"PCT10", "FLAT500", "BOGO"}
+WEEKEND = {"sat", "sun"}
+CAP = 25
+FLAT_OFF = 500
+
+
+def check_tier(o):
+    return None if o["tier"] in TIERS else "invalid_tier"
+
+
+def check_qty(o):
+    if o["qty"] < 1:
+        return "invalid_quantity"
+    return "quantity_limit" if o["qty"] > 100 else None
+
+
+def check_coupon_known(o):
+    c = o.get("coupon")
+    return None if c is None or c in COUPONS else "invalid_coupon"
+
+
+def coupon_applicable(coupon, qty, weekend):
+    if coupon == "FLAT500":
+        return qty >= 10
+    if coupon == "BOGO":
+        return not weekend
+    return True
+
+
+def check_coupon_applicable(o):
+    ok = coupon_applicable(o.get("coupon"), o["qty"], o["day"] in WEEKEND)
+    return None if ok else "coupon_not_applicable"
+
+
+CHECKS = [check_tier, check_qty, check_coupon_known, check_coupon_applicable]
+
+
+def validate(o):
+    for check in CHECKS:
+        err = check(o)
+        if err:
+            return err
+    return None
+
+
+def charged_units(qty, coupon):
+    return (qty + 1) // 2 if coupon == "BOGO" else qty
+
+
+def volume_pct(qty, coupon):
+    if coupon == "BOGO":
+        return 0
+    if qty >= 50:
+        return 10
+    return 5 if qty >= 10 else 0
+
+
+def member_pct(tier, weekend):
+    if tier == "gold":
+        return 15 if weekend else 10
+    return 5 if tier == "silver" else 0
+
+
+def coupon_pct(coupon):
+    return 10 if coupon == "PCT10" else 0
+
+
+def cap(pct):
+    return min(pct, CAP)
+
+
+def apply_pct(amount, pct):
+    return amount * (100 - pct) // 100
+
+
+def apply_flat(amount, coupon):
+    return max(0, amount - FLAT_OFF) if coupon == "FLAT500" else amount
+
+
+def price(o):
+    coupon, qty = o.get("coupon"), o["qty"]
+    weekend = o["day"] in WEEKEND
+    pct = cap(volume_pct(qty, coupon) + member_pct(o["tier"], weekend) + coupon_pct(coupon))
+    amount = apply_pct(charged_units(qty, coupon) * o["unit_price"], pct)
+    return apply_flat(amount, coupon)
+
+
+def handle(o):
+    err = validate(o)
+    return {"error": err} if err else {"price": price(o)}
+
+
+def main():
+    for line in sys.stdin:
+        if line.strip():
+            sys.stdout.write(json.dumps(handle(json.loads(line))) + "\n")
+
+
+if __name__ == "__main__":
+    main()

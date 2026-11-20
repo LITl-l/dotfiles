@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""build-vectors <trs generated/vectors.json> <out vectors.json>
+
+Turns each trs vector (factor levels -> decision outcomes) into concrete hidden cases:
+every quantity band at both of its edges, times several unit prices. The decisions come
+from trs.yaml alone; only the integer arithmetic of SPEC.md "Pricing" is done here.
+Deterministic: the same input always gives byte-identical output.
+"""
+import json
+import sys
+
+QTY_EDGES = {"le0": [-1, 0], "q1_9": [1, 9], "q10_49": [10, 49], "q50_100": [50, 100], "gt100": [101, 1000]}
+# 1 drives FLAT500 below zero; 333 and 1999 leave remainders, so rounding mistakes show.
+UNIT_PRICES = [1, 333, 1999]
+ABSENT = object()
+TIER = {"unknown": ["platinum", "Gold", ""]}
+COUPON = {"none": [None, ABSENT], "unknown": ["SAVE99", "pct10", "bogo"]}
+DAY = {"weekday": ["mon", "tue", "wed", "thu", "fri"], "weekend": ["sat", "sun"]}
+
+
+def pick(table, level, k):
+    choices = table.get(level, [level])
+    return choices[k % len(choices)]
+
+
+def expect(out, qty, unit_price):
+    if out["result"] != "price":
+        return {"error": out["result"]}
+    units = (qty + 1) // 2 if out["mode"] == "bogo" else qty
+    amount = units * unit_price * (100 - int(out["pct"])) // 100
+    return {"price": max(0, amount - int(out["flat"]))}
+
+
+def main(src, dst):
+    doc = json.load(open(src, encoding="utf-8"))
+    cases, k = [], 0
+    for v in doc["vectors"]:
+        lv = v["inputs"]
+        for qty in QTY_EDGES[lv["qty"]]:
+            for unit_price in UNIT_PRICES:
+                order = {"tier": pick(TIER, lv["tier"], k), "qty": qty, "unit_price": unit_price}
+                coupon = pick(COUPON, lv["coupon"], k)
+                if coupon is not ABSENT:
+                    order["coupon"] = coupon
+                order["day"] = pick(DAY, lv["day"], k)
+                cases.append({"id": f"{v['id']}/q{qty}/p{unit_price}", "in": order,
+                              "out": expect(v["expect"], qty, unit_price)})
+                k += 1
+    with open(dst, "w", encoding="utf-8") as f:
+        f.write('{"format": "t1-cases/v1", "spec_sha256": %s, "cases": [\n' % json.dumps(doc["spec_sha256"]))
+        f.write(",\n".join(json.dumps(c, ensure_ascii=False) for c in cases))
+        f.write("\n]}\n")
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:3])

@@ -1,0 +1,265 @@
+# yaml-language-server: $schema=../../../../../claude/marketplaces/local/plugins/trs/skills/trs-spec/tool/src/trs/schema/trs.schema.json
+# T1 hidden decision table. The agent never sees this file; it reads skeleton/SPEC.md.
+# Outcomes are the decisions only (which error, which discount %, BOGO, flat 500); the
+# integer arithmetic that turns them into a price lives in build-vectors.
+schema: trs/v2
+id: T1
+title: order pricing
+
+sources:
+  - {id: SRC-1, kind: 仕様書, ref: "autonomy/bench/tasks/T1/skeleton/SPEC.md", rev: "2026-11-20"}
+
+factors:
+  - {id: tier, label: membership tier, levels: [standard, silver, gold, unknown], status: fixed, basis: ["SRC-1 Orders"]}
+  - {id: qty, label: quantity band, levels: [le0, q1_9, q10_49, q50_100, gt100], status: fixed, basis: ["SRC-1 Rejected orders, Pricing 2"]}
+  - {id: coupon, label: coupon, levels: [none, PCT10, FLAT500, BOGO, unknown], status: fixed, basis: ["SRC-1 Orders"]}
+  - {id: day, label: day kind, levels: [weekday, weekend], status: fixed, basis: ["SRC-1 Orders"]}
+
+outcomes:
+  - {id: result, label: result, levels: [price, invalid_tier, invalid_quantity, quantity_limit, invalid_coupon, coupon_not_applicable]}
+  - {id: pct, label: discount percentage after the cap, levels: ["0", "5", "10", "15", "20", "25", "na"]}
+  - {id: mode, label: charged items, levels: [full, bogo, na]}
+  - {id: flat, label: flat amount off, levels: ["0", "500", "na"]}
+
+rules:
+  - id: R-01
+    ears: unwanted
+    text: If the tier is not valid, the system shall reject the order with invalid_tier.
+    expr: 'tier == "unknown" => result == "invalid_tier"'
+    basis: ["SRC-1 Rejected orders 1"]
+  - id: R-02
+    ears: unwanted
+    text: If the tier is valid and the quantity is below 1, the system shall reject the order with invalid_quantity.
+    expr: 'tier != "unknown" && qty == "le0" => result == "invalid_quantity"'
+    basis: ["SRC-1 Rejected orders 2"]
+  - id: R-03
+    ears: unwanted
+    text: If the tier is valid and the quantity is above 100, the system shall reject the order with quantity_limit.
+    expr: 'tier != "unknown" && qty == "gt100" => result == "quantity_limit"'
+    basis: ["SRC-1 Rejected orders 3"]
+  - id: R-04
+    ears: ubiquitous
+    text: The system shall attach no pricing decision to a rejected order.
+    expr: 'result != "price" => pct == "na" && mode == "na" && flat == "na"'
+    basis: ["SRC-1 Protocol"]
+  - id: R-05
+    ears: ubiquitous
+    text: The system shall make every pricing decision for a priced order.
+    expr: 'result == "price" => pct != "na" && mode != "na" && flat != "na"'
+    basis: ["SRC-1 Pricing"]
+  - id: R-06
+    ears: unwanted
+    text: If an otherwise valid order uses BOGO on the weekend, the system shall reject it with coupon_not_applicable.
+    expr: 'tier != "unknown" && qty in ["q1_9", "q10_49", "q50_100"] && coupon == "BOGO" && day == "weekend" => result == "coupon_not_applicable"'
+    basis: ["SRC-1 Rejected orders 6"]
+  - id: R-07
+    ears: event
+    text: When a BOGO order is priced, the system shall charge half the items and give no volume discount.
+    expr: 'coupon == "BOGO" && result == "price" => mode == "bogo" && pct in ["0", "5", "10"]'
+    basis: ["SRC-1 Pricing 1, Pricing 2"]
+  - id: R-08
+    ears: ubiquitous
+    text: The system shall charge half the items only for BOGO orders.
+    expr: 'coupon != "BOGO" => mode != "bogo"'
+    basis: ["SRC-1 Pricing 1"]
+  - id: R-09
+    ears: event
+    text: When a FLAT500 order is priced, the system shall take 500 cents off.
+    expr: 'coupon == "FLAT500" && result == "price" => flat == "500"'
+    basis: ["SRC-1 Pricing 4"]
+  - id: R-10
+    ears: ubiquitous
+    text: The system shall take a flat amount off only for FLAT500 orders.
+    expr: 'coupon != "FLAT500" => flat != "500"'
+    basis: ["SRC-1 Pricing 4"]
+  - id: R-11
+    ears: state
+    text: While the discount parts add up to 25 or more, the system shall apply exactly 25.
+    expr: 'tier == "gold" && day == "weekend" && qty == "q50_100" && coupon in ["none", "PCT10", "FLAT500"] => pct == "25"'
+    basis: ["SRC-1 Pricing 2"]
+
+stories:
+  - {id: US-01, as_a: shop customer, i_want: my order priced with every discount I qualify for, so_that: I pay what the published rules say}
+
+use_cases:
+  - id: UC-01
+    story: US-01
+    title: price one order
+    inputs: [tier, qty, coupon, day]
+    scope: {正常: あり, 準正常: あり, 例外: あり}
+    acs:
+      # --- rejected orders, in check order ---
+      - id: AC-例外例外-001
+        title: unknown tier is rejected first
+        then: ['{"error": "invalid_tier"}']
+        pre: 'tier == "unknown"'
+        post: {result: invalid_tier, pct: na, mode: na, flat: na}
+        coverage: all
+        basis: ["SRC-1 Rejected orders 1"]
+      - id: AC-例外例外-002
+        title: quantity below 1 is rejected
+        then: ['{"error": "invalid_quantity"}']
+        pre: 'tier != "unknown" && qty == "le0"'
+        post: {result: invalid_quantity, pct: na, mode: na, flat: na}
+        coverage: all
+        basis: ["SRC-1 Rejected orders 2"]
+      - id: AC-例外例外-003
+        title: quantity above 100 is rejected
+        then: ['{"error": "quantity_limit"}']
+        pre: 'tier != "unknown" && qty == "gt100"'
+        post: {result: quantity_limit, pct: na, mode: na, flat: na}
+        coverage: all
+        basis: ["SRC-1 Rejected orders 3"]
+      - id: AC-例外例外-004
+        title: unknown coupon is rejected
+        then: ['{"error": "invalid_coupon"}']
+        pre: 'tier != "unknown" && qty in ["q1_9", "q10_49", "q50_100"] && coupon == "unknown"'
+        post: {result: invalid_coupon, pct: na, mode: na, flat: na}
+        coverage: all
+        basis: ["SRC-1 Rejected orders 4"]
+      - id: AC-代替準正常-001
+        title: FLAT500 needs at least 10 items
+        then: ['{"error": "coupon_not_applicable"}']
+        pre: 'tier != "unknown" && qty == "q1_9" && coupon == "FLAT500"'
+        post: {result: coupon_not_applicable, pct: na, mode: na, flat: na}
+        coverage: all
+        basis: ["SRC-1 Rejected orders 5"]
+      - id: AC-代替準正常-002
+        title: BOGO is not accepted on the weekend
+        then: ['{"error": "coupon_not_applicable"}']
+        pre: 'tier != "unknown" && qty in ["q1_9", "q10_49", "q50_100"] && coupon == "BOGO" && day == "weekend"'
+        post: {result: coupon_not_applicable, pct: na, mode: na, flat: na}
+        coverage: all
+        basis: ["SRC-1 Rejected orders 6"]
+      # --- no coupon: volume + member ---
+      - id: AC-基本正常-001
+        title: no coupon, 0 percent
+        then: [all items charged at 0 percent off]
+        pre: 'coupon == "none" && tier == "standard" && qty == "q1_9"'
+        post: {result: price, pct: "0", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-基本正常-002
+        title: no coupon, 5 percent
+        then: [all items charged at 5 percent off]
+        pre: 'coupon == "none" && ((tier == "standard" && qty == "q10_49") || (tier == "silver" && qty == "q1_9"))'
+        post: {result: price, pct: "5", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-基本正常-003
+        title: no coupon, 10 percent
+        then: [all items charged at 10 percent off]
+        pre: 'coupon == "none" && ((tier == "standard" && qty == "q50_100") || (tier == "silver" && qty == "q10_49") || (tier == "gold" && day == "weekday" && qty == "q1_9"))'
+        post: {result: price, pct: "10", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-基本正常-004
+        title: no coupon, 15 percent
+        then: [all items charged at 15 percent off]
+        pre: 'coupon == "none" && ((tier == "silver" && qty == "q50_100") || (tier == "gold" && day == "weekday" && qty == "q10_49") || (tier == "gold" && day == "weekend" && qty == "q1_9"))'
+        post: {result: price, pct: "15", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-基本正常-005
+        title: no coupon, 20 percent
+        then: [all items charged at 20 percent off]
+        pre: 'coupon == "none" && tier == "gold" && ((day == "weekday" && qty == "q50_100") || (day == "weekend" && qty == "q10_49"))'
+        post: {result: price, pct: "20", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-基本正常-006
+        title: no coupon, 25 percent
+        then: [all items charged at 25 percent off]
+        pre: 'coupon == "none" && tier == "gold" && day == "weekend" && qty == "q50_100"'
+        post: {result: price, pct: "25", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      # --- FLAT500 (10 items or more): volume + member, then 500 off ---
+      - id: AC-代替正常-001
+        title: FLAT500, 5 percent
+        then: [5 percent off, then 500 cents off, not below 0]
+        pre: 'coupon == "FLAT500" && tier == "standard" && qty == "q10_49"'
+        post: {result: price, pct: "5", mode: full, flat: "500"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-002
+        title: FLAT500, 10 percent
+        then: [10 percent off, then 500 cents off, not below 0]
+        pre: 'coupon == "FLAT500" && ((tier == "standard" && qty == "q50_100") || (tier == "silver" && qty == "q10_49"))'
+        post: {result: price, pct: "10", mode: full, flat: "500"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-003
+        title: FLAT500, 15 percent
+        then: [15 percent off, then 500 cents off, not below 0]
+        pre: 'coupon == "FLAT500" && ((tier == "silver" && qty == "q50_100") || (tier == "gold" && day == "weekday" && qty == "q10_49"))'
+        post: {result: price, pct: "15", mode: full, flat: "500"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-004
+        title: FLAT500, 20 percent
+        then: [20 percent off, then 500 cents off, not below 0]
+        pre: 'coupon == "FLAT500" && tier == "gold" && ((day == "weekday" && qty == "q50_100") || (day == "weekend" && qty == "q10_49"))'
+        post: {result: price, pct: "20", mode: full, flat: "500"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-005
+        title: FLAT500, 25 percent
+        then: [25 percent off, then 500 cents off, not below 0]
+        pre: 'coupon == "FLAT500" && tier == "gold" && day == "weekend" && qty == "q50_100"'
+        post: {result: price, pct: "25", mode: full, flat: "500"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      # --- PCT10: volume + member + 10, capped at 25 ---
+      - id: AC-代替正常-006
+        title: PCT10, 10 percent
+        then: [10 percent off]
+        pre: 'coupon == "PCT10" && tier == "standard" && qty == "q1_9"'
+        post: {result: price, pct: "10", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-007
+        title: PCT10, 15 percent
+        then: [15 percent off]
+        pre: 'coupon == "PCT10" && ((tier == "standard" && qty == "q10_49") || (tier == "silver" && qty == "q1_9"))'
+        post: {result: price, pct: "15", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-008
+        title: PCT10, 20 percent
+        then: [20 percent off]
+        pre: 'coupon == "PCT10" && ((tier == "standard" && qty == "q50_100") || (tier == "silver" && qty == "q10_49") || (tier == "gold" && day == "weekday" && qty == "q1_9"))'
+        post: {result: price, pct: "20", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-009
+        title: PCT10 reaches or passes the 25 percent cap
+        then: [exactly 25 percent off]
+        pre: 'coupon == "PCT10" && ((tier == "silver" && qty == "q50_100") || (tier == "gold" && day == "weekday" && qty in ["q10_49", "q50_100"]) || (tier == "gold" && day == "weekend" && qty in ["q1_9", "q10_49", "q50_100"]))'
+        post: {result: price, pct: "25", mode: full, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      # --- BOGO (weekdays only): half the items, member discount only ---
+      - id: AC-代替正常-010
+        title: BOGO, standard
+        then: [half the items charged, rounded up, 0 percent off]
+        pre: 'coupon == "BOGO" && day == "weekday" && tier == "standard" && qty in ["q1_9", "q10_49", "q50_100"]'
+        post: {result: price, pct: "0", mode: bogo, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-011
+        title: BOGO, silver
+        then: [half the items charged, rounded up, 5 percent off]
+        pre: 'coupon == "BOGO" && day == "weekday" && tier == "silver" && qty in ["q1_9", "q10_49", "q50_100"]'
+        post: {result: price, pct: "5", mode: bogo, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+      - id: AC-代替正常-012
+        title: BOGO, gold
+        then: [half the items charged, rounded up, 10 percent off]
+        pre: 'coupon == "BOGO" && day == "weekday" && tier == "gold" && qty in ["q1_9", "q10_49", "q50_100"]'
+        post: {result: price, pct: "10", mode: bogo, flat: "0"}
+        coverage: all
+        basis: ["SRC-1 Pricing"]
+
+open_issues: []
