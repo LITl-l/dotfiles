@@ -9,6 +9,7 @@
 #
 # Environment:
 #   BENCH_LLM_PORT          endpoint port on the host (default 8081)
+#   BENCH_LLM_THREADS       llama-server -t for serve (default 8)
 #   BENCH_LLM_SERVE_CMD     script run as `bash <script> <id> --port N` instead of `llm serve`
 #   BENCH_LLM_LOAD_TIMEOUT  seconds pi-run waits for a server it started (default 900)
 #   BENCH_PI_PROMPT         prompt file for pi-run (default autonomy/bench/prompt.md)
@@ -53,9 +54,12 @@ cmd_fetch() {
 }
 
 serve_argv() { # serve_argv ENTRY PORT — one argv element per line
-  jq -r --arg port "$2" '
+  # -t is explicit because llama-server's default thread count is not pinned down, and
+  # it matters: Qwen3.6-35B-A3B tg128 is 8.63 t/s at -t 8 but 0.65 t/s at -t 16 on this
+  # host, unchanged by OPENBLAS_NUM_THREADS=1 (autonomy/results/O2-llama-bench*.md).
+  jq -r --arg port "$2" --arg threads "${BENCH_LLM_THREADS:-8}" '
     ["llama-server", "-hf", "\(.hf_repo):\(.quant)", "--offline",
-     "--host", "127.0.0.1", "--port", $port, "--alias", .id]
+     "--host", "127.0.0.1", "--port", $port, "--alias", .id, "-t", $threads]
     + .server_flags
     + ([.sampling | to_entries[] | ["--" + (.key | gsub("_"; "-")), (.value | tostring)]] | add // [])
     + (if .thinking == false then ["--reasoning", "off"] else [] end)

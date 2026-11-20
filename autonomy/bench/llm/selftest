@@ -100,6 +100,10 @@ check "serve: passes vendor sampling" jq -e '
   <<< "$serve_argv"
 check "serve: thinking:false turns reasoning off" jq -e 'join(" ") | test("--reasoning off")' \
   <<< "$serve_argv"
+check "serve: pins -t 8 by default" jq -e 'join(" ") | test("(^| )-t 8( |$)")' <<< "$serve_argv"
+check "serve: BENCH_LLM_THREADS overrides -t" jq -e '
+  join(" ") | test("(^| )-t 4( |$)") and (test("(^| )-t 8( |$)") | not)' \
+  <<< "$(BENCH_LLM_THREADS=4 LLM_DRY_RUN=1 bash "$LLM" serve "$MODEL" --port 8081)"
 check "serve: a thinking model keeps reasoning" jq -e 'join(" ") | test("--reasoning") | not' \
   <<< "$(LLM_DRY_RUN=1 bash "$LLM" serve bonsai-27b --port 8081)"
 
