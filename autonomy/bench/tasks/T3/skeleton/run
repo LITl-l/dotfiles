@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Log aggregator: per-key count, p50, p99, and the top-10 keys by count.
+
+Correct, and deliberately naive: every step uses the simplest loop that works. Distinct
+keys are found by a linear scan of a list, each key's values by a full pass over all
+records, and every ordering by a hand-written quadratic sort. The whole run is
+O(n * K + sum(m^2) + K^2) for n lines, K distinct keys and m values per key.
+"""
+import sys
+
+
+def insertion_sort(xs, before):
+    """Sort xs in place; before(a, b) is True when a must come before b."""
+    for i in range(1, len(xs)):
+        x = xs[i]
+        j = i - 1
+        while j >= 0 and before(x, xs[j]):
+            xs[j + 1] = xs[j]
+            j -= 1
+        xs[j + 1] = x
+
+
+def nearest_rank(sorted_values, pct):
+    """pct-th percentile, nearest-rank: v[ceil(pct * n / 100)], 1-based."""
+    n = len(sorted_values)
+    rank = (pct * n + 99) // 100
+    if rank < 1:
+        rank = 1
+    return sorted_values[rank - 1]
+
+
+def main():
+    records = []
+    for line in sys.stdin.read().split("\n"):
+        if line == "":
+            continue
+        key, value = line.split(" ")
+        records.append((key, int(value)))
+
+    keys = []
+    for key, _ in records:
+        if key not in keys:
+            keys.append(key)
+    insertion_sort(keys, lambda a, b: a < b)
+
+    stats = []
+    for key in keys:
+        values = []
+        for k, v in records:
+            if k == key:
+                values.append(v)
+        insertion_sort(values, lambda a, b: a < b)
+        stats.append((key, len(values), nearest_rank(values, 50), nearest_rank(values, 99)))
+
+    out = ["keys %d" % len(keys)]
+    for key, count, p50, p99 in stats:
+        out.append("%s %d %d %d" % (key, count, p50, p99))
+
+    ranked = list(stats)
+    insertion_sort(ranked, lambda a, b: a[1] > b[1] or (a[1] == b[1] and a[0] < b[0]))
+    top = ranked[:10]
+    out.append("top %d" % len(top))
+    for key, count, _, _ in top:
+        out.append("%s %d" % (key, count))
+
+    sys.stdout.write("\n".join(out) + "\n")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+"""Broken: fast, but ties in the top list keep first-appearance order, not key order."""
+import sys
+
+
+def main():
+    groups = {}
+    for line in sys.stdin.buffer.read().split(b"\n"):
+        if line:
+            key, value = line.split(b" ")
+            groups.setdefault(key, []).append(int(value))
+
+    out = ["keys %d" % len(groups)]
+    for key in sorted(groups):
+        values = sorted(groups[key])
+        n = len(values)
+        p50 = values[max(1, (50 * n + 99) // 100) - 1]
+        p99 = values[max(1, (99 * n + 99) // 100) - 1]
+        out.append("%s %d %d %d" % (key.decode(), n, p50, p99))
+
+    # dict order is first appearance; a stable sort on count alone keeps it for ties.
+    top = sorted(((k.decode(), len(v)) for k, v in groups.items()), key=lambda s: -s[1])[:10]
+    out.append("top %d" % len(top))
+    out.extend("%s %d" % s for s in top)
+    sys.stdout.write("\n".join(out) + "\n")
+
+
+if __name__ == "__main__":
+    main()
