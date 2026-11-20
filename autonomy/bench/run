@@ -128,11 +128,13 @@ case "$kind" in
     # tokens stays null: reading usage out of the transcript is not implemented yet.
     ;;
   pi)
-    llm="$BENCH/llm"; [ -d "$llm" ] && llm="$BENCH/llm/llm"
+    # BENCH_LLM lets the selftest swap in a stub adapter, so this branch runs without a model.
+    llm="${BENCH_LLM:-$BENCH/llm}"; [ -d "$llm" ] && llm="$llm/llm"
     [ -f "$llm" ] || fail "pi runs need the WP6 llm adapter ($llm)"
     out="$(bash "$llm" pi-run "$ws" "$model" "$tmo")" || fail "llm pi-run failed"
     timed_out="$(jq -r '.timeout == true' <<< "$out")" || fail "bad pi-run output: $out"
     tool_cpu="$(jq -c '.tool_cpu_s // null' <<< "$out")"
+    tokens="$(jq -c '.tokens // null' <<< "$out")"
     ;;
 esac
 end="$(date +%s.%N)"

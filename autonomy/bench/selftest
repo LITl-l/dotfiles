@@ -186,6 +186,16 @@ check "run: --parts a,b is recorded as [\"a\",\"b\"]" bash -c '
   bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 2 --parts P1,P2 --results "$2/parts.jsonl" > /dev/null 2>&1 \
     && jq -e ".harness_rev.parts == [\"P1\",\"P2\"] and .rep == 2" "$2/parts.jsonl" > /dev/null' _ "$BENCH" "$tmp"
 
+# A stub llm adapter stands in for `llm pi-run`, so the pi branch runs without a model.
+cat > "$tmp/llm-stub" <<'EOF'
+[ "$1" = pi-run ] || exit 1
+printf '%s\n' '{"timeout":false,"tool_cpu_s":1.5,"tokens":1234,"prompt_tokens":1000,"completion_tokens":234}'
+EOF
+check "run: pi carries pi-run's tokens into the row" bash -c '
+  BENCH_LLM="$2/llm-stub" bash "$1/run" --agent pi --model stub --timeout 60 --task T0 --rep 1 --parts none \
+    --results "$2/pi.jsonl" > /dev/null 2>&1 \
+    && jq -e ".tokens == 1234 and .tool_cpu_s == 1.5" "$2/pi.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+
 # ---------------------------------------------------------------- report
 if bash "$BENCH/report" --runs "$RESULTS" > "$tmp/report.md" 2> "$tmp/report.err"; then
   ok "report: renders without error"
