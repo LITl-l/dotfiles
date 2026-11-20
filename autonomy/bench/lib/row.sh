@@ -1,5 +1,6 @@
 # shellcheck shell=bash
-# row.sh — the runs.jsonl row schema (design spec §2). Sourced, not executed.
+# row.sh — the runs.jsonl row schema (design spec §2) and the llm-bench row schema.
+# Sourced, not executed.
 #
 # ROW_CHECK_JQ evaluates to [] for a valid row, or to a list of problems. It is the one
 # place the field list lives; `record` uses it on every append and on --check.
@@ -41,14 +42,49 @@ ROW_CHECK_JQ='
     problem(.lang | (. == null or str); "lang must be a string or null")
   ] end'
 
+# llm-bench rows: one llama-bench `-o jsonl` line wrapped as {"kind":"llm-bench",
+# "model":<id>,…} by `llm bench`. Only these fields are required; the rest of
+# llama-bench's own fields are allowed through unchecked, not rejected as unknown,
+# because that set changes between llama.cpp builds.
+# shellcheck disable=SC2034
+LLM_BENCH_FIELDS='["kind","model","n_threads","n_prompt","n_gen","avg_ts","stddev_ts"]'
+
+# shellcheck disable=SC2034,SC2016
+LLM_BENCH_CHECK_JQ='
+  def nnum: type == "number" and . >= 0;
+  def nint: nnum and . == floor;
+  def str: type == "string" and length > 0;
+  def problem(cond; msg): if cond then empty else msg end;
+  if type != "object" then ["row is not an object"] else
+  [ ($fields - keys | map("missing field: " + .))[],
+    problem(.kind == "llm-bench"; "kind must be llm-bench"),
+    problem(.model | str; "model must be a non-empty string"),
+    problem(.n_threads | (nint and . >= 1); "n_threads must be an integer >= 1"),
+    problem(.n_prompt | nint; "n_prompt must be an integer >= 0"),
+    problem(.n_gen | nint; "n_gen must be an integer >= 0"),
+    problem(.avg_ts | nnum; "avg_ts must be a number >= 0"),
+    problem(.stddev_ts | nnum; "stddev_ts must be a number >= 0")
+  ] end'
+
+# row_kind <json-line> — "runs" for a row without "kind", else the kind's value.
+row_kind() {
+  jq -r 'if type == "object" and has("kind") then (.kind | tostring) else "runs" end' <<< "$1"
+}
+
 # row_problems <json-line> — prints one problem per line; empty output means valid.
-# Input parsing is checked separately from the schema program, so a bug in ROW_CHECK_JQ
-# surfaces as a jq error instead of being misreported as a bad row.
+# Input parsing is checked separately from the schema program, so a bug in a check
+# program surfaces as a jq error instead of being misreported as a bad row.
 row_problems() {
   if ! jq -e 'true' <<< "$1" > /dev/null 2>&1; then
     echo "row is not valid JSON"
     return
   fi
-  jq -r --argjson fields "$ROW_FIELDS" "$ROW_CHECK_JQ | .[]" <<< "$1" \
+  local fields prog
+  case "$(row_kind "$1")" in
+    runs) fields="$ROW_FIELDS" prog="$ROW_CHECK_JQ" ;;
+    llm-bench) fields="$LLM_BENCH_FIELDS" prog="$LLM_BENCH_CHECK_JQ" ;;
+    *) echo "unknown kind: $(row_kind "$1") (expected llm-bench, or no kind for a runs row)"; return ;;
+  esac
+  jq -r --argjson fields "$fields" "$prog | .[]" <<< "$1" \
     || echo "schema check failed to run (bug in lib/row.sh)"
 }

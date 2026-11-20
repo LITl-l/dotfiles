@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# record — validate runs.jsonl rows against the design spec §2 field list.
+# record — validate result rows against their schema in lib/row.sh.
 #
 #   record [--results FILE]   read one row (one JSON line) on stdin; append it if valid
 #   record --check FILE       validate every line of FILE; append nothing
 #
+# A row without "kind" is a runs row (design spec §2) and goes to results/runs.jsonl; a
+# "kind":"llm-bench" row (from `llm bench`) goes to results/llm-bench.jsonl. --results
+# overrides either default.
+#
 # Exit codes: 0 valid (and appended), 2 invalid row or usage error. An invalid row is
-# never appended, so runs.jsonl only ever holds rows that passed this check.
+# never appended, so a results file only ever holds rows that passed this check.
 set -uo pipefail
 
 BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,7 +18,7 @@ BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 die() { printf 'record: %s\n' "$*" >&2; exit 2; }
 
-results="$BENCH/results/runs.jsonl"
+results=""
 check=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -46,5 +50,11 @@ probs="$(row_problems "$row")"
 # Re-serialise compactly so every stored row is one canonical line, then append it with a
 # single write: concurrent appenders cannot interleave inside a row.
 line="$(jq -c . <<< "$row")"
+if [ -z "$results" ]; then
+  case "$(row_kind "$row")" in
+    llm-bench) results="$BENCH/results/llm-bench.jsonl" ;;
+    *) results="$BENCH/results/runs.jsonl" ;;
+  esac
+fi
 mkdir -p "$(dirname "$results")"
 printf '%s\n' "$line" >> "$results" || die "cannot append to $results"

@@ -136,6 +136,26 @@ check "record --check fails on a line that is not JSON" \
 check "record --check passes the same file without the bad row" \
   exits 0 bash "$BENCH/record" --check <(printf '%s\n' "$good")
 
+# ---------------------------------------------------------------- llm-bench rows
+LLM_RESULTS="$tmp/llm-bench.jsonl"
+llm_rows() { if [ -f "$LLM_RESULTS" ]; then wc -l < "$LLM_RESULTS"; else echo 0; fi; }
+# The shape `llm bench` emits: {kind, model} + one llama-bench -o jsonl line.
+llm_good='{"kind":"llm-bench","model":"qwen3.6-35b-a3b","build_commit":"abc123",
+  "n_threads":8,"n_prompt":0,"n_gen":128,"flash_attn":true,"avg_ns":1.4e10,
+  "avg_ts":8.63,"stddev_ts":1.16,"samples_ts":[8.1,9.2]}'
+check "record: appends a valid llm-bench row" bash -c '
+  jq -c . <<< "$1" | bash "$2/record" --results "$3" 2> /dev/null &&
+  [ "$(wc -l < "$3")" -eq 1 ] && [ "$(jq -r .kind "$3")" = llm-bench ]' _ "$llm_good" "$BENCH" "$LLM_RESULTS"
+n="$(llm_rows)"
+jq -c 'del(.avg_ts)' <<< "$llm_good" | bash "$BENCH/record" --results "$LLM_RESULTS" 2> /dev/null
+rc="$?"
+check "record: rejects an llm-bench row missing avg_ts with exit 2 (exit $rc)" test "$rc" -eq 2
+check "record: the invalid llm-bench row was not appended" test "$(llm_rows)" -eq "$n"
+check "record: rejects an unknown kind" \
+  exits 2 bash "$BENCH/record" --results "$LLM_RESULTS" <<< '{"kind":"nope"}'
+check "record --check: runs and llm-bench rows validate side by side" \
+  exits 0 bash "$BENCH/record" --check <(printf '%s\n' "$good" "$(jq -c . <<< "$llm_good")")
+
 # ---------------------------------------------------------------- grade contract
 check "grade: emits exactly one JSON line with the contract fields" bash -c '
   out="$(bash "$1/grade" T0 "$1/tasks/T0/solution")" || exit 1
