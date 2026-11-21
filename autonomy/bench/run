@@ -6,8 +6,9 @@
 #
 # fixture:<dir> installs <dir> (relative to this bench, or absolute) over the workspace
 # instead of dispatching an agent, so the whole path is testable without spending tokens.
-# --parts P0 sandboxes the session's Bash (parts/P0.settings.json); a part with no
-# parts/<part>.settings.json is recorded but changes no setting.
+# --parts P0 sandboxes the session's Bash and presets BENCH_TARGET (parts/P0.settings.json),
+# and tells the agent so (parts/P0.prompt.md); a part with neither file is recorded but
+# changes nothing.
 # Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
 #
 # Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
@@ -102,6 +103,27 @@ if [ "$parts" != none ]; then
   done
 fi
 
+#    The prompt handed to the agent. A part that must tell the agent something ships
+#    parts/<part>.prompt.md, inserted as the last lines of the ## Boundary section. It is
+#    written beside the workspace, not in it, so the agent's tree and the grader never see
+#    it; --parts none renders prompt.md byte for byte.
+prompt="$ws.prompt.md"
+additions=""
+if [ "$parts" != none ]; then
+  for p in "${part_list[@]}"; do
+    [ -f "$BENCH/parts/$p.prompt.md" ] && additions+="$(cat "$BENCH/parts/$p.prompt.md")"$'\n'
+  done
+fi
+if [ -z "$additions" ]; then
+  cat "$BENCH/prompt.md" > "$prompt" || fail "cannot write $prompt"
+else
+  awk -v add="$additions" '
+    /^## / { if (inb) { printf "%s", add; inb = 0; done = 1 } if (/^## *Boundary/) inb = 1 }
+    inb && /^$/ { blank++; next }
+    { while (blank > 0) { print ""; blank-- } print }
+    END { if (!done) exit 1 }' "$BENCH/prompt.md" > "$prompt" || fail "cannot render $prompt"
+fi
+
 # 3-5. Dispatch, wait, reap.
 blocked=false timed_out=false tokens=null tool_cpu=null
 start="$(date +%s.%N)"
@@ -117,7 +139,7 @@ case "$kind" in
     ;;
   claude)
     name="bench-$run_id"
-    spawn=(fleet spawn --name "$name" --dir "$ws" --spec "$BENCH/prompt.md")
+    spawn=(fleet spawn --name "$name" --dir "$ws" --spec "$prompt")
     [ -n "$model" ] && spawn+=(--model "$model")
     "${spawn[@]}" >&2 || fail "fleet spawn failed"
     # Ends on the first of: done, blocked >= 60 s continuously, timeout. Nothing is ever

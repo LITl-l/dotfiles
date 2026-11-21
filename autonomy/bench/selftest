@@ -218,7 +218,7 @@ check "run: pi timeout is true once wall time reaches the limit, whatever pi-run
 # the golden file can hold @FIX@ for that prefix and still be compared byte for byte.
 FIX="$tmp/fix"
 mkdir -p "$FIX/repo/autonomy/bench" "$FIX/home"
-for f in run grade record settings.template.json lib parts tasks/T0; do
+for f in run grade record settings.template.json prompt.md lib parts tasks/T0; do
   [ -e "$BENCH/$f" ] || continue
   mkdir -p "$(dirname "$FIX/repo/autonomy/bench/$f")"
   cp -R "$BENCH/$f" "$FIX/repo/autonomy/bench/$f"
@@ -254,6 +254,35 @@ check "P0 (b): the sandbox block holds nothing beyond those keys" \
     and (.sandbox.filesystem | keys) == ["allowWrite","denyRead"]' "$p0_s"
 check "P0 (b): permissions are the --parts none permissions, unchanged" bash -c '
   [ "$(jq -cS .permissions "$1")" = "$(jq -cS .permissions "$2")" ]' _ "$p0_s" "$none_s"
+
+# BENCH_TARGET preset: a sandboxed session still prompts for `VAR=value cmd`, so P0 sets
+# the variable through settings and tells the agent to run ./test bare.
+P0_SENTENCE='`BENCH_TARGET` is already set to `./run` in your environment, so run `./test` directly — never prefix commands with `VAR=value`.'
+target_env() { jq -e '.env.BENCH_TARGET == "./run"' "$1" > /dev/null; }
+check "P0 env (a): --parts none settings set no env" exits 0 jq -e 'has("env") | not' "$none_s"
+check "P0 env (a): --parts none prompt is prompt.md byte for byte" \
+  cmp -s "$BENCH/prompt.md" "$none_ws.prompt.md"
+check "P0 env (b): --parts P0 settings preset env.BENCH_TARGET to ./run" target_env "$p0_s"
+check "P0 env (b): --parts P0 prompt carries the no-env-prefix sentence" \
+  grep -qF -- "$P0_SENTENCE" "$p0_ws.prompt.md"
+check "P0 env (b): the sentence sits inside ## Boundary" bash -c '
+  awk -v s="$2" "/^## /{sec=\$0} index(\$0, s){print sec; exit}" "$1" | grep -qi "^## *Boundary"' \
+  _ "$p0_ws.prompt.md" "$P0_SENTENCE"
+for s in Boundary Termination Output; do
+  check "P0 env (b): the P0 prompt keeps its ## $s section" grep -qi "^## *$s" "$p0_ws.prompt.md"
+done
+check "P0 env (b): the P0 prompt is prompt.md plus exactly that one line" bash -c '
+  [ "$(diff "$1" "$2" | grep -c "^[<>]")" -eq 1 ] && diff "$1" "$2" | grep -q "^> "' \
+  _ "$BENCH/prompt.md" "$p0_ws.prompt.md"
+#    (c) the assertion must notice a P0 overlay that lost its env block.
+p0_overlay="$FIX/repo/autonomy/bench/parts/P0.settings.json"
+cp "$p0_overlay" "$tmp/P0.settings.orig"
+jq 'del(.env)' "$tmp/P0.settings.orig" > "$p0_overlay"
+broken_ws="$(render P0)"
+cp "$tmp/P0.settings.orig" "$p0_overlay"
+check "P0 env (c): the broken overlay still rendered" test -f "$broken_ws/.claude/settings.json"
+check "P0 env (c): a P0 render without env fails the BENCH_TARGET assertion" \
+  exits 1 target_env "$broken_ws/.claude/settings.json"
 
 # (c) permcheck lives in its own WP. Its z3 runtime exists only in the .#bench devShell, so
 # the flake check (jq only) skips this; BENCH_PERMCHECK points at a permcheck elsewhere.
@@ -300,7 +329,7 @@ for s in Boundary Termination Output; do
 done
 check "prompt.md: exists" test -s "$BENCH/prompt.md"
 check "prompt.md: names nothing outside the workspace (grep exit 1 = no match)" \
-  exits 1 grep -nE '/home|~/|\.\./|autonomy|grader|wkspace' "$BENCH/prompt.md"
+  exits 1 grep -nE '/home|~/|\.\./|autonomy|grader|wkspace' "$BENCH/prompt.md" "$BENCH"/parts/*.prompt.md
 
 # ---------------------------------------------------------------- isolation
 check "selftest never touched the real runs.jsonl" test "$(real_sum)" = "$real_before"
