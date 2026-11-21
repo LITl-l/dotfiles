@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(./**)",
+      "Edit(./**)",
+      "Write(./**)",
+      "Bash(./run:*)",
+      "Bash(./test:*)",
+      "Bash(BENCH_TARGET=*)",
+      "Bash(bash:*)",
+      "Bash(sh:*)",
+      "Bash(chmod:*)",
+      "Bash(touch:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(printf:*)",
+      "Bash(diff:*)",
+      "Bash(cmp:*)",
+      "Bash(grep:*)",
+      "Bash(jq:*)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Bash(go:*)",
+      "Bash(cargo:*)",
+      "Bash(rustc:*)",
+      "Bash(gcc:*)",
+      "Bash(cc:*)",
+      "Bash(make:*)"
+    ],
+    "deny": [
+      "Read(/@ROOT@/autonomy/**/grader/**)",
+      "Read(/@ROOT@/**/autonomy/**/grader/**)",
+      "Edit(/@ROOT@/autonomy/**/grader/**)",
+      "Edit(/@ROOT@/**/autonomy/**/grader/**)",
+      "Bash(*autonomy*grader*)",
+      "Bash(*grader*autonomy*)",
+      "Bash(*grader*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(egrep:*)",
+      "Bash(fgrep:*)",
+      "Bash(find:*)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}
