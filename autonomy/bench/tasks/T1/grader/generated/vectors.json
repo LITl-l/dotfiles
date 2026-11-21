@@ -1,0 +1,3554 @@
+{
+  "format": "trs-vectors/v1",
+  "spec": "T1",
+  "spec_sha256": "f7c40867cebe6ec7857ef7e5484d339c19c29ebfb7204a7d597c4c356201ffb2",
+  "vectors": [
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#0846138f",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#b74a64b5",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#4f1a3e16",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#358e04a9",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#17f3733a",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#674d60dc",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#0e8e4368",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#e3216491",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#05165fa4",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#e1ea70ab",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#c07e6c4e",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#cb51dc8c",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#af3a9f23",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#31e831ce",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#41125ab1",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#b8a55263",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#ae153824",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#b6923d5e",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#239341ea",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#37e9cab4",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#b6a112f0",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#6f1b745a",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#ac77ccfc",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#4cd76e9c",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#b5a8e8c3",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#cf293077",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#0ba3f195",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#e906df29",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#d1ce525b",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#1573fc56",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#843d6dfe",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#75c4e067",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#73de09be",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#aa59da93",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#09b441e1",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#c80b268a",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#caedb06f",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#eb9736c5",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#0c1a0210",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#22291567",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#bb0d52dc",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#26fc677f",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#0ff68e5e",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#32e6e3d7",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#07c8dafa",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#b5557833",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#583066a6",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#b58050b3",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#6064c152",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#105796dc",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "tier": "unknown",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_tier",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#40800867",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#2ff25f25",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#f2f209b5",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#aab7c1fd",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#c4be6ee2",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#64be9191",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#c743a58f",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#c24922f5",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#02982687",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#847be025",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#4c3cff0e",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#b562c569",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#f16ffd0e",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#97750568",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#da607a85",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#ea5ec6ee",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#69ffcb3b",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#9cd1769f",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#78ee1d71",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#817e323f",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#28b5bd0e",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#b416f165",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#02b5faeb",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#72ef6fd5",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#ad6ef79b",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#ee06cb5e",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#e3889cc5",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#e223c188",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#635955bb",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#b809faea",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "le0",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_quantity",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#cecce8d7",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#4860b68b",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#8e6f87e1",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#bf70761b",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#3f0dbc90",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#50368188",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#1c28727c",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#3ef05c2e",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#5168dcf2",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#614a948b",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#c36958db",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#91e22cfe",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#accf384b",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#9187d32b",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#bebbac30",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#8080e465",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#63a4d211",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#cba5c402",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#ac021ec7",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#a0f423f2",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#e575e0e2",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#d39a5c33",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#1e2e58b3",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#86fa2a67",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#a508c555",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#5e4ac608",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#c8917ba8",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#e1931d08",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#dc98fd3d",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#951b840e",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "gt100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "quantity_limit",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#fab9679f",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#e4842a9b",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#6037525a",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#f16d34ea",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#00a92f67",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#95aced31",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#4bae0599",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#e5bcc8c3",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#73d066c3",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#b05604eb",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#42637646",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#de92f36e",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#29a1439a",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#7398bd2f",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#d7370fa9",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#be97aeff",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#90fc7b09",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#c534fe09",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "unknown",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "invalid_coupon",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#3cee6023",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#36c9ad48",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#53f18d7d",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#28f97e43",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#0ae7964a",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-001#1967db67",
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "class": "準正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#e359b9cd",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#90e70ea1",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#b21e7e33",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#e10c4535",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#b4b5a46d",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#f3ed52cf",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#d748e098",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#371fed93",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替準正常-002#994a7e14",
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "class": "準正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "coupon_not_applicable",
+        "pct": "na",
+        "mode": "na",
+        "flat": "na"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#824b5146",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "0",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#532b7c66",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "0",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-002#b8021c9b",
+      "ac": "US-01_UC-01_AC-基本正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-002#3dff7a60",
+      "ac": "US-01_UC-01_AC-基本正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-002#1b944101",
+      "ac": "US-01_UC-01_AC-基本正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-002#d52300a5",
+      "ac": "US-01_UC-01_AC-基本正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-003#edde3232",
+      "ac": "US-01_UC-01_AC-基本正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-003#0ef0cb23",
+      "ac": "US-01_UC-01_AC-基本正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-003#a01a2d95",
+      "ac": "US-01_UC-01_AC-基本正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-003#9fac5162",
+      "ac": "US-01_UC-01_AC-基本正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-003#975911f0",
+      "ac": "US-01_UC-01_AC-基本正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-004#a3db4e65",
+      "ac": "US-01_UC-01_AC-基本正常-004",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-004#a71849bf",
+      "ac": "US-01_UC-01_AC-基本正常-004",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-004#93187760",
+      "ac": "US-01_UC-01_AC-基本正常-004",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-004#84907205",
+      "ac": "US-01_UC-01_AC-基本正常-004",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-005#e98299d4",
+      "ac": "US-01_UC-01_AC-基本正常-005",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-005#2bf9fa8a",
+      "ac": "US-01_UC-01_AC-基本正常-005",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-006#302bfe56",
+      "ac": "US-01_UC-01_AC-基本正常-006",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "none",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#80ad1d64",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#398596fc",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-002#914b9c67",
+      "ac": "US-01_UC-01_AC-代替正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-002#c2ccefe3",
+      "ac": "US-01_UC-01_AC-代替正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-002#3fc07dc4",
+      "ac": "US-01_UC-01_AC-代替正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-002#87ee4c59",
+      "ac": "US-01_UC-01_AC-代替正常-002",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-003#a4cc3033",
+      "ac": "US-01_UC-01_AC-代替正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-003#ffa76e59",
+      "ac": "US-01_UC-01_AC-代替正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-003#eb5cd74b",
+      "ac": "US-01_UC-01_AC-代替正常-003",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-004#c4baa867",
+      "ac": "US-01_UC-01_AC-代替正常-004",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-004#c14ec5a8",
+      "ac": "US-01_UC-01_AC-代替正常-004",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-005#9e2ed3a8",
+      "ac": "US-01_UC-01_AC-代替正常-005",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "FLAT500",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "500"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-006#9827ab44",
+      "ac": "US-01_UC-01_AC-代替正常-006",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-006#79e61f03",
+      "ac": "US-01_UC-01_AC-代替正常-006",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-007#0c275b8a",
+      "ac": "US-01_UC-01_AC-代替正常-007",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-007#f3c1c79f",
+      "ac": "US-01_UC-01_AC-代替正常-007",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-007#d9befc51",
+      "ac": "US-01_UC-01_AC-代替正常-007",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-007#28149c9e",
+      "ac": "US-01_UC-01_AC-代替正常-007",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "15",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-008#b2fb5889",
+      "ac": "US-01_UC-01_AC-代替正常-008",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-008#c86b1541",
+      "ac": "US-01_UC-01_AC-代替正常-008",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-008#c365e55a",
+      "ac": "US-01_UC-01_AC-代替正常-008",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-008#0379039a",
+      "ac": "US-01_UC-01_AC-代替正常-008",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-008#347efe62",
+      "ac": "US-01_UC-01_AC-代替正常-008",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "20",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-009#d2ce3528",
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-009#e51d9328",
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-009#3b4c78b2",
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-009#9ea92f97",
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-009#55379e45",
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-009#39e47aa4",
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-009#76ecd48b",
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "PCT10",
+        "day": "weekend"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "25",
+        "mode": "full",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-010#77437ba7",
+      "ac": "US-01_UC-01_AC-代替正常-010",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "0",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-010#65ff0b51",
+      "ac": "US-01_UC-01_AC-代替正常-010",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "0",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-010#df42fb30",
+      "ac": "US-01_UC-01_AC-代替正常-010",
+      "class": "正常",
+      "inputs": {
+        "tier": "standard",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "0",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-011#b530d3a8",
+      "ac": "US-01_UC-01_AC-代替正常-011",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-011#78865e3a",
+      "ac": "US-01_UC-01_AC-代替正常-011",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-011#d489f581",
+      "ac": "US-01_UC-01_AC-代替正常-011",
+      "class": "正常",
+      "inputs": {
+        "tier": "silver",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "5",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-012#f8657fa0",
+      "ac": "US-01_UC-01_AC-代替正常-012",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q1_9",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-012#01db8b1e",
+      "ac": "US-01_UC-01_AC-代替正常-012",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q10_49",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-012#05667c1a",
+      "ac": "US-01_UC-01_AC-代替正常-012",
+      "class": "正常",
+      "inputs": {
+        "tier": "gold",
+        "qty": "q50_100",
+        "coupon": "BOGO",
+        "day": "weekday"
+      },
+      "expect": {
+        "result": "price",
+        "pct": "10",
+        "mode": "bogo",
+        "flat": "0"
+      }
+    }
+  ],
+  "blocked": [],
+  "stats": [
+    {
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "coverage": "all",
+      "region": 50,
+      "vectors": 50
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "coverage": "all",
+      "region": 30,
+      "vectors": 30
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "coverage": "all",
+      "region": 30,
+      "vectors": 30
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "coverage": "all",
+      "region": 18,
+      "vectors": 18
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替準正常-001",
+      "coverage": "all",
+      "region": 6,
+      "vectors": 6
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替準正常-002",
+      "coverage": "all",
+      "region": 9,
+      "vectors": 9
+    },
+    {
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "coverage": "all",
+      "region": 2,
+      "vectors": 2
+    },
+    {
+      "ac": "US-01_UC-01_AC-基本正常-002",
+      "coverage": "all",
+      "region": 4,
+      "vectors": 4
+    },
+    {
+      "ac": "US-01_UC-01_AC-基本正常-003",
+      "coverage": "all",
+      "region": 5,
+      "vectors": 5
+    },
+    {
+      "ac": "US-01_UC-01_AC-基本正常-004",
+      "coverage": "all",
+      "region": 4,
+      "vectors": 4
+    },
+    {
+      "ac": "US-01_UC-01_AC-基本正常-005",
+      "coverage": "all",
+      "region": 2,
+      "vectors": 2
+    },
+    {
+      "ac": "US-01_UC-01_AC-基本正常-006",
+      "coverage": "all",
+      "region": 1,
+      "vectors": 1
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "coverage": "all",
+      "region": 2,
+      "vectors": 2
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-002",
+      "coverage": "all",
+      "region": 4,
+      "vectors": 4
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-003",
+      "coverage": "all",
+      "region": 3,
+      "vectors": 3
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-004",
+      "coverage": "all",
+      "region": 2,
+      "vectors": 2
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-005",
+      "coverage": "all",
+      "region": 1,
+      "vectors": 1
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-006",
+      "coverage": "all",
+      "region": 2,
+      "vectors": 2
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-007",
+      "coverage": "all",
+      "region": 4,
+      "vectors": 4
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-008",
+      "coverage": "all",
+      "region": 5,
+      "vectors": 5
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-009",
+      "coverage": "all",
+      "region": 7,
+      "vectors": 7
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-010",
+      "coverage": "all",
+      "region": 3,
+      "vectors": 3
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-011",
+      "coverage": "all",
+      "region": 3,
+      "vectors": 3
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-012",
+      "coverage": "all",
+      "region": 3,
+      "vectors": 3
+    }
+  ]
+}
