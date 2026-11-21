@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""Broken T2: keeps everything in a dict and never touches --data (the ISUCON failure).
+
+Correct within one process lifetime, so it passes until the first restart.
+"""
+
+import sys
+
+
+def main():
+    store = {}
+    for raw in iter(sys.stdin.buffer.readline, b""):
+        parts = raw.decode().split()
+        if not parts:
+            continue
+        cmd = parts[0]
+        if cmd == "SET":
+            store[parts[1]] = parts[2]
+            reply = "OK"
+        elif cmd == "DEL":
+            store.pop(parts[1], None)
+            reply = "OK"
+        elif cmd == "GET":
+            reply = f"VAL {store[parts[1]]}" if parts[1] in store else "NIL"
+        else:
+            reply = " ".join(["KEYS", *sorted(k for k in store if k.startswith(parts[1]))])
+        sys.stdout.write(reply + "\n")
+        sys.stdout.flush()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

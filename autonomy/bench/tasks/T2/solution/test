@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""The reference solution's own tests. They exercise $BENCH_TARGET, never ./run directly,
+so the grader can point them at a broken implementation and measure the kill rate.
+
+The fsync check counts sync syscalls under strace, so a store that makes writes durable
+some other way (O_SYNC files, for instance) would fail it; that is fine for this store.
+"""
+
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+
+
+class Store:
+    def __init__(self, target, data, wrap=()):
+        self.p = subprocess.Popen([*wrap, target, "--data", data], stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+
+    def call(self, cmd):
+        self.p.stdin.write(cmd + "\n")
+        self.p.stdin.flush()
+        return self.p.stdout.readline().rstrip("\n")
+
+    def close(self):
+        self.p.stdin.close()
+        return self.p.wait(10)
+
+    def kill9(self):
+        os.kill(self.p.pid, signal.SIGKILL)
+        self.p.wait()
+
+
+failures = []
+
+
+def expect(name, store, cmd, want):
+    got = store.call(cmd)
+    if got != want:
+        failures.append(f"{name}: {cmd!r} want {want!r}, got {got!r}")
+
+
+def main():
+    target = os.environ.get("BENCH_TARGET")
+    if not target:
+        print("BENCH_TARGET must point at a ./run", file=sys.stderr)
+        return 2
+    with tempfile.TemporaryDirectory() as tmp:
+        def fresh(name):
+            d = os.path.join(tmp, name)
+            os.mkdir(d)
+            return d
+
+        d = fresh("ops")
+        s = Store(target, d)
+        expect("ops", s, "GET a", "NIL")
+        for k in ["b", "a", "ab", "aa", "B"]:
+            expect("ops", s, f"SET {k} 1", "OK")
+        expect("ops", s, "SET a 2", "OK")
+        expect("ops", s, "GET a", "VAL 2")
+        expect("scan", s, "SCAN a", "KEYS a aa ab")
+        expect("scan", s, "SCAN q", "KEYS")
+        expect("ops", s, "DEL a", "OK")
+        expect("ops", s, "GET a", "NIL")
+        s.close()
+
+        d = fresh("restart")
+        s = Store(target, d)
+        for cmd in ["SET x 1", "SET y 2", "DEL x", "SET z 3"]:
+            expect("restart", s, cmd, "OK")
+        s.close()
+        s = Store(target, d)
+        expect("restart", s, "GET x", "NIL")
+        expect("restart", s, "GET y", "VAL 2")
+        expect("restart", s, "GET z", "VAL 3")
+        s.close()
+
+        d = fresh("crash")
+        s = Store(target, d)
+        expect("crash", s, "SET k1 v1", "OK")
+        expect("crash", s, "SET k2 v2", "OK")
+        s.kill9()
+        s = Store(target, d)
+        expect("crash", s, "GET k1", "VAL v1")
+        expect("crash", s, "GET k2", "VAL v2")
+        s.close()
+
+        trace = os.path.join(tmp, "trace")
+        s = Store(target, fresh("sync"), ["strace", "-f", "-qq", "-o", trace,
+                                           "-e", "trace=fsync,fdatasync,sync,syncfs", "--"])
+        for cmd in ["SET s1 1", "SET s2 2", "DEL s1"]:
+            expect("sync", s, cmd, "OK")
+        s.close()
+        with open(trace) as f:
+            syncs = sum(1 for line in f if line.rstrip().endswith("= 0"))
+        if syncs < 3:
+            failures.append(f"sync: {syncs} fsync calls for 3 acknowledged writes")
+
+    for f in failures:
+        print("FAIL", f, file=sys.stderr)
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
