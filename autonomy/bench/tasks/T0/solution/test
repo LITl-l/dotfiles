@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# The reference solution's own tests: they exercise $BENCH_TARGET, never ./run directly,
+# so the grader can point them at a broken implementation and measure the kill rate.
+set -u
+target="${BENCH_TARGET:?BENCH_TARGET must point at a ./run}"
+fail=0
+
+expect() { # expect <name> <input> <want>
+  local got
+  got="$(printf '%s' "$2" | "$target"; printf x)"
+  got="${got%x}"
+  if [ "$got" != "$3" ]; then
+    printf 'FAIL %s\n' "$1" >&2
+    fail=1
+  fi
+}
+
+expect single-line   $'hello world\n'      $'HELLO WORLD\n'
+expect mixed         $'MiXeD 123 !?\n'     $'MIXED 123 !?\n'
+expect multi-line    $'abc\ndef\n'         $'ABC\nDEF\n'
+expect no-newline    'tail'                'TAIL'
+expect empty         ''                    ''
+
+exit "$fail"

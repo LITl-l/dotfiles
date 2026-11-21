@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# record — validate result rows against their schema in lib/row.sh.
+#
+#   record [--results FILE]   read one row (one JSON line) on stdin; append it if valid
+#   record --check FILE       validate every line of FILE; append nothing
+#
+# A row without "kind" is a runs row (design spec §2) and goes to results/runs.jsonl; a
+# "kind":"llm-bench" row (from `llm bench`) goes to results/llm-bench.jsonl. --results
+# overrides either default.
+#
+# Exit codes: 0 valid (and appended), 2 invalid row or usage error. An invalid row is
+# never appended, so a results file only ever holds rows that passed this check.
+set -uo pipefail
+
+BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$BENCH/lib/row.sh"
+
+die() { printf 'record: %s\n' "$*" >&2; exit 2; }
+
+results=""
+check=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --results) [ $# -ge 2 ] || die "--results needs a file"; results="$2"; shift 2 ;;
+    --check)   [ $# -ge 2 ] || die "--check needs a file"; check="$2"; shift 2 ;;
+    *) die "unknown argument: $1" ;;
+  esac
+done
+
+if [ -n "$check" ]; then
+  [ -r "$check" ] || die "cannot read $check"
+  n=0 bad=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
+    probs="$(row_problems "$line")"
+    if [ -n "$probs" ]; then
+      bad=$((bad + 1))
+      printf '%s:%d: %s\n' "$check" "$n" "${probs//$'\n'/; }" >&2
+    fi
+  done < "$check"
+  [ "$bad" -eq 0 ] || die "$bad of $n rows invalid"
+  exit 0
+fi
+
+row="$(cat)"
+[ "$(printf '%s\n' "$row" | wc -l)" -eq 1 ] || die "expected exactly one line on stdin"
+probs="$(row_problems "$row")"
+[ -z "$probs" ] || die "invalid row: ${probs//$'\n'/; }"
+# Re-serialise compactly so every stored row is one canonical line, then append it with a
+# single write: concurrent appenders cannot interleave inside a row.
+line="$(jq -c . <<< "$row")"
+if [ -z "$results" ]; then
+  case "$(row_kind "$row")" in
+    llm-bench) results="$BENCH/results/llm-bench.jsonl" ;;
+    *) results="$BENCH/results/runs.jsonl" ;;
+  esac
+fi
+mkdir -p "$(dirname "$results")"
+printf '%s\n' "$line" >> "$results" || die "cannot append to $results"

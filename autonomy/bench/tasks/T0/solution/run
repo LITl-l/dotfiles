@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Reference solution for T0. LC_ALL=C keeps tr byte-wise, so non-ASCII passes through.
+LC_ALL=C exec tr 'a-z' 'A-Z'

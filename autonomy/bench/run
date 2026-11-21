@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# run — one bench run: workspace -> agent -> wait -> grade -> append one runs.jsonl row.
+#
+#   run --agent claude|pi|fixture:<dir> --task T0..T3 --rep N --parts <list|none>
+#       [--model ID] [--timeout S] [--results FILE]
+#
+# fixture:<dir> installs <dir> (relative to this bench, or absolute) over the workspace
+# instead of dispatching an agent, so the whole path is testable without spending tokens.
+# Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
+#
+# Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
+set -uo pipefail
+
+BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$BENCH/../.." && pwd)"
+# The flake's shellcheck lints one file at a time, so sourced libs are not followed.
+# shellcheck source=/dev/null
+. "$BENCH/lib/fs.sh"
+# shellcheck source=/dev/null
+. "$BENCH/lib/lang.sh"
+
+usage() { printf 'run: %s\n' "$*" >&2; exit 2; }
+fail()  { printf 'run: %s\n' "$*" >&2; exit 1; }
+
+agent="" task="" rep="" parts="" model="" tmo="" results="$BENCH/results/runs.jsonl"
+while [ $# -gt 0 ]; do
+  [ $# -ge 2 ] || usage "$1 needs a value"
+  case "$1" in
+    --agent)   agent="$2" ;;
+    --task)    task="$2" ;;
+    --rep)     rep="$2" ;;
+    --parts)   parts="$2" ;;
+    --model)   model="$2" ;;
+    --timeout) tmo="$2" ;;
+    --results) results="$2" ;;
+    *) usage "unknown flag: $1" ;;
+  esac
+  shift 2
+done
+
+case "$agent" in
+  claude|pi) kind="$agent" ;;
+  fixture:?*) kind=fixture ;;
+  *) usage "--agent must be claude, pi or fixture:<dir> (got '$agent')" ;;
+esac
+[[ "$task" =~ ^T[0-3]$ ]] || usage "--task must be T0..T3 (got '$task')"
+[ -d "$BENCH/tasks/$task/skeleton" ] || usage "task $task has no skeleton/ yet"
+[[ "$rep" =~ ^[1-9][0-9]*$ ]] || usage "--rep must be a positive integer (got '$rep')"
+[ -n "$parts" ] || usage "--parts is required (a comma list, or none)"
+[[ "$parts" =~ ^(none|[A-Za-z0-9_-]+(,[A-Za-z0-9_-]+)*)$ ]] || usage "bad --parts '$parts'"
+[ -z "$tmo" ] || [[ "$tmo" =~ ^[1-9][0-9]*$ ]] || usage "--timeout must be whole seconds"
+case "$kind" in
+  claude) tmo="${tmo:-3600}" ;;   # spec §1 0c initial value; revised only from 0c data
+  pi) [ -n "$model" ] || usage "--agent pi needs --model"
+      [ -n "$tmo" ] || usage "--agent pi needs --timeout (set from Phase 0b)" ;;
+  fixture)
+    fx="${agent#fixture:}"
+    [ "${fx:0:1}" = / ] || fx="$BENCH/$fx"
+    [ -d "$fx" ] || usage "fixture dir not found: $fx" ;;
+esac
+
+run_id="$task-$kind-r$rep-$(date -u +%Y%m%dT%H%M%SZ)-$$$RANDOM"
+ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+ws="${BENCH_WS_ROOT:-$HOME/wkspace/worktree/bench}/$run_id"
+[ -e "$ws" ] && fail "workspace already exists: $ws"
+
+# 1. Workspace from the task skeleton.
+install_tree "$BENCH/tasks/$task/skeleton" "$ws" || fail "cannot populate $ws"
+
+# 2. Bench-only project settings. Every deny entry holding @ROOT@ is expanded once per
+#    root: this checkout, the canonical checkout, and the worktree root that holds every
+#    other workspace (including other bench runs, whose skeletons are harmless but whose
+#    neighbours are not).
+roots="$(printf '%s\n' "$REPO" "$HOME/.config/dotfiles" "$HOME/wkspace/worktree" | jq -R . | jq -sc 'unique')"
+mkdir -p "$ws/.claude"
+jq --argjson roots "$roots" '
+  .permissions.deny |= ([ .[] as $r
+    | if ($r | contains("@ROOT@")) then ($roots[] as $root | $r | gsub("@ROOT@"; $root))
+      else $r end ] | unique)' \
+  "$BENCH/settings.template.json" > "$ws/.claude/settings.json" || fail "cannot write bench settings"
+
+# 3-5. Dispatch, wait, reap.
+blocked=false timed_out=false tokens=null tool_cpu=null
+start="$(date +%s.%N)"
+
+claude_session() { # prints the newest inventory row named $1, or nothing
+  claude agents --json --all 2>/dev/null \
+    | jq -c --arg n "$1" '[.[] | select(.name == $n)] | last // empty' 2>/dev/null
+}
+
+case "$kind" in
+  fixture)
+    install_tree "$fx" "$ws" || fail "cannot install fixture $fx"
+    ;;
+  claude)
+    name="bench-$run_id"
+    spawn=(fleet spawn --name "$name" --dir "$ws" --spec "$BENCH/prompt.md")
+    [ -n "$model" ] && spawn+=(--model "$model")
+    "${spawn[@]}" >&2 || fail "fleet spawn failed"
+    # Ends on the first of: done, blocked >= 60 s continuously, timeout. Nothing is ever
+    # sent to the session (D9), so a blocked state can only be a tool prompt.
+    t0=$SECONDS blocked_since="" missing_since="" sid=""
+    while :; do
+      row="$(claude_session "$name")"
+      if [ -z "$row" ]; then
+        missing_since="${missing_since:-$SECONDS}"
+        (( SECONDS - missing_since >= 60 )) && { echo "run: session $name vanished" >&2; break; }
+      else
+        missing_since=""
+        sid="$(jq -r '.id // .sessionId[0:8] // ""' <<< "$row")"
+        st="$(jq -r '.state // .status // ""' <<< "$row")"
+        wf="$(jq -r '.waitingFor // ""' <<< "$row")"
+        case "$st" in done|completed|finished|stopped|idle) break ;; esac
+        if [ "$st" = blocked ] || [ "$st" = waiting ] || [ -n "$wf" ]; then
+          blocked_since="${blocked_since:-$SECONDS}"
+          (( SECONDS - blocked_since >= 60 )) && { blocked=true; break; }
+        else
+          blocked_since=""
+        fi
+      fi
+      (( SECONDS - t0 >= tmo )) && { timed_out=true; break; }
+      sleep 10
+    done
+    if [ -n "$sid" ]; then
+      claude stop "$sid" >&2 2>/dev/null || true
+      claude rm "$sid" >&2 2>/dev/null || echo "run: claude rm $sid failed; try fleet gc" >&2
+    fi
+    # tokens stays null: reading usage out of the transcript is not implemented yet.
+    ;;
+  pi)
+    # BENCH_LLM lets the selftest swap in a stub adapter, so this branch runs without a model.
+    llm="${BENCH_LLM:-$BENCH/llm}"; [ -d "$llm" ] && llm="$llm/llm"
+    [ -f "$llm" ] || fail "pi runs need the WP6 llm adapter ($llm)"
+    out="$(bash "$llm" pi-run "$ws" "$model" "$tmo")" || fail "llm pi-run failed"
+    timed_out="$(jq -r '.timeout == true' <<< "$out")" || fail "bad pi-run output: $out"
+    tool_cpu="$(jq -c '.tool_cpu_s // null' <<< "$out")"
+    tokens="$(jq -c '.tokens // null' <<< "$out")"
+    ;;
+esac
+end="$(date +%s.%N)"
+
+# 6. Grade and append.
+g="$(bash "$BENCH/grade" "$task" "$ws")" || fail "grading failed for $ws"
+
+plugin_rev=null
+plugin_dir="claude/marketplaces/local/plugins/autonomy"
+if [ -d "$REPO/$plugin_dir" ] && command -v jj > /dev/null; then
+  rev="$(cd "$REPO" && jj log --ignore-working-copy --no-graph \
+    -r "latest(::@ & files(\"$plugin_dir\"))" -T commit_id 2>/dev/null)"
+  [ -n "$rev" ] && plugin_rev="$(jq -Rn --arg r "$rev" '$r')"
+fi
+[ "$parts" = none ] && parts_json='[]' || parts_json="$(jq -Rc 'split(",")' <<< "$parts")"
+done_file=false; [ -f "$ws/DONE" ] && done_file=true
+
+row="$(jq -cn \
+  --arg run_id "$run_id" --arg ts "$ts" --arg agent "$agent" --arg model "$model" \
+  --argjson parts "$parts_json" --argjson plugin_rev "$plugin_rev" \
+  --arg task "$task" --argjson rep "$rep" --argjson g "$g" \
+  --argjson done_file "$done_file" --argjson blocked "$blocked" --argjson timeout "$timed_out" \
+  --argjson start "$start" --argjson end "$end" \
+  --argjson tokens "$tokens" --argjson tool_cpu "$tool_cpu" --arg lang "$(detect_lang "$ws")" '
+  {run_id: $run_id, ts: $ts, agent: $agent,
+   model: (if $model == "" then null else $model end),
+   harness_rev: {parts: $parts, plugin_rev: $plugin_rev},
+   task: $task, rep: $rep,
+   hidden_pass: $g.hidden_pass, test_kill_rate: $g.test_kill_rate,
+   perf_speedup: $g.perf_speedup,
+   false_done: ($done_file and $g.hidden_pass < 1),
+   blocked: $blocked, timeout: $timeout,
+   wall_s: ((($end - $start) * 1000 | round) / 1000),
+   tokens: $tokens, tool_cpu_s: $tool_cpu,
+   lang: (if $lang == "unknown" then null else $lang end)}')" || fail "cannot build row"
+
+printf '%s\n' "$row" | bash "$BENCH/record" --results "$results" || fail "record rejected the row"
+printf '%s\n' "$row"

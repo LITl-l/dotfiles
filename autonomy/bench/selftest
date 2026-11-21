@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+# selftest — prove run -> grade -> record -> report end to end with fixtures, no agent.
+#
+# Every assertion goes through the real `run` entry point, so a fixture row is built by
+# exactly the code that builds an agent row. Output goes to a temp results file and a
+# temp workspace root; the real runs.jsonl is checksummed before and after to prove it
+# was never touched.
+#
+# Inline `bash -c '…' _ args` scripts read their arguments as $1, $2 on purpose, so
+# single-quoted $ is intended throughout this file.
+# shellcheck disable=SC2016
+set -uo pipefail
+
+BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REAL_RUNS="$BENCH/results/runs.jsonl"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+export BENCH_WS_ROOT="$tmp/ws"
+RESULTS="$tmp/runs.jsonl"
+
+pass=0
+fail=0
+ok()  { pass=$((pass + 1)); printf 'ok   %s\n' "$1"; }
+bad() { fail=$((fail + 1)); printf 'FAIL %s\n' "$1"; }
+check() { # check <description> <command...>
+  local d="$1"; shift
+  if "$@"; then ok "$d"; else bad "$d"; fi
+}
+# exits <code> <command...> — true only for that exact exit code. A bare `! cmd` would
+# also pass when cmd is missing (127) or crashes, which proves nothing about rejection.
+exits() {
+  local want="$1"; shift
+  "$@" > /dev/null 2>&1
+  [ "$?" -eq "$want" ]
+}
+
+real_sum() { if [ -f "$REAL_RUNS" ]; then sha256sum < "$REAL_RUNS"; else echo absent; fi; }
+real_before="$(real_sum)"
+
+rows() { if [ -f "$RESULTS" ]; then wc -l < "$RESULTS"; else echo 0; fi; }
+last() { tail -n 1 "$RESULTS" | jq -c "$1"; }
+
+# bench_run <fixture> [rep] — one real run into the temp results file.
+bench_run() {
+  bash "$BENCH/run" --agent "fixture:$1" --task T0 --rep "${2:-1}" --parts none \
+    --results "$RESULTS" > "$tmp/run.out" 2> "$tmp/run.err"
+}
+
+# ---------------------------------------------------------------- reference solution
+before="$(rows)"
+check "run: fixture solution exits 0" bench_run tasks/T0/solution
+check "run: appends exactly one row" test "$(rows)" -eq $((before + 1))
+check "solution: hidden_pass is 1.0"        test "$(last '.hidden_pass')" = 1
+check "solution: its ./test kills every broken implementation (test_kill_rate 1)" \
+  test "$(last '.test_kill_rate')" = 1
+check "solution: false_done is false"       test "$(last '.false_done')" = false
+check "solution: perf_speedup is null for T0" test "$(last '.perf_speedup')" = null
+check "solution: lang is detected as bash"  test "$(last '.lang')" = '"bash"'
+check "solution: harness_rev.parts is [] for --parts none" \
+  test "$(last '.harness_rev.parts')" = '[]'
+check "solution: agent records the fixture" test "$(last '.agent')" = '"fixture:tasks/T0/solution"'
+
+ws="$BENCH_WS_ROOT/$(tail -n 1 "$RESULTS" | jq -r '.run_id')"
+check "run: the workspace was created under BENCH_WS_ROOT" test -x "$ws/run"
+check "run: bench settings.json is valid JSON" exits 0 jq -e . "$ws/.claude/settings.json"
+check "run: bench settings deny reading grader paths" \
+  exits 0 jq -e '[.permissions.deny[] | select(test("^Read\\(.*grader"))] | length >= 2' \
+  "$ws/.claude/settings.json"
+check "run: bench settings deny the cd-relative and recursive grader reads permcheck found" \
+  exits 0 jq -e '.permissions.deny as $d
+    | ["Bash(*grader*)","Bash(rg:*)","Bash(grep:*)","Bash(egrep:*)","Bash(fgrep:*)","Bash(find:*)"]
+    | all(. as $r | $d | index($r))' \
+  "$ws/.claude/settings.json"
+check "run: no @ROOT@ placeholder survives into the bench settings" \
+  exits 1 grep -q '@ROOT@' "$ws/.claude/settings.json"
+
+# ---------------------------------------------------------------- untouched skeleton
+check "run: fixture skeleton exits 0" bench_run tasks/T0/skeleton
+check "skeleton: hidden_pass is 0.0"        test "$(last '.hidden_pass')" = 0
+check "skeleton: test_kill_rate is null (no ./test)" test "$(last '.test_kill_rate')" = null
+
+# ---------------------------------------------------------------- broken implementations
+nbroken=0
+for b in "$BENCH"/tasks/T0/grader/broken/*/; do
+  name="$(basename "$b")"
+  nbroken=$((nbroken + 1))
+  check "run: fixture broken/$name exits 0" bench_run "tasks/T0/grader/broken/$name"
+  # Pin the row to this fixture: if the run appended nothing, the last row belongs to
+  # some earlier fixture and must not answer for this one.
+  hp="$(last '.hidden_pass')"
+  check "broken/$name: caught by the grader's tests (hidden_pass $hp < 1)" \
+    test "$(last "select(.agent == \"fixture:tasks/T0/grader/broken/$name\") | .hidden_pass < 1")" = true
+done
+check "T0 ships at least 2 broken implementations" test "$nbroken" -ge 2
+check "false_done: a broken fixture that wrote DONE is a false done" \
+  test "$(jq -s '[.[] | select(.false_done)] | length' "$RESULTS")" -ge 1
+
+# A ./test that fails on everything would score kill rate 1.0 for free. The grader
+# must refuse it, because it also fails on the reference.
+mkdir -p "$tmp/always-fail"
+install -m 0755 "$BENCH/tasks/T0/solution/run" "$tmp/always-fail/run"
+# Absolute bash path: the flake check's sandbox has no /usr/bin/env, and a ./test that
+# cannot even exec would pass this check for the wrong reason.
+printf '#!%s\nexit 1\n' "$(command -v bash)" > "$tmp/always-fail/test"
+chmod 0755 "$tmp/always-fail/test"
+check "run: absolute fixture dir exits 0" bench_run "$tmp/always-fail"
+check "test_kill_rate: a ./test that fails on the reference scores 0" \
+  test "$(last '.test_kill_rate')" = 0
+
+# ---------------------------------------------------------------- record validation
+check "record: every produced row passes validation" bash "$BENCH/record" --check "$RESULTS"
+check "record: rows produced = 3 fixtures + $nbroken broken" test "$(rows)" -eq $((3 + nbroken))
+
+good="$(tail -n 1 "$RESULTS")"
+reject() { # reject <description> <jq transform of a good row>
+  local n rc; n="$(rows)"
+  jq -c "$2" <<< "$good" | bash "$BENCH/record" --results "$RESULTS" 2> /dev/null
+  rc="$?"
+  if [ "$rc" -eq 0 ]; then
+    bad "record rejects $1 (it was accepted)"
+  elif [ "$rc" -ne 2 ]; then
+    bad "record rejects $1 (exit $rc, not the validation exit 2)"
+  elif [ "$(rows)" -ne "$n" ]; then
+    bad "record rejects $1 (but still appended)"
+  else
+    ok "record rejects $1 and appends nothing"
+  fi
+}
+reject "a missing field"        'del(.wall_s)'
+reject "an unknown field"       '. + {extra: 1}'
+reject "hidden_pass > 1"        '.hidden_pass = 2'
+reject "a non-boolean blocked"  '.blocked = "no"'
+reject "an unknown agent"       '.agent = "gpt"'
+reject "a bad task id"          '.task = "T9"'
+reject "a row that is not an object" '"{not an object"'
+check "record --check fails on a file holding a bad row" \
+  exits 2 bash "$BENCH/record" --check <(printf '%s\n' "$good" '{"run_id":1}')
+check "record --check fails on a line that is not JSON" \
+  exits 2 bash "$BENCH/record" --check <(printf '%s\n' "$good" '{not json')
+check "record --check passes the same file without the bad row" \
+  exits 0 bash "$BENCH/record" --check <(printf '%s\n' "$good")
+
+# ---------------------------------------------------------------- llm-bench rows
+LLM_RESULTS="$tmp/llm-bench.jsonl"
+llm_rows() { if [ -f "$LLM_RESULTS" ]; then wc -l < "$LLM_RESULTS"; else echo 0; fi; }
+# The shape `llm bench` emits: {kind, model} + one llama-bench -o jsonl line.
+llm_good='{"kind":"llm-bench","model":"qwen3.6-35b-a3b","build_commit":"abc123",
+  "n_threads":8,"n_prompt":0,"n_gen":128,"flash_attn":true,"avg_ns":1.4e10,
+  "avg_ts":8.63,"stddev_ts":1.16,"samples_ts":[8.1,9.2]}'
+check "record: appends a valid llm-bench row" bash -c '
+  jq -c . <<< "$1" | bash "$2/record" --results "$3" 2> /dev/null &&
+  [ "$(wc -l < "$3")" -eq 1 ] && [ "$(jq -r .kind "$3")" = llm-bench ]' _ "$llm_good" "$BENCH" "$LLM_RESULTS"
+n="$(llm_rows)"
+jq -c 'del(.avg_ts)' <<< "$llm_good" | bash "$BENCH/record" --results "$LLM_RESULTS" 2> /dev/null
+rc="$?"
+check "record: rejects an llm-bench row missing avg_ts with exit 2 (exit $rc)" test "$rc" -eq 2
+check "record: the invalid llm-bench row was not appended" test "$(llm_rows)" -eq "$n"
+check "record: rejects an unknown kind" \
+  exits 2 bash "$BENCH/record" --results "$LLM_RESULTS" <<< '{"kind":"nope"}'
+check "record --check: runs and llm-bench rows validate side by side" \
+  exits 0 bash "$BENCH/record" --check <(printf '%s\n' "$good" "$(jq -c . <<< "$llm_good")")
+
+# ---------------------------------------------------------------- grade contract
+check "grade: emits exactly one JSON line with the contract fields" bash -c '
+  out="$(bash "$1/grade" T0 "$1/tasks/T0/solution")" || exit 1
+  [ "$(printf "%s\n" "$out" | wc -l)" -eq 1 ] || exit 1
+  jq -e "keys == ([\"task\",\"hidden_pass\",\"passed\",\"total\",\"test_kill_rate\",\"perf_speedup\",\"mismatch\",\"grader_s\",\"errors\"] | sort)" <<< "$out" > /dev/null
+' _ "$BENCH"
+check "grade: exits 0 when the solution fails" exits 0 bash "$BENCH/grade" T0 "$BENCH/tasks/T0/skeleton"
+check "grade: exits 2 when the grader itself is missing" \
+  exits 2 bash "$BENCH/grade" T9 "$BENCH/tasks/T0/solution"
+
+# ---------------------------------------------------------------- run argument checks
+n_before_bad_runs="$(rows)"
+check "run: rejects an unknown task (exit 2)" \
+  exits 2 bash "$BENCH/run" --agent fixture:tasks/T0/solution --task T7 --rep 1 --parts none --results "$RESULTS"
+check "run: rejects a missing --rep (exit 2)" \
+  exits 2 bash "$BENCH/run" --agent fixture:tasks/T0/solution --task T0 --parts none --results "$RESULTS"
+check "run: rejects an unknown agent (exit 2)" \
+  exits 2 bash "$BENCH/run" --agent gpt --task T0 --rep 1 --parts none --results "$RESULTS"
+check "run: rejects a missing fixture dir (exit 2)" \
+  exits 2 bash "$BENCH/run" --agent fixture:tasks/T0/nope --task T0 --rep 1 --parts none --results "$RESULTS"
+check "run: rejected invocations append nothing" test "$(rows)" -eq "$n_before_bad_runs"
+check "run: --parts a,b is recorded as [\"a\",\"b\"]" bash -c '
+  bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 2 --parts P1,P2 --results "$2/parts.jsonl" > /dev/null 2>&1 \
+    && jq -e ".harness_rev.parts == [\"P1\",\"P2\"] and .rep == 2" "$2/parts.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+
+# A stub llm adapter stands in for `llm pi-run`, so the pi branch runs without a model.
+cat > "$tmp/llm-stub" <<'EOF'
+[ "$1" = pi-run ] || exit 1
+printf '%s\n' '{"timeout":false,"tool_cpu_s":1.5,"tokens":1234,"prompt_tokens":1000,"completion_tokens":234}'
+EOF
+check "run: pi carries pi-run's tokens into the row" bash -c '
+  BENCH_LLM="$2/llm-stub" bash "$1/run" --agent pi --model stub --timeout 60 --task T0 --rep 1 --parts none \
+    --results "$2/pi.jsonl" > /dev/null 2>&1 \
+    && jq -e ".tokens == 1234 and .tool_cpu_s == 1.5" "$2/pi.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+
+# ---------------------------------------------------------------- report
+if bash "$BENCH/report" --runs "$RESULTS" > "$tmp/report.md" 2> "$tmp/report.err"; then
+  ok "report: renders without error"
+else
+  bad "report: exited non-zero -- $(cat "$tmp/report.err")"
+fi
+check "report: has a markdown table header" grep -q '^| agent | task |' "$tmp/report.md"
+check "report: has a row for the solution fixture" grep -q 'fixture:tasks/T0/solution | T0 |' "$tmp/report.md"
+check "report: renders an empty runs file" bash -c 'bash "$1/report" --runs /dev/null > /dev/null' _ "$BENCH"
+
+# ---------------------------------------------------------------- prompt
+for s in Boundary Termination Output; do
+  check "prompt.md: has a ## $s section" grep -qi "^## *$s" "$BENCH/prompt.md"
+done
+check "prompt.md: exists" test -s "$BENCH/prompt.md"
+check "prompt.md: names nothing outside the workspace (grep exit 1 = no match)" \
+  exits 1 grep -nE '/home|~/|\.\./|autonomy|grader|wkspace' "$BENCH/prompt.md"
+
+# ---------------------------------------------------------------- isolation
+check "selftest never touched the real runs.jsonl" test "$(real_sum)" = "$real_before"
+
+if [ "$pass" -eq 0 ]; then echo "selftest: no cases ran"; exit 1; fi
+echo "selftest: $pass passed, $fail failed"
+[ "$fail" -eq 0 ]
