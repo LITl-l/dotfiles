@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# selftest — prove the T3 grader scores what it claims, through the real bench `grade`.
+#
+#   reference vs itself  -> hidden_pass 1.0, speedup ~1 (0.8..1.25)
+#   optimised solution/  -> hidden_pass 1.0, speedup > 2
+#   every broken variant -> perf_speedup 0, hidden_pass < 1
+#
+# Costs a few minutes of CPU: the reference is timed by hyperfine (warmup 1 + 5 runs on
+# input-large) in both of the passing grades. The reference median it prints is the
+# measured wall time recorded in results/WP4.md.
+set -uo pipefail
+shopt -s nullglob
+
+T3="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BENCH="$(cd "$T3/../.." && pwd)"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+pass=0
+fail=0
+ok()  { pass=$((pass + 1)); printf 'ok   %s\n' "$1"; }
+bad() { fail=$((fail + 1)); printf 'FAIL %s\n' "$1"; }
+check() { # check <description> <command...>
+  local d="$1"; shift
+  if "$@"; then ok "$d"; else bad "$d"; fi
+}
+# jqt <json> <filter> — true when the jq filter yields true on the json.
+jqt() { [ "$(jq -r "$2" <<< "$1")" = true ]; }
+
+# grade_dir <dir> <tag> — one real bench grade; the row goes to $tmp/<tag>.json and the
+# grader's stderr (hyperfine log, timing line) to $tmp/<tag>.err. Prints the row.
+grade_dir() {
+  if bash "$BENCH/grade" T3 "$1" > "$tmp/$2.json" 2> "$tmp/$2.err"; then
+    cat "$tmp/$2.json"
+  else
+    echo '{}'
+  fi
+}
+# show_errors <tag> — surface a grade's errors, so a failing check says why.
+show_errors() {
+  local e
+  e="$(jq -c '.errors // [] | .[:5]' "$tmp/$1.json" 2> /dev/null)"
+  if [ -n "$e" ] && [ "$e" != "[]" ]; then printf 'note %s errors: %s\n' "$1" "$e"; fi
+}
+timing() { grep -o "$1=[0-9.]*" "$tmp/$2.err" | tail -n 1 | cut -d= -f2; }
+
+# --- layout ---------------------------------------------------------------------------
+check "skeleton ships SPEC.md and an executable reference ./run" \
+  test -f "$T3/skeleton/SPEC.md" -a -x "$T3/skeleton/run"
+check "solution ships an executable ./run, ./test and DONE" \
+  test -x "$T3/solution/run" -a -x "$T3/solution/test" -a -f "$T3/solution/DONE"
+nbroken=0
+for b in "$T3"/grader/broken/*/; do [ -x "$b/run" ] && nbroken=$((nbroken + 1)); done
+check "at least 4 broken variants (found $nbroken)" test "$nbroken" -ge 4
+check "broken/ties (fast but wrong on ties) exists" test -x "$T3/grader/broken/ties/run"
+check "broken/empty (fast but wrong on empty input) exists" test -x "$T3/grader/broken/empty/run"
+
+# --- a solution with no ./run ---------------------------------------------------------
+mkdir -p "$tmp/norun"
+row="$(grade_dir "$tmp/norun" norun)"
+check "no ./run: grade still emits a row" jqt "$row" '.task == "T3"'
+check "no ./run: hidden_pass 0 and perf_speedup 0" \
+  jqt "$row" '.hidden_pass == 0 and .perf_speedup == 0'
+
+# --- broken variants ------------------------------------------------------------------
+for b in "$T3"/grader/broken/*/; do
+  name="$(basename "$b")"
+  row="$(grade_dir "$b" "broken-$name")"
+  check "broken/$name: perf_speedup is 0 ($(jq -c .perf_speedup <<< "$row"))" \
+    jqt "$row" '.perf_speedup == 0'
+  check "broken/$name: caught by the differential test (hidden_pass $(jq -c .hidden_pass <<< "$row"))" \
+    jqt "$row" '.hidden_pass < 1 and .mismatch > 0'
+done
+
+# --- optimised solution ---------------------------------------------------------------
+row="$(grade_dir "$T3/solution" solution)"
+show_errors solution
+check "solution: differential covers at least 200 inputs (total $(jq -c .total <<< "$row"))" \
+  jqt "$row" '.total >= 200'
+check "solution: hidden_pass 1.0, mismatch 0" jqt "$row" '.hidden_pass == 1 and .mismatch == 0'
+check "solution: perf_speedup > 2 ($(jq -c .perf_speedup <<< "$row"))" \
+  jqt "$row" '.perf_speedup > 2'
+check "solution: its ./test kills every broken variant (test_kill_rate $(jq -c .test_kill_rate <<< "$row"))" \
+  jqt "$row" '.test_kill_rate == 1'
+sol_ref="$(timing reference_median_s solution)"
+sol_cand="$(timing candidate_median_s solution)"
+
+# --- the skeleton's reference against itself -----------------------------------------
+row="$(grade_dir "$T3/skeleton" skeleton)"
+show_errors skeleton
+check "skeleton: hidden_pass 1.0, mismatch 0" jqt "$row" '.hidden_pass == 1 and .mismatch == 0'
+check "skeleton: speedup ~1, within 0.8..1.25 ($(jq -c .perf_speedup <<< "$row"))" \
+  jqt "$row" '.perf_speedup >= 0.8 and .perf_speedup <= 1.25'
+check "skeleton: no ./test, so test_kill_rate is null" jqt "$row" 'has("test_kill_rate") and .test_kill_rate == null'
+ref_med="$(timing reference_median_s skeleton)"
+
+# --- measured reference wall time -----------------------------------------------------
+printf 'note reference median on input-large: %s s (skeleton grade), %s s (solution grade)\n' \
+  "${ref_med:-?}" "${sol_ref:-?}"
+printf 'note solution median on input-large: %s s\n' "${sol_cand:-?}"
+check "reference takes 8..15 s on input-large (median ${ref_med:-?} s)" \
+  jqt "{\"m\":${ref_med:-null}}" '.m != null and .m >= 8 and .m <= 15'
+
+printf 'selftest: %d passed, %d failed\n' "$pass" "$fail"
+[ "$fail" -eq 0 ]
