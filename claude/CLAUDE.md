@@ -58,7 +58,9 @@ repos that are not jj.
   asked for by name.
 - **Superpowers artifacts**: `brainstorming` and `writing-plans` save specs/plans under
   `docs/superpowers/` — ephemeral notes, gitignored. Don't commit them (skip the skill's
-  "commit the spec" step).
+  "commit the spec" step). They are AI working documents: once the design is approved in
+  chat, write the spec and go straight to `writing-plans` — skip the "user reviews written
+  spec" gate.
 
 ### PR base
 
