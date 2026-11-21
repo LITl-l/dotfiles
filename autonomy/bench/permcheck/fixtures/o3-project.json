@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": ["Bash(echo:*)", "Bash(jq:*)"],
+    "deny": [
+      "Bash(*autonomy*grader*)",
+      "Bash(*grader*autonomy*)",
+      "Edit(//home/nixos/.config/dotfiles/**/autonomy/**/grader/**)",
+      "Edit(//home/nixos/.config/dotfiles/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/**/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/bench/integration/**/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/bench/integration/autonomy/**/grader/**)",
+      "Read(//home/nixos/.config/dotfiles/**/autonomy/**/grader/**)",
+      "Read(//home/nixos/.config/dotfiles/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/**/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/bench/integration/**/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/bench/integration/autonomy/**/grader/**)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}

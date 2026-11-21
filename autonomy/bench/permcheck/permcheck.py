@@ -5,7 +5,10 @@
     a read-class tool naming the path, `cd <dir> && <tool> <relative path>`, and a
     recursive reader pointed at an ancestor of the path. Plus the built-in Read tool,
     which needs no allow rule inside the session's directories, against Read() denies.
-(b) done_prompts: does a done-cmd hit deny or ask, or miss every allow?
+(b) done_prompts: does a done-cmd hit deny or ask, or miss every allow? Or name a
+    literal path outside the session's directories (path scope, which prompts even
+    under an allow rule)? Under acceptEdits, a file command inside the cwd needs no
+    allow rule. Both come from real-session sampling (results/O3.md), not from docs.
 
 Where Claude Code's matcher is not pinned down, the model brackets it: a strict and a
 loose reading of every wildcard rule. (a) widens allow and narrows deny/ask, so it can
@@ -16,7 +19,10 @@ disagree; it never picks one.
 import argparse
 import itertools
 import json
+import os
+import posixpath
 import re
+import shlex
 import sys
 
 import z3
@@ -228,6 +234,9 @@ def read_ast(rule):
     return None
 
 
+LISTS = ("allow", "deny", "ask", "additionalDirectories")
+
+
 def load(path):
     try:
         with open(path, encoding="utf-8") as f:
@@ -235,12 +244,12 @@ def load(path):
     except (OSError, ValueError, AttributeError) as e:
         print(f"permcheck: cannot read {path}: {e}", file=sys.stderr)
         sys.exit(2)
-    return {k: list(perms.get(k, [])) for k in ("allow", "deny", "ask")}
+    return {k: list(perms.get(k, [])) for k in LISTS}
 
 
 def merge(files, roots):
     """Union of every list; @ROOT@ expanded once per root, as `run` does for the bench."""
-    merged = {"allow": [], "deny": [], "ask": []}
+    merged = {k: [] for k in LISTS}
     for perms in files:
         for k, rules in perms.items():
             for r in rules:
@@ -394,7 +403,8 @@ def read_violations(merged, protected, roots):
 
 # --- (b) done_prompts
 
-UNMODELLED = set("$`\\<>()&\n#*?[]~{}!")
+# `~` is not here: path scope resolves it (see path_args).
+UNMODELLED = set("$`\\<>()&\n#*?[]{}!")
 
 
 def split_compound(cmd):
@@ -432,21 +442,132 @@ def split_compound(cmd):
     return segs
 
 
+# --- Session context: path scope and permission mode (O3 findings 1 and 2).
+
+# Observed under acceptEdits for `cp` only (O3 P4); the rest of the set is the spec's
+# minimum. Kept narrow on purpose: an auto-approve the real session lacks is a false ok.
+ACCEPT_EDITS_CMDS = {"cp", "mv", "mkdir", "touch"}
+ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+IN_CWD = object()  # a relative path inside a cwd that was not stated
+
+
+def norm(p):
+    p = posixpath.normpath(p)
+    return "/" + p.lstrip("/") if p.startswith("/") else p
+
+
+def inside(p, d):
+    """Containment on path-component boundaries: /a/bc is not inside /a/b."""
+    return p == d or p.startswith(d.rstrip("/") + "/")
+
+
+class Session:
+    def __init__(self, cwd, home, dirs, mode, disabled):
+        self.cwd = norm(cwd) if cwd else None
+        self.home = home
+        self.dirs = [d for d in (self.resolve(x, strict=False) for x in dirs)
+                     if isinstance(d, str)]
+        self.accept_edits = mode == "acceptEdits" and "accept-edits" not in disabled
+        self.path_scope = "path-scope" not in disabled
+
+    def resolve(self, tok, strict=True):
+        """Lexical: expand ~, join to the cwd, normalise `..`. No filesystem access."""
+        if tok.startswith("~"):
+            if tok != "~" and not tok.startswith("~/"):
+                if strict:
+                    raise Unverified(f"path scope: cannot expand {tok!r}")
+                return None
+            if not self.home:
+                if strict:
+                    raise Unverified("path scope: ~ with no home directory")
+                return None
+            return norm(self.home + tok[1:])
+        if tok.startswith("/"):
+            return norm(tok)
+        if self.cwd:
+            return norm(self.cwd + "/" + tok)
+        rel = posixpath.normpath(tok)
+        if rel == ".." or rel.startswith("../"):
+            if strict:
+                raise Unverified(f"path scope: {tok!r} escapes a cwd that was not given")
+            return None
+        return IN_CWD
+
+
+def path_args(seg):
+    """(command word, literal arguments that may name paths).
+
+    A flag is skipped unless it carries `=value`, whose value is checked. A flag that
+    glues a path to its letter (`-I/usr`) cannot be split reliably, so it is unverified.
+    """
+    try:
+        toks = shlex.split(seg)
+    except ValueError as e:
+        raise Unverified(f"path scope: {e}") from e
+    while toks and ASSIGNMENT.match(toks[0]):
+        toks = toks[1:]
+    if not toks:
+        return "", []
+    args = []
+    for t in toks[1:]:
+        if re.search(r"[=:]~", t):
+            raise Unverified(f"path scope: tilde after = or : in {t!r}")
+        if t.startswith("-"):
+            if "=" in t:
+                args.append(t.split("=", 1)[1])
+            elif "/" in t or "~" in t:
+                raise Unverified(f"path scope: cannot split flag {t!r}")
+            continue
+        args.append(t)
+    return toks[0], [a for a in args if a]
+
+
+def scope(seg, session):
+    """(auto-approvable under acceptEdits, path outside the session's directories or None)."""
+    cmd, args = path_args(seg)
+    edit_cmd = session.accept_edits and cmd in ACCEPT_EDITS_CMDS
+    if not session.path_scope and not edit_cmd:
+        return False, None
+    outside, in_cwd = None, True
+    for a in args:
+        p = session.resolve(a)
+        if p is IN_CWD:
+            continue
+        here = session.cwd is not None and inside(p, session.cwd)
+        in_cwd = in_cwd and here
+        if not session.path_scope or here or any(inside(p, d) for d in session.dirs):
+            continue
+        if session.cwd is None:
+            raise Unverified(f"path scope: {p} may be inside the cwd, which was not given")
+        outside = outside or p
+    return edit_cmd and in_cwd, outside
+
+
 WORLDS = list(itertools.product([False, True], repeat=2))
 
 
-def verdict(seg, merged, world):
-    """('ok'|'prompt', rule) for one segment under one reading of the matcher."""
-    rules = {k: [BashRule(r) for r in merged[k] if is_bash(r)] for k in merged}
+def verdict(seg, merged, world, auto_edit, outside):
+    """('ok'|'prompt', rule) for one segment under one reading of the matcher.
+
+    Order: deny/ask, then path scope (which overrides an allow), then allow, then the
+    acceptEdits auto-approve (which stands in only for a missing allow rule).
+    """
+    rules = {k: [BashRule(r) for r in merged[k] if is_bash(r)] for k in ("allow", "deny", "ask")}
     for kind in ("deny", "ask"):
         hit = next((r for r in rules[kind] if r.matches(seg, world)), None)
         if hit:
             return "prompt", hit.text
+    if outside:
+        return "prompt", f"path-scope:{outside}"
     hit = next((r for r in rules["allow"] if r.matches(seg, world)), None)
-    return ("ok", hit.text) if hit else ("prompt", NO_ALLOW)
+    if hit:
+        return "ok", hit.text
+    if auto_edit:
+        return "ok", "<acceptEdits>"
+    return "prompt", NO_ALLOW
 
 
-def done_violations(merged, done_cmds):
+def done_violations(merged, done_cmds, session):
     out = []
     for cmd in done_cmds:
         try:
@@ -455,7 +576,12 @@ def done_violations(merged, done_cmds):
             out.append({"kind": "unverified", "witness": cmd, "rule": str(e)})
             continue
         for seg in segs:
-            results = {w: verdict(seg, merged, w) for w in WORLDS}
+            try:
+                auto_edit, outside = scope(seg, session)
+            except Unverified as e:
+                out.append({"kind": "unverified", "witness": seg, "rule": str(e)})
+                continue
+            results = {w: verdict(seg, merged, w, auto_edit, outside) for w in WORLDS}
             outcomes = {o for o, _ in results.values()}
             if outcomes == {"ok"}:
                 continue
@@ -478,18 +604,36 @@ def main(argv):
     ap.add_argument("--done-cmd", nargs="+", action="extend", default=[])
     ap.add_argument("--root", action="append", default=[],
                     help="value(s) @ROOT@ expands to; default: the symbolic root /@ROOT@")
+    ap.add_argument("--mode", default="acceptEdits",
+                    help="session permission mode (default acceptEdits, as fleet spawn); "
+                         "any mode other than acceptEdits is judged as default")
+    ap.add_argument("--cwd", help="the session's working directory; never inferred")
+    ap.add_argument("--home", default=os.environ.get("HOME"),
+                    help="what ~ expands to (default: $HOME)")
     args = ap.parse_args(argv)
     roots = args.root or ["/@ROOT@"]
 
     merged = merge([load(args.settings), load(args.project)], roots)
+    # Selftest-only switch: proves each rule does work by turning it off.
+    disabled = set(filter(None, os.environ.get("PERMCHECK_DISABLE", "").split(",")))
+    session = Session(args.cwd, args.home, merged["additionalDirectories"], args.mode, disabled)
     violations = []
     for glob in dict.fromkeys(args.protected):
         violations += Searcher(merged, glob).bash_violations()
         violations += read_violations(merged, glob, roots)
-    violations += done_violations(merged, args.done_cmd)
+    violations += done_violations(merged, args.done_cmd, session)
 
+    coverage = list(COVERAGE)
+    if session.path_scope:
+        coverage.append("path-scope: a literal path argument outside the cwd and "
+                        "additionalDirectories prompts, even when allowed; unverified "
+                        "when --cwd is not given and the path could be inside it")
+    if session.accept_edits:
+        coverage.append("acceptEdits: cp/mv/mkdir/touch with every path inside the cwd "
+                        "need no allow rule (observed once, mechanism unverified)")
+    coverage.append("mode: only acceptEdits is modelled; every other mode is judged as default")
     ok = not violations
-    print(json.dumps({"ok": ok, "violations": violations, "model_coverage": COVERAGE}))
+    print(json.dumps({"ok": ok, "violations": violations, "model_coverage": coverage}))
     return 0 if ok else 1
 
 
