@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash:*)"
+    ],
+    "deny": [
+      "Read(/@ROOT@/autonomy/**/grader/**)",
+      "Read(/@ROOT@/**/autonomy/**/grader/**)",
+      "Bash(*grader*)"
+    ]
+  }
+}
