@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# sandbox-init — the command pi-run's bwrap runs: open the endpoint port, run pi under a
+# timeout, and record the CPU of pi's process tree.
+#
+#   sandbox-init PORT SOCK TIMEOUT_S OUTDIR PI-ARG…
+#
+# The sandbox has its own network namespace, so 127.0.0.1:PORT exists only once the
+# in-sandbox bridge listens on it.
+#
+# CPU is measured here, not outside: under --unshare-pid the outer bwrap takes the exit
+# status from its in-namespace init over a pipe and never waits for it, so the host
+# shell's `times` sees none of the sandbox's CPU (measured: 0.005 s for a 0.5 s burn).
+# This shell reaps pi and the bridge itself, so its `times` covers both. The timeout
+# lives here for the same reason: a run cut short still reports its CPU.
+set -u
+port="$1" sock="$2" tmo="$3" out="$4"
+shift 4
+
+times > "$out/times0"
+python3 /run/llm-tools/bridge.py tcp2unix "$port" "$sock" &
+bridge=$!
+for ((i = 0; i < 100; i++)); do
+  (exec 3<> "/dev/tcp/127.0.0.1/$port") 2> /dev/null && break
+  sleep 0.1
+done
+
+timeout -k 10 "$tmo" pi "$@"
+rc=$?
+kill "$bridge" 2> /dev/null
+wait "$bridge" 2> /dev/null
+times > "$out/times1"
+exit "$rc"
