@@ -1089,6 +1089,8 @@
               z3
               hyperfine
               bubblewrap
+              # Claude Code's Bash sandbox (bench part P0) needs socat beside bwrap on Linux.
+              socat
               coreutils
               util-linux
               (python3.withPackages (p: [ p.z3-solver p.pyyaml p.jsonschema p.hypothesis ]))
