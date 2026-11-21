@@ -185,6 +185,9 @@ check "run: rejected invocations append nothing" test "$(rows)" -eq "$n_before_b
 check "run: --parts a,b is recorded as [\"a\",\"b\"]" bash -c '
   bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 2 --parts P1,P2 --results "$2/parts.jsonl" > /dev/null 2>&1 \
     && jq -e ".harness_rev.parts == [\"P1\",\"P2\"] and .rep == 2" "$2/parts.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+check "run: parts without P0 get no sandbox block" bash -c '
+  ws="$BENCH_WS_ROOT/$(jq -r .run_id "$1/parts.jsonl")"
+  jq -e "has(\"sandbox\") | not" "$ws/.claude/settings.json" > /dev/null' _ "$tmp"
 
 # A stub llm adapter stands in for `llm pi-run`, so the pi branch runs without a model.
 cat > "$tmp/llm-stub" <<'EOF'
@@ -194,7 +197,121 @@ EOF
 check "run: pi carries pi-run's tokens into the row" bash -c '
   BENCH_LLM="$2/llm-stub" bash "$1/run" --agent pi --model stub --timeout 60 --task T0 --rep 1 --parts none \
     --results "$2/pi.jsonl" > /dev/null 2>&1 \
-    && jq -e ".tokens == 1234 and .tool_cpu_s == 1.5" "$2/pi.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+    && jq -e ".tokens == 1234 and .tool_cpu_s == 1.5 and .timeout == false" "$2/pi.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+
+# G5: an adapter whose run overran the limit but still says timeout:false, as a pi-run
+# under bwrap --unshare-pid did (wall_s 3550.9 against --timeout 3540, timeout=false).
+cat > "$tmp/llm-stub-overrun" <<'EOF'
+[ "$1" = pi-run ] || exit 1
+sleep 1.2
+printf '%s\n' '{"timeout":false,"tool_cpu_s":null,"tokens":null}'
+EOF
+check "run: pi timeout is true once wall time reaches the limit, whatever pi-run says (G5)" bash -c '
+  BENCH_LLM="$2/llm-stub-overrun" bash "$1/run" --agent pi --model stub --timeout 1 --task T0 --rep 1 --parts none \
+    --results "$2/pi-overrun.jsonl" > /dev/null 2>&1 \
+    && jq -e ".wall_s >= 1 and .timeout == true" "$2/pi-overrun.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+
+# ---------------------------------------------------------------- part P0: Bash sandbox
+# The rendered settings embed absolute roots ($REPO, $HOME/...), so these cases run a copy
+# of the bench at a fixed layout with HOME pinned beside it. Every root then shares the
+# $FIX prefix, so jq's `unique` orders the entries identically wherever mktemp lands, and
+# the golden file can hold @FIX@ for that prefix and still be compared byte for byte.
+FIX="$tmp/fix"
+mkdir -p "$FIX/repo/autonomy/bench" "$FIX/home"
+for f in run grade record settings.template.json prompt.md lib parts tasks/T0; do
+  [ -e "$BENCH/$f" ] || continue
+  mkdir -p "$(dirname "$FIX/repo/autonomy/bench/$f")"
+  cp -R "$BENCH/$f" "$FIX/repo/autonomy/bench/$f"
+done
+render() { # render <parts> -- one fixture run in the fixed layout; prints its workspace
+  HOME="$FIX/home" BENCH_WS_ROOT="$FIX/ws" bash "$FIX/repo/autonomy/bench/run" \
+    --agent fixture:tasks/T0/solution --task T0 --rep 1 --parts "$1" \
+    --results "$FIX/runs.jsonl" > "$FIX/run.out" 2> "$FIX/run.err" || return 1
+  printf '%s/%s\n' "$FIX/ws" "$(tail -n 1 "$FIX/runs.jsonl" | jq -r .run_id)"
+}
+none_ws="$(render none)"
+p0_ws="$(render P0)"
+none_s="$none_ws/.claude/settings.json"
+p0_s="$p0_ws/.claude/settings.json"
+
+check "P0 (a): --parts none settings are byte-identical to the pre-P0 golden file" bash -c '
+  sed "s|@FIX@|$1|g" "$2" | cmp -s - "$3"' _ "$FIX" "$BENCH/fixtures/settings.parts-none.golden.json" "$none_s"
+check "P0 (b): sandbox is enabled, auto-allows Bash, never runs unsandboxed, fails if unavailable" \
+  exits 0 jq -e '.sandbox | .enabled == true and .autoAllowBashIfSandboxed == true
+    and .allowUnsandboxedCommands == false and .failIfUnavailable == true' "$p0_s"
+check "P0 (b): allowWrite is exactly the run workspace" \
+  exits 0 jq -e --arg ws "$p0_ws" '.sandbox.filesystem.allowWrite == [$ws]' "$p0_s"
+check "P0 (b): denyRead covers the grader tree under every root" \
+  exits 0 jq -e --arg fix "$FIX" '.sandbox.filesystem.denyRead as $d
+    | [$fix + "/repo", $fix + "/home/.config/dotfiles", $fix + "/home/wkspace/worktree"]
+    | all(. as $r | ($d | index($r + "/autonomy/**/grader/**")) and ($d | index($r + "/**/autonomy/**/grader/**")))' "$p0_s"
+check "P0 (b): no placeholder survives into the sandbox block" \
+  exits 1 grep -qE '@ROOT@|@WS@' "$p0_s"
+check "P0 (b): network is strict with no allowed domains" \
+  exits 0 jq -e '.sandbox.network | .strictAllowlist == true and ((.allowedDomains // []) == [])' "$p0_s"
+check "P0 (b): the sandbox block holds nothing beyond those keys" \
+  exits 0 jq -e '(.sandbox | keys) == ["allowUnsandboxedCommands","autoAllowBashIfSandboxed","enabled","failIfUnavailable","filesystem","network"]
+    and (.sandbox.filesystem | keys) == ["allowWrite","denyRead"]' "$p0_s"
+check "P0 (b): permissions are the --parts none permissions, unchanged" bash -c '
+  [ "$(jq -cS .permissions "$1")" = "$(jq -cS .permissions "$2")" ]' _ "$p0_s" "$none_s"
+
+# BENCH_TARGET preset: a sandboxed session still prompts for `VAR=value cmd`, so P0 sets
+# the variable through settings and tells the agent to run ./test bare.
+P0_SENTENCE='`BENCH_TARGET` is already set to `./run` in your environment, so run `./test` directly — never prefix commands with `VAR=value`.'
+target_env() { jq -e '.env.BENCH_TARGET == "./run"' "$1" > /dev/null; }
+check "P0 env (a): --parts none settings set no env" exits 0 jq -e 'has("env") | not' "$none_s"
+check "P0 env (a): --parts none prompt is prompt.md byte for byte" \
+  cmp -s "$BENCH/prompt.md" "$none_ws.prompt.md"
+check "P0 env (b): --parts P0 settings preset env.BENCH_TARGET to ./run" target_env "$p0_s"
+check "P0 env (b): --parts P0 prompt carries the no-env-prefix sentence" \
+  grep -qF -- "$P0_SENTENCE" "$p0_ws.prompt.md"
+check "P0 env (b): the sentence sits inside ## Boundary" bash -c '
+  awk -v s="$2" "/^## /{sec=\$0} index(\$0, s){print sec; exit}" "$1" | grep -qi "^## *Boundary"' \
+  _ "$p0_ws.prompt.md" "$P0_SENTENCE"
+for s in Boundary Termination Output; do
+  check "P0 env (b): the P0 prompt keeps its ## $s section" grep -qi "^## *$s" "$p0_ws.prompt.md"
+done
+check "P0 env (b): the P0 prompt is prompt.md plus exactly that one line" bash -c '
+  [ "$(diff "$1" "$2" | grep -c "^[<>]")" -eq 1 ] && diff "$1" "$2" | grep -q "^> "' \
+  _ "$BENCH/prompt.md" "$p0_ws.prompt.md"
+#    (c) the assertion must notice a P0 overlay that lost its env block.
+p0_overlay="$FIX/repo/autonomy/bench/parts/P0.settings.json"
+cp "$p0_overlay" "$tmp/P0.settings.orig"
+jq 'del(.env)' "$tmp/P0.settings.orig" > "$p0_overlay"
+broken_ws="$(render P0)"
+cp "$tmp/P0.settings.orig" "$p0_overlay"
+check "P0 env (c): the broken overlay still rendered" test -f "$broken_ws/.claude/settings.json"
+check "P0 env (c): a P0 render without env fails the BENCH_TARGET assertion" \
+  exits 1 target_env "$broken_ws/.claude/settings.json"
+
+# (c) permcheck lives in its own WP. Its z3 runtime exists only in the .#bench devShell, so
+# the flake check (jq only) skips this; BENCH_PERMCHECK points at a permcheck elsewhere.
+# The settings are already rendered, so permcheck is given the concrete roots run used:
+# left at its symbolic default root it would search a tree no rendered deny names.
+pc="${BENCH_PERMCHECK:-$BENCH/permcheck/permcheck}"
+if [ -f "$pc" ] && python3 -c 'import z3' 2> /dev/null; then
+  pc_out="$(bash "$pc" --settings "$BENCH/fixtures/permcheck-user.json" --project "$p0_s" \
+    --protected '**/autonomy/**/grader/**' --done-cmd 'test -f DONE' \
+    --root "$FIX/repo" --root "$FIX/home/.config/dotfiles" --root "$FIX/home/wkspace/worktree" \
+    --cwd "$p0_ws" --home "$FIX/home" 2> "$tmp/permcheck.err")"
+  pc_rc="$?"
+  printf '     permcheck: %s\n' "$pc_out"
+  check "P0 (c): permcheck reports ok for the P0 settings (exit $pc_rc)" test "$pc_rc" -eq 0
+  check "P0 (c): permcheck finds no reads_protected violation" bash -c '
+    jq -e ".ok == true and ([.violations[] | select(.kind == \"reads_protected\")] | length == 0)" <<< "$1" > /dev/null' _ "$pc_out"
+else
+  echo "skip P0 (c): no permcheck at $pc or no python3 with z3 (set BENCH_PERMCHECK)"
+fi
+
+check "P0 (d): a fixture --parts P0 run records parts [\"P0\"] and its workspace is sandboxed" bash -c '
+  bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 1 --parts P0 --results "$2/p0.jsonl" > /dev/null 2>&1 || exit 1
+  ws="$BENCH_WS_ROOT/$(jq -r .run_id "$2/p0.jsonl")"
+  jq -e ".harness_rev.parts == [\"P0\"] and .hidden_pass == 1" "$2/p0.jsonl" > /dev/null &&
+  jq -e --arg ws "$ws" ".sandbox.enabled == true and .sandbox.filesystem.allowWrite == [\$ws]" "$ws/.claude/settings.json" > /dev/null' _ "$BENCH" "$tmp"
+check "P0 (d): P0 anywhere in the parts list sandboxes the workspace" bash -c '
+  bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 1 --parts P1,P0 --results "$2/p0b.jsonl" > /dev/null 2>&1 || exit 1
+  ws="$BENCH_WS_ROOT/$(jq -r .run_id "$2/p0b.jsonl")"
+  jq -e ".sandbox.enabled == true" "$ws/.claude/settings.json" > /dev/null' _ "$BENCH" "$tmp"
 
 # ---------------------------------------------------------------- report
 if bash "$BENCH/report" --runs "$RESULTS" > "$tmp/report.md" 2> "$tmp/report.err"; then
@@ -212,7 +329,7 @@ for s in Boundary Termination Output; do
 done
 check "prompt.md: exists" test -s "$BENCH/prompt.md"
 check "prompt.md: names nothing outside the workspace (grep exit 1 = no match)" \
-  exits 1 grep -nE '/home|~/|\.\./|autonomy|grader|wkspace' "$BENCH/prompt.md"
+  exits 1 grep -nE '/home|~/|\.\./|autonomy|grader|wkspace' "$BENCH/prompt.md" "$BENCH"/parts/*.prompt.md
 
 # ---------------------------------------------------------------- isolation
 check "selftest never touched the real runs.jsonl" test "$(real_sum)" = "$real_before"

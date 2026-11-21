@@ -1,0 +1,21 @@
+{
+  "env": {
+    "BENCH_TARGET": "./run"
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "failIfUnavailable": true,
+    "filesystem": {
+      "allowWrite": ["@WS@"],
+      "denyRead": [
+        "@ROOT@/autonomy/**/grader/**",
+        "@ROOT@/**/autonomy/**/grader/**"
+      ]
+    },
+    "network": {
+      "strictAllowlist": true
+    }
+  }
+}
