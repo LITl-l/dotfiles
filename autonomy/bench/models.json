@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "port": 8081,
+  "notes": {
+    "tool_cpu_s": "user+sys CPU of pi's process tree, measured with the bash `times` builtin inside the sandbox (llm/sandbox-init), around pi. It includes pi itself (node) and the in-sandbox endpoint bridge, not only the tools pi runs. llama-server's CPU is excluded: it runs outside that tree. null when the outer backstop timeout had to kill the sandbox.",
+    "sampling": "Vendor-recommended sampling as known to the WP6 worker. NOT verified against the Hugging Face model cards (the worker had no web access). Confirm each block in O2 before the first bench.",
+    "thinking": "thinking:false adds `--reasoning off` to llama-server and `--thinking off` to pi.",
+    "fetch": "`llm fetch <id>` uses `llama-bench -hf <hf_repo>:<quant>` so the GGUF lands in ~/.cache/llama.cpp in llama.cpp's own layout. `serve` then runs with `--offline`, so it never downloads."
+  },
+  "models": [
+    {
+      "id": "bonsai-27b",
+      "hf_repo": "prism-ml/Ternary-Bonsai-27B-gguf",
+      "quant": "Q2_0",
+      "size": "6.66 GiB",
+      "arch": "dense",
+      "server_flags": ["--jinja", "-c", "32768", "-fa", "on"],
+      "sampling": { "temp": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0 },
+      "thinking": true,
+      "notes": "Current baseline. Needs llama.cpp >= b11555 (older builds emit gibberish, per vendor docs); the .#bench devShell has build 12110."
+    },
+    {
+      "id": "qwen3.6-35b-a3b",
+      "hf_repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+      "quant": "UD-IQ3_S",
+      "size": "13.7 GB",
+      "arch": "MoE, ~3B active",
+      "server_flags": ["--jinja", "-c", "32768", "-fa", "on"],
+      "sampling": { "temp": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0, "presence_penalty": 0.0 },
+      "thinking": true,
+      "notes": "Reported loop / malformed-tool-call tendency; pi-run counts both."
+    },
+    {
+      "id": "gemma-4-26b-a4b",
+      "hf_repo": "unsloth/gemma-4-26B-A4B-it-GGUF",
+      "quant": "UD-IQ4_XS",
+      "size": "13.6 GB",
+      "arch": "MoE, ~4B active",
+      "server_flags": ["--jinja", "-c", "32768", "-fa", "on"],
+      "sampling": { "temp": 1.0, "top_p": 0.95, "top_k": 64, "min_p": 0.0 },
+      "thinking": false,
+      "notes": "Different lab and chat template; separates template failures from model failures. Thinking off for pi."
+    }
+  ]
+}

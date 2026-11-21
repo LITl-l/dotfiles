@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "autonomy/bench/models.json",
+  "type": "object",
+  "required": ["version", "port", "notes", "models"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "port": { "const": 8081 },
+    "notes": {
+      "type": "object",
+      "required": ["tool_cpu_s"],
+      "additionalProperties": { "type": "string" }
+    },
+    "models": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "hf_repo", "quant", "server_flags", "sampling", "thinking"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+          "hf_repo": { "type": "string", "pattern": "^[^/\\s]+/[^/\\s]+$" },
+          "quant": { "type": "string", "minLength": 1 },
+          "size": { "type": "string" },
+          "arch": { "type": "string" },
+          "server_flags": { "type": "array", "items": { "type": "string" } },
+          "sampling": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "temp": { "type": "number", "minimum": 0 },
+              "top_p": { "type": "number", "minimum": 0, "maximum": 1 },
+              "top_k": { "type": "integer", "minimum": 0 },
+              "min_p": { "type": "number", "minimum": 0, "maximum": 1 },
+              "presence_penalty": { "type": "number" }
+            }
+          },
+          "thinking": { "type": "boolean" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}
