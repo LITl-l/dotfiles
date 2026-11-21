@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# T2 grader selftest: the grader must give the reference 1.0 and the skeleton 0.0, and
+# must catch every broken variant in the check group that variant was built to break.
+# Run it inside the devShell: nix develop .#bench -c bash autonomy/bench/tasks/T2/grader/selftest
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+task="$(cd "$here/.." && pwd)"
+bench="$(cd "$task/../.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+pass=0 fail=0
+check() { # check <name> <command...>
+  local name="$1"; shift
+  if "$@"; then
+    printf 'ok   %s\n' "$name"; pass=$((pass + 1))
+  else
+    printf 'FAIL %s\n' "$name"; fail=$((fail + 1))
+  fi
+}
+
+# grade_into <label> <solution_dir>: leaves the grade row in $tmp/<label>.json and the
+# grader's per-group stats in $tmp/<label>.stats.json. Prints the grade exit code.
+grade_into() {
+  local label="$1" sol="$2" rc=0
+  (cd "$tmp/cwd" && T2_STATS="$tmp/$label.stats.json" bash "$bench/grade" T2 "$sol") \
+    > "$tmp/$label.json" 2> "$tmp/$label.err" || rc=$?
+  echo "$rc"
+}
+mkdir "$tmp/cwd"
+row() { jq -r "$2" "$tmp/$1.json"; }
+stat() { jq -r "$2" "$tmp/$1.stats.json"; }
+holds() { jq -e "$2" "$tmp/$1" > /dev/null; } # holds <file under $tmp> <jq predicate>
+is() { [ "$1" = "$2" ]; }
+group_failed() { is "$(stat "$1" ".groups[\"$2\"]")" false; }
+group_passed() { is "$(stat "$1" ".groups[\"$2\"]")" true; }
+
+# --- reference ------------------------------------------------------------------
+check "solution: grade exits 0" is "$(grade_into solution "$task/solution")" 0
+check "solution: hidden_pass is 1.0 ($(row solution .hidden_pass))" holds solution.json '.hidden_pass == 1'
+check "solution: grader runs 7 check groups ($(row solution .total))" is "$(row solution .total)" 7
+check "solution: no errors" is "$(row solution '.errors | length')" 0
+check "solution: >= 20 kill -9 restart points ($(stat solution .kills))" \
+  holds solution.stats.json '.kills >= 20'
+check "solution: its ./test kills every broken variant (test_kill_rate $(row solution .test_kill_rate))" \
+  holds solution.json '.test_kill_rate == 1'
+
+# --- skeleton -------------------------------------------------------------------
+check "skeleton: grade exits 0" is "$(grade_into skeleton "$task/skeleton")" 0
+check "skeleton: hidden_pass is 0.0 ($(row skeleton .hidden_pass))" holds skeleton.json '.hidden_pass == 0'
+check "skeleton: test_kill_rate is null (ships no ./test)" is "$(row skeleton .test_kill_rate)" null
+
+# --- broken variants: name → every check group it must fail ----------------------
+# More than one group per variant where the defect is reachable from several, so a
+# random group is shown to catch it on its own, not only the fixed scripts.
+declare -A must_fail=(
+  [in-memory]="restart crash crash-burst sync"
+  [no-fsync]="sync"
+  [scan-unsorted]="scan model"
+  [ack-before-write]="crash crash-burst sync"
+  [del-not-durable]="restart crash"
+  [replay-drops-last]="restart crash crash-burst"
+)
+n=0
+for b in "$here"/broken/*/; do
+  name="$(basename "$b")"
+  n=$((n + 1))
+  check "broken/$name: grade exits 0" is "$(grade_into "$name" "$b")" 0
+  check "broken/$name: hidden_pass < 1 ($(row "$name" .hidden_pass))" holds "$name.json" '.hidden_pass < 1'
+  if [ -z "${must_fail[$name]:-}" ]; then
+    check "broken/$name: listed in the selftest's must_fail table" false
+  fi
+  for g in ${must_fail[$name]:-}; do
+    check "broken/$name: fails group $g" group_failed "$name" "$g"
+  done
+done
+check "at least 5 broken variants ($n)" test "$n" -ge 5
+for name in "${!must_fail[@]}"; do
+  check "broken/$name exists" test -x "$here/broken/$name/run"
+done
+
+# The ISUCON failure: an in-memory store passes everything until the first restart.
+for g in basic scan model; do
+  check "broken/in-memory: passes pre-restart group $g" group_passed in-memory "$g"
+done
+check "broken/in-memory: scores > 0 before restart checks" holds in-memory.json '.hidden_pass > 0'
+# A store that skips fsync survives kill -9 (the page cache outlives the process), so
+# only the syscall-order check may catch it; everything else must pass.
+for g in basic scan model restart crash crash-burst; do
+  check "broken/no-fsync: passes group $g" group_passed no-fsync "$g"
+done
+# Buffered writes flushed only at exit survive a clean restart but not kill -9.
+check "broken/ack-before-write: passes graceful restart" group_passed ack-before-write restart
+
+# --- correct alternatives: the checks must not reject a store that is durable another way
+for a in "$here"/accept/*/; do
+  name="accept-$(basename "$a")"
+  check "$name: grade exits 0" is "$(grade_into "$name" "$a")" 0
+  check "$name: hidden_pass is 1.0 ($(row "$name" .hidden_pass))" holds "$name.json" '.hidden_pass == 1'
+done
+check "accept/odsync exists" test -x "$here/accept/odsync/run"
+
+# --- hygiene: grading must leave nothing behind where it ran or in the task tree --
+check "grading left no files in its working directory" is "$(find "$tmp/cwd" -mindepth 1 | wc -l)" 0
+check "grading left no .hypothesis/ or __pycache__/ in the task" \
+  is "$(find "$task" \( -name .hypothesis -o -name __pycache__ \) | wc -l)" 0
+
+printf 'selftest: %d passed, %d failed\n' "$pass" "$fail"
+[ "$fail" -eq 0 ]
