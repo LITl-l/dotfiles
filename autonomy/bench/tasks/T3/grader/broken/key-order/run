@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""Broken: fast, but per-key lines come in first-appearance order, not byte order."""
+import sys
+
+
+def main():
+    groups = {}
+    for line in sys.stdin.buffer.read().split(b"\n"):
+        if line:
+            key, value = line.split(b" ")
+            groups.setdefault(key, []).append(int(value))
+
+    out = ["keys %d" % len(groups)]
+    stats = []
+    for key in groups:
+        values = sorted(groups[key])
+        n = len(values)
+        p50 = values[max(1, (50 * n + 99) // 100) - 1]
+        p99 = values[max(1, (99 * n + 99) // 100) - 1]
+        stats.append((key.decode(), n))
+        out.append("%s %d %d %d" % (key.decode(), n, p50, p99))
+
+    top = sorted(stats, key=lambda s: (-s[1], s[0]))[:10]
+    out.append("top %d" % len(top))
+    out.extend("%s %d" % s for s in top)
+    sys.stdout.write("\n".join(out) + "\n")
+
+
+if __name__ == "__main__":
+    main()

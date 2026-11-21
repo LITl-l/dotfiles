@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# T3 hidden grader. Usage: grade <solution_dir>. Contract: ../../../lib/grader.sh.
+#
+# 1. Differential test: the candidate and the reference (../skeleton/run, which the agent
+#    cannot change because the grader runs the task's copy) on every input gen.py makes.
+#    Stdout must match byte for byte, with exit 0. passed/total count these inputs.
+# 2. Only with zero mismatches: both run once on input-large, and the outputs must match.
+#    This also bounds a too-slow candidate before it is timed. A mismatch here adds to
+#    `mismatch` but not to `total`.
+# 3. Only then: hyperfine --warmup 1 --runs 5 on both. perf_speedup = reference median /
+#    candidate median. With any mismatch, perf_speedup = 0.
+#
+# stdout is the one JSON line. The hyperfine log and a `T3 timing:` line go to stderr.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$here/../../../lib/grader.sh"
+
+sol="${1:?usage: grade <solution_dir>}"
+ref="$here/../skeleton/run"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+errf="$tmp/errors"
+: > "$errf"
+
+LARGE_TIMEOUT=120
+
+mkdir -p "$tmp/cases"
+python3 "$here/gen.py" cases "$tmp/cases" || exit 2
+
+# run_one <run> <in> <out> <timeout> — run with cwd = the run's directory.
+run_one() {
+  (cd "$(dirname "$1")" && timeout "$4" ./run < "$2" > "$3" 2> /dev/null)
+}
+
+total=0 passed=0
+for in in "$tmp"/cases/*.in; do
+  name="$(basename "$in" .in)"
+  total=$((total + 1))
+  run_one "$ref" "$in" "$tmp/want" 10 || { echo "reference failed on $name" >&2; exit 2; }
+  if [ ! -e "$sol/run" ]; then continue; fi
+  if run_one "$sol/run" "$in" "$tmp/got" 10; then
+    if cmp -s "$tmp/got" "$tmp/want"; then
+      passed=$((passed + 1))
+    else
+      printf '%s: output mismatch\n' "$name" >> "$errf"
+    fi
+  else
+    printf '%s: exit %s\n' "$name" "$?" >> "$errf" # $? here is run_one's, not negated
+  fi
+done
+[ -e "$sol/run" ] || echo "no ./run" >> "$errf"
+mismatch=$((total - passed))
+
+speedup=0
+if [ "$mismatch" -eq 0 ]; then
+  large="$tmp/input-large"
+  python3 "$here/gen.py" large "$large" || exit 2
+  run_one "$ref" "$large" "$tmp/want" "$LARGE_TIMEOUT" || { echo "reference failed on input-large" >&2; exit 2; }
+  run_one "$sol/run" "$large" "$tmp/got" "$LARGE_TIMEOUT"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    mismatch=1
+    printf 'input-large: exit %s (timeout %ss)\n' "$rc" "$LARGE_TIMEOUT" >> "$errf"
+  elif ! cmp -s "$tmp/got" "$tmp/want"; then
+    mismatch=1
+    echo "input-large: output mismatch" >> "$errf"
+  fi
+fi
+
+if [ "$mismatch" -eq 0 ]; then
+  # --shell=default: hyperfine 2.x refuses `&&` without an explicit shell choice. The
+  # cd keeps the timed cwd identical to the differential step's; hyperfine subtracts
+  # the shell's own spawn time.
+  if hyperfine --warmup 1 --runs 5 --style basic --shell=default --input "$large" \
+       --export-json "$tmp/hf.json" \
+       -n reference "cd $(printf %q "$(dirname "$ref")") && ./run" \
+       -n candidate "cd $(printf %q "$sol") && ./run" >&2; then
+    # hyperfine 2.x export: results[].name is the -n label, and the statistics sit under
+    # summary.time_wall_clock with an explicit unit (1.x had a top-level .median).
+    # shellcheck disable=SC2016 # $n is a jq variable, not a shell one
+    med='def med($n): .results[] | select(.name == $n) | .summary.time_wall_clock
+           | if .unit == "second" and (.median | type) == "number" then .median
+             else error("unexpected hyperfine export for \($n)") end;'
+    if r="$(jq -e "$med med(\"reference\")" "$tmp/hf.json")" \
+       && c="$(jq -e "$med med(\"candidate\")" "$tmp/hf.json")"; then
+      printf 'T3 timing: reference_median_s=%s candidate_median_s=%s\n' "$r" "$c" >&2
+      speedup="$(jq -n --argjson r "$r" --argjson c "$c" \
+        'if $c > 0 then ($r / $c * 1000 | round) / 1000 else 0 end')"
+    else
+      echo "hyperfine export has no wall-clock median in seconds" >> "$errf"
+    fi
+  else
+    echo "hyperfine failed" >> "$errf"
+  fi
+fi
+
+ktr="$(kill_rate "$sol" "$ref" "$here"/broken/*/)"
+emit "$passed" "$total" "$ktr" "$speedup" "$mismatch" "$errf"
