@@ -6,6 +6,8 @@
 #
 # fixture:<dir> installs <dir> (relative to this bench, or absolute) over the workspace
 # instead of dispatching an agent, so the whole path is testable without spending tokens.
+# --parts P0 sandboxes the session's Bash (parts/P0.settings.json); a part with no
+# parts/<part>.settings.json is recorded but changes no setting.
 # Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
 #
 # Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
@@ -79,6 +81,27 @@ jq --argjson roots "$roots" '
       else $r end ] | unique)' \
   "$BENCH/settings.template.json" > "$ws/.claude/settings.json" || fail "cannot write bench settings"
 
+#    A part that changes the session's settings ships parts/<part>.settings.json, merged
+#    over the render above. Its @ROOT@ entries expand once per root like the deny rules;
+#    @WS@ is this workspace. The template render itself is left alone so that --parts none
+#    stays byte-identical to the settings the baseline rows ran under.
+if [ "$parts" != none ]; then
+  IFS=, read -ra part_list <<< "$parts"
+  for p in "${part_list[@]}"; do
+    overlay="$BENCH/parts/$p.settings.json"
+    [ -f "$overlay" ] || continue
+    merged="$(jq -s --argjson roots "$roots" --arg ws "$ws" '
+      (.[1] | walk(
+        if type == "array" then [ .[] as $e
+          | if ($e | type) == "string" and ($e | contains("@ROOT@"))
+            then ($roots[] as $root | $e | gsub("@ROOT@"; $root)) else $e end ]
+        elif type == "string" then gsub("@WS@"; $ws)
+        else . end)) as $o
+      | .[0] * $o' "$ws/.claude/settings.json" "$overlay")" || fail "cannot merge $overlay"
+    printf '%s\n' "$merged" > "$ws/.claude/settings.json" || fail "cannot write bench settings"
+  done
+fi
+
 # 3-5. Dispatch, wait, reap.
 blocked=false timed_out=false tokens=null tool_cpu=null
 start="$(date +%s.%N)"
@@ -138,6 +161,13 @@ case "$kind" in
     ;;
 esac
 end="$(date +%s.%N)"
+# An adapter's own timeout verdict under-reports: under bwrap --unshare-pid a pi run
+# overran 3540 s by 10.9 s and still said timeout:false (G5). Reaching the limit is a
+# timeout whatever the agent reports. Only fixture runs, which have no limit, skip this.
+if [ -n "$tmo" ] && [ "$timed_out" != true ]; then
+  timed_out="$(jq -n --argjson s "$start" --argjson e "$end" --argjson l "$tmo" '($e - $s) >= $l')" \
+    || fail "cannot compare wall time with the limit"
+fi
 
 # 6. Grade and append.
 g="$(bash "$BENCH/grade" "$task" "$ws")" || fail "grading failed for $ws"
