@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# T1 selftest. Run inside the bench devShell:
+#   nix develop .#bench -c bash autonomy/bench/tasks/T1/grader/selftest
+# Proves the grader separates the reference from the skeleton and from every broken
+# variant, and that z3 check B (trs check) both passes on the real table and can fail.
+set -uo pipefail
+shopt -s nullglob
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+task="$(dirname "$here")"
+bench="$(cd "$task/../.." && pwd)"
+repo="$(cd "$bench/../.." && pwd)"
+TRS_SRC="${TRS_SRC:-$repo/claude/marketplaces/local/plugins/trs/skills/trs-spec/tool/src}"
+
+passes=0 fails=0
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+ok()  { passes=$((passes + 1)); printf 'ok   %s\n' "$1"; }
+bad() { fails=$((fails + 1)); printf 'FAIL %s\n' "$1"; }
+check() { # check <name> <cmd>...
+  local name="$1"; shift
+  if "$@"; then ok "$name"; else bad "$name"; fi
+}
+trs() { PYTHONPATH="$TRS_SRC" python3 -m trs "$@"; }
+# exits <code> <cmd>... — succeeds only on that exact exit code, so a missing script
+# (127) can never pass a check that expects a deliberate failure (1).
+exits() {
+  local want="$1"; shift
+  "$@" > "$tmp/exits.out" 2>&1
+  local got=$?
+  [ "$got" -eq "$want" ] || { printf '     (exit %s, wanted %s)\n' "$got" "$want"; return 1; }
+}
+has_code() { grep -q " E $1 " "$2"; }
+
+# --- check B: the decision table itself ----------------------------------------------
+[ -d "$TRS_SRC/trs" ] || bad "trs found at TRS_SRC=$TRS_SRC"
+check "trs check passes on trs.yaml (--strict: no errors, no warnings)" \
+  exits 0 trs check --strict "$here/trs.yaml"
+check "generated/ (trs gen) is up to date with trs.yaml" \
+  exits 0 trs gen --check "$here/trs.yaml"
+
+shape_ok() {
+  python3 - "$here/trs.yaml" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
+acs = [ac for uc in d["use_cases"] for ac in uc["acs"]]
+ok = len(d["factors"]) >= 4 and len(acs) >= 12 and all(ac.get("coverage") == "all" for ac in acs)
+print(f"     factors={len(d['factors'])} regions={len(acs)}")
+sys.exit(0 if ok else 1)
+PY
+}
+check "decision table: >= 4 factors, >= 12 regions, every region fully enumerated" shape_ok
+
+vectors_fresh() {
+  python3 "$here/build-vectors" "$here/generated/vectors.json" "$tmp/vectors.json" &&
+    cmp -s "$tmp/vectors.json" "$here/vectors.json"
+}
+check "vectors.json is what build-vectors makes from generated/vectors.json" vectors_fresh
+
+boundaries_hit() {
+  jq -e '[.cases[].in.qty] | unique as $q
+         | [-1,0,1,9,10,49,50,100,101] | all(. as $b | $q | index($b) != null)' \
+    "$here/vectors.json" > /dev/null
+}
+check "hidden vectors include every quantity boundary" boundaries_hit
+
+check "SPEC.md is prose only (no table rows)" \
+  exits 1 grep -q '^[[:space:]]*|' "$task/skeleton/SPEC.md"
+
+# Seeded copy: one region made contradictory (an AC widened onto a neighbour with a
+# different result) and one region left uncovered (an AC deleted). check B must fail.
+seed() { # seed <mode> <out>
+  python3 - "$here/trs.yaml" "$1" "$2" <<'PY'
+import sys, yaml
+src, mode, out = sys.argv[1:]
+d = yaml.safe_load(open(src, encoding="utf-8"))
+acs = d["use_cases"][0]["acs"]
+by = {ac["id"]: ac for ac in acs}
+if mode == "table":
+    # contradictory: the no-coupon 0% region now also claims standard 10-49 (a 5% region)
+    by["AC-基本正常-001"]["pre"] = 'coupon == "none" && tier == "standard" && qty in ["q1_9", "q10_49"]'
+    # uncovered: nobody prices a gold weekday BOGO order any more
+    acs.remove(by["AC-代替正常-012"])
+elif mode == "rule":
+    # an unknown tier is priced instead of rejected, against R-01
+    by["AC-例外例外-001"]["post"] = {"result": "price", "pct": "0", "mode": "full", "flat": "0"}
+yaml.safe_dump(d, open(out, "w", encoding="utf-8"), allow_unicode=True, sort_keys=False)
+PY
+}
+mkdir -p "$tmp/seed-table" "$tmp/seed-rule"
+seed table "$tmp/seed-table/trs.yaml"
+trs check "$tmp/seed-table/trs.yaml" > "$tmp/seed-table.out" 2>&1
+code=$?
+check "seeded table: trs check exits 1 (got $code)" test "$code" -eq 1
+check "seeded table: contradiction reported (Z030)" has_code Z030 "$tmp/seed-table.out"
+check "seeded table: uncovered region reported (Z020)" has_code Z020 "$tmp/seed-table.out"
+seed rule "$tmp/seed-rule/trs.yaml"
+trs check "$tmp/seed-rule/trs.yaml" > "$tmp/seed-rule.out" 2>&1
+code=$?
+check "seeded rule violation: trs check exits 1 (got $code)" test "$code" -eq 1
+check "seeded rule violation: reported (Z040)" has_code Z040 "$tmp/seed-rule.out"
+
+# --- the grader, through the bench's own grade entry ---------------------------------
+grade() { bash "$bench/grade" T1 "$1"; }
+field() { jq -r ".$1" <<< "$2"; }
+# A broken variant must lose some cases yet still pass others: one that crashes outright
+# would be "caught" without telling us the vectors can see its particular mistake.
+caught() { jq -e '.hidden_pass < 1 and .passed > 0' <<< "$1" > /dev/null; }
+
+ref="$(grade "$task/solution")" || bad "grade ran on the reference"
+check "reference: hidden_pass is 1 ($(field hidden_pass "$ref"), $(field passed "$ref")/$(field total "$ref"))" \
+  test "$(field hidden_pass "$ref")" = 1
+check "reference: at least 1000 hidden cases" test "$(field total "$ref")" -ge 1000
+check "reference: its ./test kills every broken variant (test_kill_rate $(field test_kill_rate "$ref"))" \
+  test "$(field test_kill_rate "$ref")" = 1
+
+skel="$(grade "$task/skeleton")" || bad "grade ran on the skeleton"
+check "skeleton: hidden_pass is 0 ($(field hidden_pass "$skel"))" \
+  test "$(field hidden_pass "$skel")" = 0
+
+n=0
+for b in "$here"/broken/*/; do
+  n=$((n + 1))
+  name="$(basename "$b")"
+  out="$(grade "$b")" || { bad "grade ran on broken/$name"; continue; }
+  hp="$(field hidden_pass "$out")"
+  check "broken/$name: caught (hidden_pass $hp < 1, passed $(field passed "$out") > 0)" \
+    caught "$out"
+done
+check "at least 5 broken variants ($n)" test "$n" -ge 5
+check "grading left no __pycache__ in the task tree" \
+  test -z "$(find "$task" -name __pycache__)"
+
+printf 'selftest: %s passed, %s failed\n' "$passes" "$fails"
+[ "$fails" -eq 0 ]

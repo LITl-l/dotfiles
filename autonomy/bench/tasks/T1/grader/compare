@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""compare <vectors.json> <run> <err_file> — prints the number of hidden cases passed.
+
+All cases go to one ./run process, one JSON line each, because the protocol is
+line-oriented and 1000+ process spawns would dominate grading time. Output line i is
+compared to case i as canonical JSON, so key order and spacing are free but 100.0 is not
+100 and extra keys fail. A ./run that exits non-zero or times out passes nothing: the
+spec requires exit 0, and a partial stream is not a finished answer.
+"""
+import json
+import subprocess
+import sys
+
+MAX_ERR_LINES = 20
+
+
+def canon(obj):
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"))
+
+
+def main(vectors, run, errf):
+    cases = json.load(open(vectors, encoding="utf-8"))["cases"]
+    stdin = "".join(json.dumps(c["in"]) + "\n" for c in cases)
+    errs = []
+    try:
+        p = subprocess.run([run], input=stdin, capture_output=True, text=True, timeout=60)
+        code, lines = p.returncode, p.stdout.splitlines()
+    except subprocess.TimeoutExpired:
+        code, lines = "timeout", []
+    except OSError as e:
+        code, lines = f"cannot execute ({e.strerror})", []
+    passed, wrong = 0, []
+    for i, c in enumerate(cases):
+        got = lines[i] if i < len(lines) else None
+        try:
+            ok = got is not None and canon(json.loads(got)) == canon(c["out"])
+        except ValueError:
+            ok = False
+        if ok:
+            passed += 1
+        else:
+            wrong.append(c["id"])
+    if code != 0:
+        errs.append(f"./run exit {code}")
+        passed = 0
+    if len(lines) != len(cases):
+        errs.append(f"{len(lines)} output lines for {len(cases)} input lines")
+    errs += [f"{w}: output mismatch" for w in wrong[:MAX_ERR_LINES]]
+    if len(wrong) > MAX_ERR_LINES:
+        errs.append(f"... and {len(wrong) - MAX_ERR_LINES} more mismatches")
+    with open(errf, "a", encoding="utf-8") as f:
+        f.writelines(e + "\n" for e in errs)
+    print(passed)
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:4])

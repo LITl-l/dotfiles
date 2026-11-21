@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# T1 hidden grader. Usage: grade <solution_dir>. Contract: ../../../lib/grader.sh.
+# Hidden cases: vectors.json, built by build-vectors from trs.yaml via `trs gen`.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$here/../../../lib/grader.sh"
+
+sol="${1:?usage: grade <solution_dir>}"
+errf="$(mktemp)"
+trap 'rm -f "$errf"' EXIT
+
+total="$(jq '.cases | length' "$here/vectors.json")" || exit 2
+if [ -e "$sol/run" ]; then
+  passed="$(cd "$sol" && python3 "$here/compare" "$here/vectors.json" "$sol/run" "$errf")" || exit 2
+else
+  passed=0
+  echo "no ./run" >> "$errf"
+fi
+ktr="$(kill_rate "$sol" "$here/../solution/run" "$here"/broken/*/)"
+emit "$passed" "$total" "$ktr" null 0 "$errf"
