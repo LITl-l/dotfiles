@@ -33,8 +33,14 @@ already died, so the forbidden set is always one worker behind; the allowed set 
   (`build`, `develop`, `eval`, `flake check`, `search`), `nvim --headless`, `jj` except
   `jj git push`, read-only `git` (`show`, `log`, `diff`, `status`, also through
   `git -C <path>`), and `curl` to `localhost` or `127.0.0.1` only.
-- Outside that set it stalls, including `cp`, `mv`, `rm`, `od`, `yq`, `python3` outside
-  `tools/`, `curl` to any other host, and `gh pr edit`. For a trailing-newline check use
+- Bash only on paths inside your workspace or `/home/nixos/wkspace`; never on
+  `~/.claude`, `~/.cache`, `/nix/store`. An allowlisted command on a path outside the
+  session's directories stalls (measured 2026-11-20: `find /home/nixos/.cache`); the
+  `Read` tool on the same path did not. Top-level shell expansion (`${HOME}`) stalled too.
+- Outside that set it stalls, including `rm`, `od`, `yq`, `python3` outside `tools/`,
+  `curl` to any other host, and `gh pr edit`. Copy and move with `Write` (or `cat`):
+  `cp` inside the cwd ran unprompted under `acceptEdits` once, mechanism unverified, so
+  do not depend on it either way. For a trailing-newline check use
   `tail -c 1 <file> | wc -l`, not `od`.
 
 ### Shapes that gate although the command name is allowlisted
@@ -75,8 +81,9 @@ exists with given content, a test that passes. Not "when the feature feels compl
 Never make a gated action the done-condition: a background worker has no human to answer
 a permission prompt and will block forever. A command gates by matching `permissions.ask`
 (`jj git push`, `gh pr create`, `gh pr merge`), by matching no `allow` pattern at all
-(`gh pr edit`, `cp`, `mv`), or by being written in a shape the matcher does not accept
-even though its name is allowlisted — see Boundary. Stop the worker at "change described
+(`gh pr edit`), by touching a path outside the session's directories, or by being written
+in a shape the matcher does not accept even though its name is allowlisted — see
+Boundary. Stop the worker at "change described
 with `jj describe -m`, result file written"; the orchestrator runs the gated steps.
 
 ## Output
