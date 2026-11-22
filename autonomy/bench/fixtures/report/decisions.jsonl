@@ -1,0 +1,2 @@
+{"decision_id":"D-exclude-X1","ts":"2026-11-21T00:00:00Z","part":null,"verdict":"exclude","run_ids":["X1"],"reason":"host suspend"}
+{"decision_id":"D-adopt","ts":"2026-11-21T00:00:00Z","part":"P0","verdict":"adopt","run_ids":["X2","C2","C3"],"reason":"listed, but adopt excludes nothing"}

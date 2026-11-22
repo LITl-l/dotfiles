@@ -140,6 +140,12 @@ check "record --check fails on a line that is not JSON" \
   exits 2 bash "$BENCH/record" --check <(printf '%s\n' "$good" '{not json')
 check "record --check passes the same file without the bad row" \
   exits 0 bash "$BENCH/record" --check <(printf '%s\n' "$good")
+# source_present is optional, so the rows recorded before it existed still validate.
+check "record: accepts a row with source_present" \
+  exits 0 bash "$BENCH/record" --check <(jq -c '.source_present = false' <<< "$good")
+check "record: accepts a row without source_present" \
+  exits 0 bash "$BENCH/record" --check <(jq -c 'del(.source_present)' <<< "$good")
+reject "a non-boolean source_present" '.source_present = "no"'
 
 # ---------------------------------------------------------------- llm-bench rows
 LLM_RESULTS="$tmp/llm-bench.jsonl"
@@ -210,6 +216,98 @@ check "run: pi timeout is true once wall time reaches the limit, whatever pi-run
   BENCH_LLM="$2/llm-stub-overrun" bash "$1/run" --agent pi --model stub --timeout 1 --task T0 --rep 1 --parts none \
     --results "$2/pi-overrun.jsonl" > /dev/null 2>&1 \
     && jq -e ".wall_s >= 1 and .timeout == true" "$2/pi-overrun.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+
+# ---------------------------------------------------------------- pi limit enforced by run
+# A pi-run that outlives its limit, ignores TERM, and leaves a child in its own process
+# group (as `timeout` inside the adapter does). Before run had a watchdog, the run took the
+# stub's full 60 s and the child outlived it. Grace (5 s) is run's KILL_GRACE.
+cat > "$tmp/llm-stub-hang" <<'EOF'
+[ "$1" = pi-run ] || exit 1
+trap '' TERM
+timeout 300 sleep 120 > /dev/null 2>&1 &
+printf '%s\n' "$!" > "$BENCH_STUB_PIDFILE"
+sleep 60
+printf '%s\n' '{"timeout":false,"tool_cpu_s":null,"tokens":null}'
+EOF
+gone() { # gone <pid> -- no such process, or only a zombie left to reap
+  local st=""
+  [ -r "/proc/$1/stat" ] || return 0
+  { read -r st < "/proc/$1/stat"; } 2> /dev/null || return 0
+  st="${st##*) }"
+  [ "${st%% *}" = Z ]
+}
+hang_t0="$EPOCHREALTIME"
+BENCH_STUB_PIDFILE="$tmp/hang.pid" BENCH_LLM="$tmp/llm-stub-hang" bash "$BENCH/run" --agent pi \
+  --model stub --timeout 2 --task T0 --rep 1 --parts none --results "$tmp/hang.jsonl" \
+  > /dev/null 2> "$tmp/hang.err"
+hang_rc="$?"
+hang_s="$(awk -v a="$hang_t0" -v b="$EPOCHREALTIME" 'BEGIN { printf "%.1f", b - a }')"
+check "pi watchdog: run exits 0 and appends a row (exit $hang_rc)" \
+  bash -c '[ "$1" -eq 0 ] && [ "$(wc -l < "$2")" -eq 1 ]' _ "$hang_rc" "$tmp/hang.jsonl"
+check "pi watchdog: run returns within limit 2 + grace 5 + margin 3 s (took $hang_s s)" \
+  awk -v s="$hang_s" 'BEGIN { exit !(s < 10) }'
+check "pi watchdog: the row says timeout true" \
+  exits 0 jq -e '.timeout == true' "$tmp/hang.jsonl"
+hang_child="$(cat "$tmp/hang.pid" 2> /dev/null)"
+child_gone() { [ -n "$1" ] && gone "$1"; }
+check "pi watchdog: the adapter's child (pid ${hang_child:-?}) no longer exists" \
+  child_gone "$hang_child"
+
+# wall_s must ignore realtime jumps. A fake `date` jumps 20000 s between calls, as a host
+# suspend did (wall_s 50586); a wall_s taken from `date` swallows the jump.
+if python3 -c 'import time; time.monotonic()' 2> /dev/null; then
+  mkdir -p "$tmp/fakebin"
+  printf '#!%s\n' "$(command -v bash)" > "$tmp/fakebin/date"
+  cat >> "$tmp/fakebin/date" <<'EOF'
+if [ "$1" = "+%s.%N" ]; then
+  n="$(cat "$FAKE_DATE_STATE" 2> /dev/null || echo 0)"
+  echo $((n + 1)) > "$FAKE_DATE_STATE"
+  awk -v r="$("$FAKE_DATE_REAL" +%s.%N)" -v n="$n" 'BEGIN { printf "%.9f\n", r + n * 20000 }'
+else
+  exec "$FAKE_DATE_REAL" "$@"
+fi
+EOF
+  chmod 0755 "$tmp/fakebin/date"
+  FAKE_DATE_REAL="$(command -v date)" FAKE_DATE_STATE="$tmp/date.n" \
+    PATH="$tmp/fakebin:$PATH" bash "$BENCH/run" --agent fixture:tasks/T0/solution --task T0 --rep 1 \
+    --parts none --results "$tmp/clock.jsonl" > /dev/null 2> "$tmp/clock.err"
+  check "clock: the fake date really jumps (it was called)" test -s "$tmp/date.n"
+  check "clock: wall_s ignores a 20000 s realtime jump (wall_s $(jq -r .wall_s "$tmp/clock.jsonl" 2> /dev/null))" \
+    exits 0 jq -e '.wall_s < 1000' "$tmp/clock.jsonl"
+  check "clock: run used CLOCK_MONOTONIC, not its realtime fallback" \
+    exits 1 grep -q 'realtime clock' "$tmp/clock.err"
+else
+  echo "skip clock: no python3 to read CLOCK_MONOTONIC here (run falls back to realtime)"
+fi
+
+# ---------------------------------------------------------------- source_present
+# A result nobody can review: an ELF ./run and no source. The ELF is only its magic; it
+# need not execute (the grader then scores it 0, which is beside the point here).
+SRC_RESULTS="$tmp/src.jsonl"
+src_fx() { # src_fx <name> -- a fixture dir whose ./run is a stub ELF
+  mkdir -p "$tmp/srcfx/$1"
+  printf '\177ELF\002\001\001\000\000\000' > "$tmp/srcfx/$1/run"
+  chmod 0755 "$tmp/srcfx/$1/run"
+}
+src_present() { # src_present <fixture dir> -- prints the row's source_present
+  bash "$BENCH/run" --agent "fixture:$1" --task T0 --rep 1 --parts none \
+    --results "$SRC_RESULTS" > /dev/null 2>&1 || { echo run-failed; return; }
+  tail -n 1 "$SRC_RESULTS" | jq -c '.source_present'
+}
+src_fx elf-only
+src_fx elf-src
+mkdir -p "$tmp/srcfx/elf-src/src" "$tmp/srcfx/elf-claude/.claude"
+printf 'fn main() {}\n' > "$tmp/srcfx/elf-src/src/x.rs"
+src_fx elf-claude
+printf 'echo hook\n' > "$tmp/srcfx/elf-claude/.claude/hook.sh"
+check "source_present: false for an ELF ./run with no source" \
+  test "$(src_present "$tmp/srcfx/elf-only")" = false
+check "source_present: true for an ELF ./run beside src/x.rs" \
+  test "$(src_present "$tmp/srcfx/elf-src")" = true
+check "source_present: a .sh under .claude/ is not the solution's source" \
+  test "$(src_present "$tmp/srcfx/elf-claude")" = false
+check "source_present: true for a script ./run (the T0 reference solution)" \
+  test "$(src_present tasks/T0/solution)" = true
 
 # ---------------------------------------------------------------- part P0: Bash sandbox
 # The rendered settings embed absolute roots ($REPO, $HOME/...), so these cases run a copy
@@ -314,14 +412,40 @@ check "P0 (d): P0 anywhere in the parts list sandboxes the workspace" bash -c '
   jq -e ".sandbox.enabled == true" "$ws/.claude/settings.json" > /dev/null' _ "$BENCH" "$tmp"
 
 # ---------------------------------------------------------------- report
-if bash "$BENCH/report" --runs "$RESULTS" > "$tmp/report.md" 2> "$tmp/report.err"; then
+# --decisions is always named: left at its default, report would read the real results.
+if bash "$BENCH/report" --runs "$RESULTS" --decisions /dev/null > "$tmp/report.md" 2> "$tmp/report.err"; then
   ok "report: renders without error"
 else
   bad "report: exited non-zero -- $(cat "$tmp/report.err")"
 fi
 check "report: has a markdown table header" grep -q '^| agent | task |' "$tmp/report.md"
 check "report: has a row for the solution fixture" grep -q 'fixture:tasks/T0/solution | T0 |' "$tmp/report.md"
-check "report: renders an empty runs file" bash -c 'bash "$1/report" --runs /dev/null > /dev/null' _ "$BENCH"
+check "report: renders an empty runs file" \
+  bash -c 'bash "$1/report" --runs /dev/null --decisions /dev/null > /dev/null' _ "$BENCH"
+
+# Exclusions and parts, on fixture rows: X1 is excluded, X2 is listed only by an adopt
+# decision, C4 has no parts list at all, C2 and C3 ran under P0 (C2 left no source).
+RFX="$BENCH/fixtures/report"
+bash "$BENCH/report" --runs "$RFX/runs.jsonl" --decisions "$RFX/decisions.jsonl" > "$tmp/rfx.md" 2> "$tmp/rfx.err"
+check "report: renders the fixture runs with their decisions" test -s "$tmp/rfx.md"
+check "report: parts is a column" grep -q '^| agent | task | parts | n |' "$tmp/rfx.md"
+check "report: the excluded run is dropped, the adopt-listed run kept (pi T2 none n=2)" \
+  grep -q '^| pi | T2 | none | 2 |' "$tmp/rfx.md"
+check "report: parts [] and a missing parts list both group as none (claude T1 none n=2)" \
+  grep -q '^| claude | T1 | none | 2 |' "$tmp/rfx.md"
+check "report: parts [\"P0\"] is its own group (claude T1 P0 n=2)" \
+  grep -q '^| claude | T1 | P0 | 2 |' "$tmp/rfx.md"
+check "report: no_source counts the P0 row without source (1)" \
+  grep -qE '^\| claude \| T1 \| P0 \| 2 \|.*\| 1 \|$' "$tmp/rfx.md"
+check "report: no_source is – for a group whose rows predate the field" \
+  grep -qE '^\| pi \| T2 \| none \| 2 \|.*\| – \|$' "$tmp/rfx.md"
+check "report: an empty decisions file excludes nothing (pi T2 none n=3)" bash -c '
+  bash "$1/report" --runs "$2/runs.jsonl" --decisions /dev/null | grep "^| pi | T2 | none | 3 |" > /dev/null' _ "$BENCH" "$RFX"
+mkdir -p "$tmp/rep/results"
+cp "$BENCH/report" "$tmp/rep/report"
+cp "$RFX/runs.jsonl" "$tmp/rep/results/runs.jsonl"
+check "report: a missing default decisions.jsonl excludes nothing (pi T2 none n=3)" bash -c '
+  bash "$1/report" | grep "^| pi | T2 | none | 3 |" > /dev/null' _ "$tmp/rep"
 
 # ---------------------------------------------------------------- prompt
 for s in Boundary Termination Output; do

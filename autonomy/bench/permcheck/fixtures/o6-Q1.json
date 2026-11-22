@@ -1,0 +1,81 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(./**)",
+      "Edit(./**)",
+      "Write(./**)",
+      "Bash(./run:*)",
+      "Bash(./test:*)",
+      "Bash(BENCH_TARGET=*)",
+      "Bash(bash:*)",
+      "Bash(sh:*)",
+      "Bash(chmod:*)",
+      "Bash(touch:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(printf:*)",
+      "Bash(diff:*)",
+      "Bash(cmp:*)",
+      "Bash(jq:*)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Bash(go:*)",
+      "Bash(cargo:*)",
+      "Bash(rustc:*)",
+      "Bash(gcc:*)",
+      "Bash(cc:*)",
+      "Bash(make:*)"
+    ],
+    "deny": [
+      "Bash(*autonomy*grader*)",
+      "Bash(*grader*)",
+      "Bash(*grader*autonomy*)",
+      "Bash(egrep:*)",
+      "Bash(fgrep:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Edit(//home/nixos/.config/dotfiles/**/autonomy/**/grader/**)",
+      "Edit(//home/nixos/.config/dotfiles/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/**/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/bench/integration/**/autonomy/**/grader/**)",
+      "Edit(//home/nixos/wkspace/worktree/bench/integration/autonomy/**/grader/**)",
+      "Read(//home/nixos/.config/dotfiles/**/autonomy/**/grader/**)",
+      "Read(//home/nixos/.config/dotfiles/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/**/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/bench/integration/**/autonomy/**/grader/**)",
+      "Read(//home/nixos/wkspace/worktree/bench/integration/autonomy/**/grader/**)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  },
+  "env": {
+    "BENCH_TARGET": "./run"
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "failIfUnavailable": true,
+    "filesystem": {
+      "allowWrite": [
+        "/home/nixos/wkspace/autonomy/o6/Q1"
+      ],
+      "denyRead": [
+        "/home/nixos/.config/dotfiles/autonomy/**/grader/**",
+        "/home/nixos/wkspace/worktree/autonomy/**/grader/**",
+        "/home/nixos/wkspace/worktree/bench/integration/autonomy/**/grader/**",
+        "/home/nixos/.config/dotfiles/**/autonomy/**/grader/**",
+        "/home/nixos/wkspace/worktree/**/autonomy/**/grader/**",
+        "/home/nixos/wkspace/worktree/bench/integration/**/autonomy/**/grader/**"
+      ]
+    },
+    "network": {
+      "strictAllowlist": true
+    }
+  }
+}

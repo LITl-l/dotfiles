@@ -21,6 +21,12 @@ REPO="$(cd "$BENCH/../.." && pwd)"
 . "$BENCH/lib/fs.sh"
 # shellcheck source=/dev/null
 . "$BENCH/lib/lang.sh"
+# shellcheck source=/dev/null
+. "$BENCH/lib/clock.sh"
+# shellcheck source=/dev/null
+. "$BENCH/lib/proc.sh"
+
+KILL_GRACE=5  # seconds between the watchdog's TERM and its KILL
 
 usage() { printf 'run: %s\n' "$*" >&2; exit 2; }
 fail()  { printf 'run: %s\n' "$*" >&2; exit 1; }
@@ -126,7 +132,15 @@ fi
 
 # 3-5. Dispatch, wait, reap.
 blocked=false timed_out=false tokens=null tool_cpu=null
-start="$(date +%s.%N)"
+# wall_s is CLOCK_MONOTONIC (lib/clock.sh says why). Without python3 or perl, as in the
+# flake check's sandbox, it falls back to the realtime clock and says so; a real pi run
+# never gets there, because its adapter needs python3 too.
+clock=monotonic
+if ! start="$(mono_now)"; then
+  clock=realtime start="$EPOCHREALTIME"
+  echo "run: no CLOCK_MONOTONIC reader (python3 or perl); wall_s uses the realtime clock" >&2
+fi
+clock_now() { if [ "$clock" = monotonic ]; then mono_now; else echo "$EPOCHREALTIME"; fi; }
 
 claude_session() { # prints the newest inventory row named $1, or nothing
   claude agents --json --all 2>/dev/null \
@@ -176,13 +190,36 @@ case "$kind" in
     # BENCH_LLM lets the selftest swap in a stub adapter, so this branch runs without a model.
     llm="${BENCH_LLM:-$BENCH/llm}"; [ -d "$llm" ] && llm="$llm/llm"
     [ -f "$llm" ] || fail "pi runs need the WP6 llm adapter ($llm)"
-    out="$(bash "$llm" pi-run "$ws" "$model" "$tmo")" || fail "llm pi-run failed"
-    timed_out="$(jq -r '.timeout == true' <<< "$out")" || fail "bad pi-run output: $out"
-    tool_cpu="$(jq -c '.tool_cpu_s // null' <<< "$out")"
-    tokens="$(jq -c '.tokens // null' <<< "$out")"
+    # The limit is enforced here, not trusted to the adapter: its inner timeout under
+    # bwrap let one run overrun (G5) and a host suspend defeat another (wall_s 50586).
+    # setsid gives the adapter a session of its own, so the watchdog can find the whole
+    # tree (lib/proc.sh). Its output goes to a file, not a pipe: a surviving child
+    # holding the pipe open would keep run waiting.
+    pi_out="$ws.pi-run.json" marker="$ws.pi-run.timeout"
+    setsid bash "$llm" pi-run "$ws" "$model" "$tmo" > "$pi_out" &
+    pi_pid=$!
+    watchdog "$pi_pid" "$tmo" "$KILL_GRACE" "$marker" &
+    wd_pid=$!
+    wait "$pi_pid"
+    pi_rc=$?
+    kill "$wd_pid" 2> /dev/null
+    wait "$wd_pid" 2> /dev/null
+    reap_tree "$pi_pid" "$KILL_GRACE"   # whatever the adapter left behind
+    if [ -e "$marker" ]; then
+      timed_out=true
+      echo "run: pi-run reached the ${tmo}s limit; its process tree was stopped" >&2
+    else
+      [ "$pi_rc" -eq 0 ] || fail "llm pi-run failed (exit $pi_rc)"
+      timed_out="$(jq -r '.timeout == true' "$pi_out")" || fail "bad pi-run output: $(cat "$pi_out")"
+    fi
+    # A run stopped by the watchdog may have printed nothing; its figures are then null.
+    if jq -e 'type == "object"' "$pi_out" > /dev/null 2>&1; then
+      tool_cpu="$(jq -c '.tool_cpu_s // null' "$pi_out")"
+      tokens="$(jq -c '.tokens // null' "$pi_out")"
+    fi
     ;;
 esac
-end="$(date +%s.%N)"
+end="$(clock_now)" || fail "cannot read the clock"
 # An adapter's own timeout verdict under-reports: under bwrap --unshare-pid a pi run
 # overran 3540 s by 10.9 s and still said timeout:false (G5). Reaching the limit is a
 # timeout whatever the agent reports. Only fixture runs, which have no limit, skip this.
@@ -210,7 +247,8 @@ row="$(jq -cn \
   --arg task "$task" --argjson rep "$rep" --argjson g "$g" \
   --argjson done_file "$done_file" --argjson blocked "$blocked" --argjson timeout "$timed_out" \
   --argjson start "$start" --argjson end "$end" \
-  --argjson tokens "$tokens" --argjson tool_cpu "$tool_cpu" --arg lang "$(detect_lang "$ws")" '
+  --argjson tokens "$tokens" --argjson tool_cpu "$tool_cpu" --arg lang "$(detect_lang "$ws")" \
+  --argjson source_present "$(source_present "$ws")" '
   {run_id: $run_id, ts: $ts, agent: $agent,
    model: (if $model == "" then null else $model end),
    harness_rev: {parts: $parts, plugin_rev: $plugin_rev},
@@ -221,7 +259,8 @@ row="$(jq -cn \
    blocked: $blocked, timeout: $timeout,
    wall_s: ((($end - $start) * 1000 | round) / 1000),
    tokens: $tokens, tool_cpu_s: $tool_cpu,
-   lang: (if $lang == "unknown" then null else $lang end)}')" || fail "cannot build row"
+   lang: (if $lang == "unknown" then null else $lang end),
+   source_present: $source_present}')" || fail "cannot build row"
 
 printf '%s\n' "$row" | bash "$BENCH/record" --results "$results" || fail "record rejected the row"
 printf '%s\n' "$row"
