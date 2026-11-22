@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # permcheck --settings <user settings.json> --project <bench settings.json>
 #           --protected <glob>... [--done-cmd <cmd>...] [--root <dir>...]
+#           [--cwd <session cwd>] [--home <dir>] [--mode <acceptEdits|default|...>]
 # Prints one JSON verdict line; exits 0 iff ok, 1 on any violation, 2 on usage error.
 # python3 with z3-solver exists only in the .#bench devShell (design D12).
 set -euo pipefail

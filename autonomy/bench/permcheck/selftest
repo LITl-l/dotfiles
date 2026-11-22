@@ -130,6 +130,104 @@ pc --settings "$REPO/claude/settings.json" --project "$FX/template-proposed.json
   --protected "$PROTECTED" --done-cmd 'test -f DONE'
 expect "real settings + proposed denies -> ok=true" 0 ".ok == true"
 
+# --- O3 regression: the six real-session probes, asserting what the sessions DID, not
+# --- what WP5 predicted. Fixtures copy the real rule shapes and additionalDirectories.
+# The O3 fixtures also produce reads_protected / unverified violations unrelated to the
+# done-cmd, so these cases pin the exit code to the verdict (0 iff ok) and judge only
+# the violations whose witness is the done-cmd.
+O3=/home/nixos/wkspace/autonomy/o3
+o3() { # o3 <probe> <done-cmd> [extra permcheck args...]
+  local p="$1" cmd="$2"
+  shift 2
+  pc --settings "$FX/o3-user.json" --project "$FX/o3-project.json" --protected "$PROTECTED" \
+    --mode acceptEdits --cwd "$O3/$p" --home /home/nixos --done-cmd "$cmd" "$@"
+}
+# expect_done <name> <done-cmd> <jq predicate over the done-cmd's violations>
+expect_done() {
+  local name="$1" cmd="$2" pred="$3" want=1
+  if jq -e '.ok == true' <<<"$out" > /dev/null 2>&1; then want=0; fi
+  expect "$name" "$want" "$shape and ([.violations[] | select(.witness == $(jq -Rn --arg c "$cmd" '$c'))] | $pred)"
+}
+allowed='. == []'
+
+o3 P1 'jq --version'
+expect_done "O3 P1 jq --version -> allowed" 'jq --version' "$allowed"
+o3 P2 'find . -maxdepth 1 -type f'
+expect_done "O3 P2 find . -> allowed" 'find . -maxdepth 1 -type f' "$allowed"
+# shellcheck disable=SC2016  # the expansion must reach permcheck unexpanded
+o3 P3 'echo "home=${HOME}"'
+# shellcheck disable=SC2016
+expect_done "O3 P3 echo \"\${HOME}\" -> never ok" 'echo "home=${HOME}"' \
+  'length == 1 and (.[0].kind == "unverified" or .[0].kind == "done_prompts")'
+o3 P4 'cp SPEC.md SPEC.copy'
+expect_done "O3 P4 cp inside cwd -> allowed (acceptEdits)" 'cp SPEC.md SPEC.copy' "$allowed"
+o3 P5 'find /home/nixos/.cache -maxdepth 1 -type d'
+expect_done "O3 P5 find ~/.cache -> done_prompts path-scope" 'find /home/nixos/.cache -maxdepth 1 -type d' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "path-scope:/home/nixos/.cache"'
+o3 P6 'find /home/nixos/wkspace/autonomy -maxdepth 1 -type d'
+expect_done "O3 P6 find in additionalDirectories -> allowed" 'find /home/nixos/wkspace/autonomy -maxdepth 1 -type d' "$allowed"
+
+# Each new rule does work: disable it and its probe flips.
+PERMCHECK_DISABLE=path-scope o3 P5 'find /home/nixos/.cache -maxdepth 1 -type d'
+expect_done "flip: path scope disabled -> P5 allowed" 'find /home/nixos/.cache -maxdepth 1 -type d' "$allowed"
+o3 P4 'cp SPEC.md SPEC.copy' --mode default
+expect_done "flip: --mode default -> P4 done_prompts" 'cp SPEC.md SPEC.copy' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "<no allow rule>"'
+PERMCHECK_DISABLE=accept-edits o3 P4 'cp SPEC.md SPEC.copy'
+expect_done "flip: acceptEdits disabled -> P4 done_prompts" 'cp SPEC.md SPEC.copy' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "<no allow rule>"'
+o3 P4 'cp SPEC.md SPEC.copy' --mode plan
+expect_done "other modes are treated as default -> P4 done_prompts" 'cp SPEC.md SPEC.copy' \
+  'length == 1 and .[0].kind == "done_prompts"'
+
+# Path scope negatives: `..` and `~` escapes, and containment on component boundaries.
+o3 P5 'find ../../../../.cache -maxdepth 1'
+expect_done "path scope: .. escape -> done_prompts" 'find ../../../../.cache -maxdepth 1' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "path-scope:/home/nixos/.cache"'
+o3 P5 'find ~/.cache -maxdepth 1'
+expect_done "path scope: ~ path -> done_prompts" 'find ~/.cache -maxdepth 1' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "path-scope:/home/nixos/.cache"'
+o3 P5 'find /home/nixos/wkspace2 -maxdepth 1'
+expect_done "path scope: /home/nixos/wkspace2 is not inside /home/nixos/wkspace" 'find /home/nixos/wkspace2 -maxdepth 1' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "path-scope:/home/nixos/wkspace2"'
+o3 P5 'find .. -maxdepth 1'
+expect_done "path scope: .. still inside additionalDirectories -> allowed" 'find .. -maxdepth 1' "$allowed"
+o3 P5 'jq -L/opt/lib .'
+expect_done "path scope: unsplittable flag with a path -> unverified" 'jq -L/opt/lib .' \
+  'length == 1 and .[0].kind == "unverified"'
+o3 P5 'find ~root'
+expect_done "path scope: ~user -> unverified" 'find ~root' 'length == 1 and .[0].kind == "unverified"'
+pc --settings "$FX/o3-user.json" --project "$FX/o3-project.json" --protected "$PROTECTED" \
+  --home /home/nixos --done-cmd 'find /home/nixos/.cache'
+expect_done "path scope without --cwd: outside additionalDirectories -> unverified" 'find /home/nixos/.cache' \
+  'length == 1 and .[0].kind == "unverified"'
+
+# acceptEdits negatives: only inside the cwd, and deny still wins.
+o3 P4 'cp SPEC.md /home/nixos/wkspace/SPEC.copy'
+expect_done "acceptEdits: cp destination outside cwd -> done_prompts" 'cp SPEC.md /home/nixos/wkspace/SPEC.copy' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "<no allow rule>"'
+o3 P4 'mv SPEC.md ../SPEC.md'
+expect_done "acceptEdits: mv to .. -> done_prompts" 'mv SPEC.md ../SPEC.md' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "<no allow rule>"'
+o3 P4 'cp SPEC.md /tmp/SPEC.copy'
+expect_done "acceptEdits: cp outside session dirs -> path-scope" 'cp SPEC.md /tmp/SPEC.copy' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "path-scope:/tmp/SPEC.copy"'
+o3 P4 'cp grader-autonomy x'
+expect_done "acceptEdits: deny still wins" 'cp grader-autonomy x' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "Bash(*grader*autonomy*)"'
+o3 P4 'mkdir -p sub/dir'
+expect_done "acceptEdits: mkdir inside cwd -> allowed" 'mkdir -p sub/dir' "$allowed"
+o3 P4 'rm SPEC.copy'
+expect_done "acceptEdits: rm is not modelled as auto-approved" 'rm SPEC.copy' \
+  'length == 1 and .[0].kind == "done_prompts"'
+
+# model_coverage names both rules and how sure we are of acceptEdits.
+o3 P1 'jq --version'
+want=1
+if jq -e '.ok == true' <<<"$out" > /dev/null 2>&1; then want=0; fi
+expect "model_coverage: path scope + acceptEdits" "$want" \
+  '.model_coverage | any(startswith("path-scope")) and any(test("acceptEdits.*observed once, mechanism unverified"))'
+
 if [ "$failures" -ne 0 ]; then
   echo "permcheck selftest: $failures failure(s)"
   exit 1
