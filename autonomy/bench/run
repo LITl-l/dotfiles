@@ -334,7 +334,7 @@ row="$(jq -cn \
    model: (if $model == "" then null else $model end),
    harness_rev: {parts: $parts, plugin_rev: $plugin_rev},
    task: $task, rep: $rep,
-   hidden_pass: $g.hidden_pass, test_kill_rate: $g.test_kill_rate,
+   hidden_pass: $g.hidden_pass, test_kill_rate: $g.test_kill_rate, ref_pass: $g.ref_pass,
    perf_speedup: $g.perf_speedup,
    false_done: ($done_file and $g.hidden_pass < 1),
    done_ok: ($done_file and $g.hidden_pass == 1),

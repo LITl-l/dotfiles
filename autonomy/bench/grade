@@ -2,8 +2,11 @@
 # grade <task> <solution_dir> — score a solution with tasks/<task>/grader/grade.
 #
 # Prints exactly one JSON line:
-#   {"task","hidden_pass","passed","total","test_kill_rate","perf_speedup","mismatch",
-#    "grader_s","errors"}
+#   {"task","hidden_pass","passed","total","test_kill_rate","ref_pass","perf_speedup",
+#    "mismatch","grader_s","errors"}
+# ref_pass (bool|null) says whether the solution's own ./test passed against the
+# reference; false marks a test_kill_rate of 0 as "stricter or slower than the
+# reference allows", not "weak". null when there is no ./test.
 # Exits 0 whenever grading happened, even if the solution fails every case. Exits 2 only
 # when the grader itself is missing or broken, so a non-zero exit always means "fix the
 # bench", never "the agent did badly".
@@ -25,10 +28,12 @@ t1="$(date +%s.%N)"
 
 [ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ] || die "grader for $task did not print exactly one line"
 jq -ce --arg task "$task" --argjson t0 "$t0" --argjson t1 "$t1" '
-  if (keys | sort) != (["errors","mismatch","passed","perf_speedup","test_kill_rate","total"])
-  then error("grader output has keys \(keys)") else . end
+  if (keys | sort) != (["errors","mismatch","passed","perf_speedup","ref_pass","test_kill_rate","total"])
+  then error("grader output has keys \(keys)")
+  elif (.ref_pass | . == null or type == "boolean") | not
+  then error("ref_pass must be a boolean or null") else . end
   | {task: $task,
      hidden_pass: (if .total > 0 then .passed / .total else 0 end),
-     passed, total, test_kill_rate, perf_speedup, mismatch,
+     passed, total, test_kill_rate, ref_pass, perf_speedup, mismatch,
      grader_s: ((($t1 - $t0) * 1000 | round) / 1000),
      errors}' <<< "$out" || die "grader for $task printed malformed output: $out"

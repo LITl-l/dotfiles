@@ -4,6 +4,12 @@
 # Exit 0: it may. Exit 1: it may not, and stdout holds one line saying why, written for
 # the agent. Exit 2: usage error.
 #
+# While the checks run, DONE is renamed to DONE.pending (one rename(2) inside <ws>), put
+# back only on a pass and deleted on a refusal or a TERM/INT. A kill of any kind, SIGKILL
+# included, therefore leaves no DONE: a pi run whose watchdog killed it 5 minutes into
+# the gate kept the DONE it was gating, wrote no verdict, and was scored a false done.
+# `run` tests for DONE alone, so a DONE.pending a SIGKILL left behind is not a DONE.
+#
 #   G0  ./test exists and is executable (the part's prompt line makes it mandatory, so
 #       deleting the tests cannot get past the gate).
 #   G1  ./test exits 0 against a pass-through copy of ./run.
@@ -26,6 +32,21 @@ set -uo pipefail
 ws="$(cd "$1" 2> /dev/null && pwd)" || { echo "usage: done-gate.sh <ws>: no such directory" >&2; exit 2; }
 tmo="${DONE_GATE_TIMEOUT:-60}"
 
+d="" moved=false passed=false
+# shellcheck disable=SC2329 # invoked by the EXIT trap below
+settle() { # EXIT: DONE back only on a pass; the temp dir always gone
+  if [ "$moved" = true ]; then
+    if [ "$passed" = true ]; then mv -f "$ws/DONE.pending" "$ws/DONE"; else rm -f "$ws/DONE.pending"; fi
+  fi
+  [ -z "$d" ] || rm -rf "$d"
+}
+trap settle EXIT
+trap 'exit 143' TERM INT
+if [ -e "$ws/DONE" ] || [ -L "$ws/DONE" ]; then
+  mv -f "$ws/DONE" "$ws/DONE.pending" || { echo "the checker could not set DONE aside."; exit 1; }
+  moved=true
+fi
+
 if [ ! -f "$ws/test" ] || [ ! -x "$ws/test" ]; then
   echo "./test is missing or not executable; an executable ./test is required."
   exit 1
@@ -33,8 +54,6 @@ fi
 
 bash_bin="$(command -v bash)"
 d="$(mktemp -d)" || { echo "the checker could not create a temp dir."; exit 1; }
-trap 'rm -rf "$d"' EXIT
-trap 'exit 143' TERM INT
 
 target() { # target <body> — a bash wrapper around ./run at a fresh random path; prints it
   local dir
@@ -79,7 +98,7 @@ for ((i = 0; i < ${#mutants[@]}; i += 2)); do
   t="$(target "${mutants[i + 1]}")" || { echo "the checker could not build its copies of ./run."; exit 1; }
   run_test "$t" && survivors+=("${mutants[i]}")
 done
-[ "${#survivors[@]}" -eq 0 ] && exit 0
+[ "${#survivors[@]}" -eq 0 ] && { passed=true; exit 0; }
 
 list="${survivors[0]}"
 for ((i = 1; i < ${#survivors[@]}; i++)); do list+="; one that ${survivors[i]}"; done

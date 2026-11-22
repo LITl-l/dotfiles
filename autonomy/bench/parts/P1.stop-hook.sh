@@ -9,6 +9,10 @@
 #   gate refuses      DONE removed; prints {"decision":"block","reason":…} so Claude goes on
 #   6th refusal       DONE removed, the stop allowed (gate_exhausted)
 #
+# done-gate.sh itself hides DONE as DONE.pending while it runs, so a run killed mid-gate
+# is left with no DONE; on a refusal this hook also removes a DONE.pending a killed gate
+# left behind.
+#
 # Every verdict appends one line to <ws>.gate.jsonl, beside the workspace and outside the
 # agent's write scope; run reads gate_refusals and gate_exhausted from it. stop_hook_active
 # is ignored: the cap of 5 is already below Claude Code's own 8 consecutive continuations.
@@ -64,7 +68,7 @@ elif [ -z "$reason" ]; then
   reason="The checker could not run (exit $rc): $(tail -c 300 "$ws.gate.err" | tr '\n' ' ')"
 fi
 
-rm -f "$ws/DONE"
+rm -f "$ws/DONE" "$ws/DONE.pending" # the gate deletes DONE.pending itself unless it was killed
 refusals="$(jq -s '[.[] | select(.verdict == "refused")] | length' "$ledger" 2> /dev/null)" || refusals=0
 if [ "${refusals:-0}" -ge "$CAP" ]; then
   log exhausted "$reason"

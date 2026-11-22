@@ -107,10 +107,20 @@ chmod 0755 "$tmp/always-fail/test"
 check "run: absolute fixture dir exits 0" bench_run "$tmp/always-fail"
 check "test_kill_rate: a ./test that fails on the reference scores 0" \
   test "$(last '.test_kill_rate')" = 0
+check "ref_pass: that row says its ./test failed the reference (false)" \
+  test "$(last '.ref_pass')" = false
+
+# A gate killed mid-check leaves DONE.pending; run must not read it as DONE.
+mkdir -p "$tmp/pending-only"
+install -m 0755 "$BENCH/tasks/T0/skeleton/run" "$tmp/pending-only/run"
+: > "$tmp/pending-only/DONE.pending"
+check "run: a workspace with only DONE.pending exits 0" bench_run "$tmp/pending-only"
+check "DONE.pending: a failing solution with only DONE.pending is no false done" \
+  test "$(last '[.false_done, .done_ok, .hidden_pass < 1] | @csv')" = '"false,false,true"'
 
 # ---------------------------------------------------------------- record validation
 check "record: every produced row passes validation" bash "$BENCH/record" --check "$RESULTS"
-check "record: rows produced = 3 fixtures + $nbroken broken" test "$(rows)" -eq $((3 + nbroken))
+check "record: rows produced = 4 fixtures + $nbroken broken" test "$(rows)" -eq $((4 + nbroken))
 
 good="$(tail -n 1 "$RESULTS")"
 reject() { # reject <description> <jq transform of a good row>
@@ -181,8 +191,24 @@ check "record --check: runs and llm-bench rows validate side by side" \
 check "grade: emits exactly one JSON line with the contract fields" bash -c '
   out="$(bash "$1/grade" T0 "$1/tasks/T0/solution")" || exit 1
   [ "$(printf "%s\n" "$out" | wc -l)" -eq 1 ] || exit 1
-  jq -e "keys == ([\"task\",\"hidden_pass\",\"passed\",\"total\",\"test_kill_rate\",\"perf_speedup\",\"mismatch\",\"grader_s\",\"errors\"] | sort)" <<< "$out" > /dev/null
+  jq -e "keys == ([\"task\",\"hidden_pass\",\"passed\",\"total\",\"test_kill_rate\",\"ref_pass\",\"perf_speedup\",\"mismatch\",\"grader_s\",\"errors\"] | sort)" <<< "$out" > /dev/null
 ' _ "$BENCH"
+check "grade: ref_pass is true for the solution, null for the skeleton (no ./test)" bash -c '
+  [ "$(bash "$1/grade" T0 "$1/tasks/T0/solution" | jq -c .ref_pass)" = true ] \
+    && [ "$(bash "$1/grade" T0 "$1/tasks/T0/skeleton" | jq -c .ref_pass)" = null ]' _ "$BENCH"
+# A ./test slower than the per-invocation timeout fails the reference: ref_pass false and
+# test_kill_rate 0, exactly as a ./test stricter than SPEC would score.
+mkdir -p "$tmp/slow-test"
+install -m 0755 "$BENCH/tasks/T0/solution/run" "$tmp/slow-test/run"
+printf '#!%s\nsleep 3\n' "$(command -v bash)" > "$tmp/slow-test/test"
+chmod 0755 "$tmp/slow-test/test"
+check "grade: BENCH_TEST_TIMEOUT=1 times a 3 s ./test out: ref_pass false, test_kill_rate 0" bash -c '
+  BENCH_TEST_TIMEOUT=1 bash "$1/grade" T0 "$2" | jq -e ".ref_pass == false and .test_kill_rate == 0" > /dev/null' \
+  _ "$BENCH" "$tmp/slow-test"
+check "grade: the default timeout lets the same 3 s ./test through (ref_pass true)" bash -c '
+  bash "$1/grade" T0 "$2" | jq -e ".ref_pass == true" > /dev/null' _ "$BENCH" "$tmp/slow-test"
+check "grade: the default per-./test timeout is 180 s" \
+  grep -qxF 'BENCH_TEST_TIMEOUT="${BENCH_TEST_TIMEOUT:-180}"' "$BENCH/lib/grader.sh"
 check "grade: exits 0 when the solution fails" exits 0 bash "$BENCH/grade" T0 "$BENCH/tasks/T0/skeleton"
 check "grade: exits 2 when the grader itself is missing" \
   exits 2 bash "$BENCH/grade" T9 "$BENCH/tasks/T0/solution"
@@ -597,10 +623,13 @@ gate_variant() { # gate_variant <name> <sed program> — a broken copy of the ga
   echo "$f"
 }
 G_ALWAYS_PASS="$(gate_variant always-pass '/^tmo=/a exit 0')"
-G_ALWAYS_REFUSE="$(gate_variant always-refuse 's/^\[ "\${#survivors\[@\]}" -eq 0 \] && exit 0$/false/')"
+G_ALWAYS_REFUSE="$(gate_variant always-refuse 's/^\[ "\${#survivors\[@\]}" -eq 0 \] && { passed=true; exit 0; }$/false/')"
 G_NO_G2="$(gate_variant no-g2 's/^survivors=()$/survivors=(); mutants=()/')"
 G_LITERAL_RUN="$(gate_variant literal-run '0,/^run_test "\$t"$/s//run_test .\/run/')"
-G_NO_CLEANUP="$(gate_variant no-cleanup "/^trap 'rm -rf \"\$d\"' EXIT$/d")"
+G_NO_CLEANUP="$(gate_variant no-cleanup '/^  \[ -z "\$d" \] || rm -rf "\$d"$/d')"
+# The gate before DONE was set aside while it ran, and one that never puts DONE back.
+G_DONE_IN_PLACE="$(gate_variant done-in-place 's/^  mv -f "\$ws\/DONE" "\$ws\/DONE.pending".*/  :/; /^  moved=true$/d')"
+G_NO_RESTORE="$(gate_variant no-restore 's/then mv -f "\$ws\/DONE.pending" "\$ws\/DONE";/then rm -f "$ws\/DONE.pending";/')"
 
 T0_GOOD='out="$(printf "abc\ndef\n" | "$BENCH_TARGET")" || exit 1
 [ "$out" = "$(printf "ABC\nDEF")" ]'
@@ -647,6 +676,38 @@ TMPDIR="$tmp/gtmp-broken" bash "$G_NO_CLEANUP" "$gw_e" > /dev/null 2>&1
 check "gate (h), broken gate (no-cleanup): copies are left behind" test -n "$(ls -A "$tmp/gtmp-broken")"
 check "gate: refuses a missing workspace with the usage exit 2" exits 2 bash "$GATE" "$tmp/gate/nope"
 
+# DONE while the gate runs: set aside, back only on a pass. A run's watchdog that kills
+# the gate mid-check must find no DONE, or a run the gate never cleared counts as done.
+done_files() { # done_files <gate script> <ws> [kill-after-s] — which of DONE, DONE.pending remain
+  if [ -n "${3:-}" ]; then
+    # SIGKILL: no trap of the gate's runs. Its ./test child is orphaned; its own timeout reaps it.
+    TMPDIR="$tmp/gtmp" timeout -s KILL "$3" bash "$1" "$2" > /dev/null 2>&1 < /dev/null
+  else
+    TMPDIR="$tmp/gtmp" bash "$1" "$2" > /dev/null 2>&1
+  fi
+  local f out=""
+  for f in DONE DONE.pending; do [ -e "$2/$f" ] && out+="$f "; done
+  echo "${out% }"
+}
+SLOW_TEST='sleep 30' # outlives the kill below; DONE_GATE_TIMEOUT (15) ends it afterwards
+# The broken copies must still gate, or "DONE left" below could come from a crash.
+check "gate (DONE), broken gate done-in-place still refuses an exit-0 ./test" \
+  test "$(verdict "$G_DONE_IN_PLACE" "$(gws dv-old 'exit 0')")" = refuse
+check "gate (DONE), broken gate no-restore still passes a good ./test" \
+  test "$(verdict "$G_NO_RESTORE" "$(gws dv-nr "$T0_GOOD")")" = pass
+check "gate (DONE): killed mid-check -> no DONE left, only DONE.pending" \
+  test "$(done_files "$GATE" "$(gws dk-real "$SLOW_TEST")" 2)" = DONE.pending
+check "gate (DONE), broken gate (done-in-place): killed mid-check -> DONE left" \
+  test "$(done_files "$G_DONE_IN_PLACE" "$(gws dk-old "$SLOW_TEST")" 2)" = DONE
+check "gate (DONE): a pass -> DONE present, no DONE.pending" \
+  test "$(done_files "$GATE" "$(gws dp-real "$T0_GOOD")")" = DONE
+check "gate (DONE), broken gate (no-restore): a pass -> no DONE" \
+  test -z "$(done_files "$G_NO_RESTORE" "$(gws dp-broken "$T0_GOOD")")"
+check "gate (DONE): a refusal -> neither DONE nor DONE.pending" \
+  test -z "$(done_files "$GATE" "$(gws dr-real 'exit 0')")"
+check "gate (DONE), broken gate (done-in-place): a refusal -> DONE left" \
+  test "$(done_files "$G_DONE_IN_PLACE" "$(gws dr-old 'exit 0')")" = DONE
+
 # Hook: P1.stop-hook.sh on canned Stop input. Its gate runs under bwrap; where user
 # namespaces are unavailable (the flake check's sandbox), a stand-in that honours only the
 # gate's bind and --chdir runs it unsandboxed.
@@ -678,15 +739,19 @@ EOF
   chmod 0755 "$hook_bwrap"
 fi
 # Broken hooks run from a bench-shaped copy, so they still find lib/done-gate.sh.
-hook_variant() { # hook_variant <name> <sed program> — prints the broken hook's path
+# [gate] swaps in another gate; then an unchanged hook is allowed (the gate is the change).
+hook_variant() { # hook_variant <name> <sed program> [gate] — prints the hook copy's path
   local b="$tmp/hb-$1"
   mkdir -p "$b/parts" "$b/lib"
-  cp "$GATE" "$b/lib/done-gate.sh"
+  cp "${3:-$GATE}" "$b/lib/done-gate.sh"
   sed "$2" "$BENCH/parts/P1.stop-hook.sh" > "$b/parts/P1.stop-hook.sh"
-  cmp -s "$BENCH/parts/P1.stop-hook.sh" "$b/parts/P1.stop-hook.sh" \
-    && { echo "hook_variant $1: sed changed nothing" >&2; return 1; }
+  if [ -z "${3:-}" ] && cmp -s "$BENCH/parts/P1.stop-hook.sh" "$b/parts/P1.stop-hook.sh"; then
+    echo "hook_variant $1: sed changed nothing" >&2; return 1
+  fi
   echo "$b/parts/P1.stop-hook.sh"
 }
+# A gate SIGKILLed right after it set DONE aside: the case only the hook can tidy.
+G_KILLED="$(gate_variant killed '/^  moved=true$/a kill -KILL $$')"
 hook() { # hook <script> <ws> — runs it on a Stop input; stdout in $tmp/hook.out, prints exit
   jq -cn --arg cwd "$2" '{session_id: "selftest", hook_event_name: "Stop", stop_hook_active: false, cwd: $cwd}' \
     | BENCH_GATE_BWRAP="$hook_bwrap" bash "$1" "$2" > "$tmp/hook.out" 2> "$tmp/hook.err"
@@ -720,6 +785,13 @@ hk_l() { # (l) a good ./test: the stop is allowed, DONE kept
   [ "$(hook "$2" "$w")" = 0 ] && [ ! -s "$tmp/hook.out" ] && [ -e "$w/DONE" ] \
     && [ "$(jq -r .verdict "$w.gate.jsonl")" = pass ]
 }
+hk_m() { # (m) the gate killed mid-check: block, neither DONE nor DONE.pending left
+  [ -f "$2" ] || return 3
+  local w; w="$(gws "hk-m-$1" "$T0_GOOD")"; rm -f "$w.gate.jsonl"
+  [ "$(hook "$2" "$w")" = 0 ] && jq -e '.decision == "block"' "$tmp/hook.out" > /dev/null \
+    && [ ! -e "$w/DONE" ] && [ ! -e "$w/DONE.pending" ] \
+    && [ "$(jq -r .verdict "$w.gate.jsonl")" = refused ]
+}
 HOOK="$BENCH/parts/P1.stop-hook.sh"
 check "hook (i): no DONE -> silent exit 0, no ledger" hk_i real "$HOOK"
 check "hook (j): bad ./test -> decision block, DONE removed, 1 ledger line" hk_j real "$HOOK"
@@ -727,8 +799,16 @@ check "hook (k): 6th refusal -> stop allowed, DONE removed, gate_exhausted" hk_k
 check "hook (l): good ./test -> stop allowed, DONE kept" hk_l real "$HOOK"
 check "hook (i), broken hook (no DONE check): fails" \
   exits 1 hk_i broken "$(hook_variant no-done-check '/^\[ -f "\$ws\/DONE" \] || exit 0$/d')"
-check "hook (j), broken hook (keeps DONE): fails" \
-  exits 1 hk_j broken "$(hook_variant keeps-done '/^rm -f "\$ws\/DONE"$/d')"
+# The gate deletes DONE on a refusal itself, so the hook's own rm shows only beside a gate
+# that leaves DONE in place.
+check "hook (j), broken hook (keeps DONE) on a gate that leaves DONE: fails" \
+  exits 1 hk_j broken "$(hook_variant keeps-done '/^rm -f "\$ws\/DONE" /d' "$G_DONE_IN_PLACE")"
+check "hook (j), real hook on a gate that leaves DONE: still passes" \
+  hk_j real-old-gate "$(hook_variant real-old-gate '' "$G_DONE_IN_PLACE")"
+check "hook (m): gate killed mid-check -> block, no DONE, no DONE.pending" \
+  hk_m real "$(hook_variant real-killed '' "$G_KILLED")"
+check "hook (m), broken hook (keeps DONE): DONE.pending left behind" \
+  exits 1 hk_m broken "$(hook_variant killed-keeps '/^rm -f "\$ws\/DONE" /d' "$G_KILLED")"
 check "hook (k), broken hook (no cap): fails" \
   exits 1 hk_k broken "$(hook_variant no-cap 's/^CAP=5$/CAP=99/')"
 check "hook (l), broken hook (ignores a pass): fails" \
@@ -849,6 +929,16 @@ check "report: a P1 group shows done_ok 1, gate_refusals 3.5 (2–5), gate_exhau
   grep -qE '^\| claude \| T1 \| P0\+P0d\+P1 \| 2 \| [^|]+ \| [^|]+ \| 1 \|.*\| 3\.5 \(2–5\) \| 1 \| [^|]+ \| 0 \|$' "$tmp/rfx.md"
 check "report: groups whose rows predate the gate fields show – for them" \
   grep -qE '^\| claude \| T1 \| P0 \| 2 \| [^|]+ \| [^|]+ \| – \|.*\| – \| – \| [^|]+ \| 1 \|$' "$tmp/rfx.md"
+check "report: ref_fail is the column after test_kill_rate" \
+  grep -q '| test_kill_rate | ref_fail | perf_speedup |' "$tmp/rfx.md"
+# Split on " | ", field 1 is "| <agent>", so ref_fail is field 11.
+rf_cell() { awk -F' \\| ' -v g="$1" 'index($0, g) == 1 { print $11 }' "$tmp/rfx.md"; }
+check "report: ref_fail counts the P0 row whose ./test failed the reference (1)" \
+  test "$(rf_cell '| claude | T1 | P0 | 2 |')" = 1
+check "report: ref_fail is 0 for a group whose ref_pass rows all passed" \
+  test "$(rf_cell '| claude | T1 | P0+P0d+P1 | 2 |')" = 0
+check "report: ref_fail is – for a group whose rows predate the field" \
+  test "$(rf_cell '| pi | T2 | none | 2 |')" = –
 
 # ---------------------------------------------------------------- prompt
 for s in Boundary Termination Output; do

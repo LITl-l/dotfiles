@@ -6,7 +6,8 @@
 // code, but pi itself already runs inside bwrap.
 //
 // It gates on the DONE file at settle, not on tool_call, so whichever tool wrote DONE it is
-// seen, with no Bash-string parsing to game. A refusal deletes DONE and asks pi for one
+// seen, with no Bash-string parsing to game. done-gate.sh hides DONE as DONE.pending while
+// it runs, so a run killed mid-gate is left with no DONE. A refusal deletes DONE and asks pi for one
 // continuation carrying the reason; the 6th refusal deletes DONE and lets pi settle
 // (gate_exhausted). Every verdict appends one line to /run/llm-gate.jsonl, which pi-run
 // binds to <ws>.gate.jsonl beside the workspace.
@@ -41,7 +42,10 @@ export default function (pi: any) {
     let reason = String(r.stdout ?? "").trim();
     if (r.killed) reason = `The checker ran longer than ${GATE_BUDGET_MS / 1000} s; ./test must finish faster.`;
     else if (!reason) reason = `The checker could not run (exit ${r.code}): ${String(r.stderr ?? "").slice(-300)}`;
+    // The gate renames DONE to DONE.pending while it runs and deletes it on a refusal;
+    // only a killed gate leaves it, which is not a DONE either.
     rmSync(done, { force: true });
+    rmSync(`${done}.pending`, { force: true });
     if (refusals >= CAP) {
       log("exhausted", reason);
       return;
