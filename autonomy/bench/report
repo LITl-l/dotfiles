@@ -2,27 +2,47 @@
 # report [--runs FILE] [--decisions FILE] — markdown tables on stdout, rendered on demand
 # from the JSONL records and never stored (D6).
 #
-# Per (agent, task): median and min–max of hidden_pass, false_done, blocked+timeout,
-# wall_s, test_kill_rate and perf_speedup. Booleans count as 0/1, so a false_done median
-# of 0 means most runs were honest. Nulls are left out; a metric with no values shows "–".
+# Per (agent, task, parts): median and min–max of hidden_pass, false_done,
+# blocked+timeout, wall_s, test_kill_rate and perf_speedup. Booleans count as 0/1, so a
+# false_done median of 0 means most runs were honest. Nulls are left out; a metric with
+# no values shows "–". parts is harness_rev.parts joined with +, or none: pooling a
+# baseline with the part it is compared against hides the part's effect. no_source
+# counts rows whose source_present is false; rows older than that field show "–".
+#
+# A run listed by a decision with verdict "exclude" is dropped (e.g. one that spanned a
+# host suspend). Other verdicts list runs too, as evidence, and drop nothing. Decisions
+# come from --decisions, else results/decisions.jsonl; missing or empty, nothing is
+# dropped. The decisions table itself is printed only for an explicit --decisions.
 set -uo pipefail
 
 BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 die() { printf 'report: %s\n' "$*" >&2; exit 2; }
 
-runs="$BENCH/results/runs.jsonl" decisions=""
+runs="$BENCH/results/runs.jsonl" decisions="" show_decisions=false
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || die "$1 needs a file"
   case "$1" in
     --runs)      runs="$2" ;;
-    --decisions) decisions="$2" ;;
+    --decisions) decisions="$2" show_decisions=true ;;
     *) die "unknown argument: $1" ;;
   esac
   shift 2
 done
 [ -r "$runs" ] || die "cannot read $runs"
+if [ "$show_decisions" = true ]; then
+  [ -r "$decisions" ] || die "cannot read $decisions"
+else
+  decisions="$BENCH/results/decisions.jsonl"
+  [ -r "$decisions" ] || decisions=/dev/null
+fi
+excluded="$(jq -cs '[.[] | select(.verdict == "exclude") | .run_ids[]?] | unique' "$decisions")" \
+  || die "cannot read exclusions from $decisions"
 
-jq -rs '
+jq -rs --argjson excluded "$excluded" '
+  ($excluded | map({(.): true}) | add // {}) as $ex
+  | (map(select($ex[.run_id] | not))) as $kept
+  | ([.[] | select($ex[.run_id])] | length) as $dropped
+  | $kept |
   def b: if . == true then 1 elif . == false then 0 else . end;
   def median: sort | length as $n
     | if $n == 0 then null elif $n % 2 == 1 then .[($n - 1) / 2]
@@ -31,17 +51,20 @@ jq -rs '
   def cell: map(select(. != null)) as $v
     | if ($v | length) == 0 then "–"
       else "\($v | median | r3) (\($v | min | r3)–\($v | max | r3))" end;
-  "## Runs: median (min–max) per agent and task",
+  def parts: (.harness_rev.parts // []) | if length == 0 then "none" else join("+") end;
+  def nosrc: map(select(has("source_present")) | .source_present) as $v
+    | if ($v | length) == 0 then "–" else ($v | map(select(. == false)) | length | tostring) end;
+  "## Runs: median (min–max) per agent, task and parts",
   "",
-  "| agent | task | n | hidden_pass | false_done | blocked+timeout | wall_s | test_kill_rate | perf_speedup |",
-  "|---|---|---|---|---|---|---|---|---|",
-  ( group_by([.agent, .task])[]
-    | "| \(.[0].agent) | \(.[0].task) | \(length) | \(map(.hidden_pass) | cell) | \(map(.false_done | b) | cell) | \(map((.blocked or .timeout) | b) | cell) | \(map(.wall_s) | cell) | \(map(.test_kill_rate) | cell) | \(map(.perf_speedup) | cell) |" ),
-  (if length == 0 then "", "(no runs recorded)" else empty end)
+  "| agent | task | parts | n | hidden_pass | false_done | blocked+timeout | wall_s | test_kill_rate | perf_speedup | no_source |",
+  "|---|---|---|---|---|---|---|---|---|---|---|",
+  ( map(. + {_parts: parts}) | group_by([.agent, .task, ._parts])[]
+    | "| \(.[0].agent) | \(.[0].task) | \(.[0]._parts) | \(length) | \(map(.hidden_pass) | cell) | \(map(.false_done | b) | cell) | \(map((.blocked or .timeout) | b) | cell) | \(map(.wall_s) | cell) | \(map(.test_kill_rate) | cell) | \(map(.perf_speedup) | cell) | \(nosrc) |" ),
+  (if length == 0 then "", "(no runs recorded)" else empty end),
+  (if $dropped > 0 then "", "\($dropped) run(s) left out by an exclude decision." else empty end)
 ' "$runs" || die "cannot render $runs"
 
-if [ -n "$decisions" ]; then
-  [ -r "$decisions" ] || die "cannot read $decisions"
+if [ "$show_decisions" = true ]; then
   jq -rs '
     "",
     "## Decisions",

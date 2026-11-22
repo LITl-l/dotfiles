@@ -221,6 +221,75 @@ o3 P4 'rm SPEC.copy'
 expect_done "acceptEdits: rm is not modelled as auto-approved" 'rm SPEC.copy' \
   'length == 1 and .[0].kind == "done_prompts"'
 
+# --- O6 regression: real claude sessions under the P0 sandbox settings, one sample each.
+# --- Each fixture is that probe's .claude/settings.json; the outcome is what the session
+# --- DID. "ran" = no segment of the command is flagged; "blocked" = a segment prompts.
+o6() { # o6 <probe> <command> [extra permcheck args...]
+  local q="$1" cmd="$2"
+  shift 2
+  pc --settings "$FX/o3-user.json" --project "$FX/o6-$q.json" --protected "$PROTECTED" \
+    --mode acceptEdits --cwd "/home/nixos/wkspace/autonomy/o6/$q" --home /home/nixos \
+    --done-cmd "$cmd" "$@"
+}
+# expect_o6 <name> ran|blocked <segment>... -- judges only violations naming a segment.
+expect_o6() {
+  local name="$1" outcome="$2" want=1 segs pred
+  shift 2
+  segs="$(jq -cn '$ARGS.positional' --args "$@")"
+  if jq -e '.ok == true' <<<"$out" > /dev/null 2>&1; then want=0; fi
+  if [ "$outcome" = ran ]; then pred='length == 0'
+  else pred='length >= 1 and all(.kind == "done_prompts")'; fi
+  expect "$name" "$want" "$shape and ([.violations[] | select(.witness as \$w | $segs | index(\$w))] | $pred)"
+}
+q6='chmod +x f.sh && cp a.txt c.txt && rm c.txt && sh ./test'
+
+o6 Q1 'rm a.txt'
+expect_o6 "O6 Q1 rm a.txt -> ran (sandbox auto-allow)" ran 'rm a.txt'
+o6 Q2 'cp a.txt b.txt'
+expect_o6 "O6 Q2 cp a.txt b.txt -> ran" ran 'cp a.txt b.txt'
+o6 Q3 'chmod +x f.sh'
+expect_o6 "O6 Q3 chmod +x f.sh -> ran" ran 'chmod +x f.sh'
+o6 Q6 "$q6"
+expect_o6 "O6 Q6 chmod && cp && rm && sh -> ran" ran 'chmod +x f.sh' 'cp a.txt c.txt' 'rm c.txt' 'sh ./test'
+o6 Q4 'BENCH_TARGET=./x sh ./test'
+expect_o6 "O6 Q4 BENCH_TARGET=./x sh ./test -> blocked" blocked 'BENCH_TARGET=./x sh ./test'
+o6 Q5 'env BENCH_TARGET=./x sh ./test'
+expect_o6 "O6 Q5 env BENCH_TARGET=./x sh ./test -> blocked" blocked 'env BENCH_TARGET=./x sh ./test'
+o6 Q7 'BENCH_TARGET=./x sh ./test'
+expect_o6 "O6 Q7 BENCH_TARGET=… under Bash(BENCH_TARGET=*) -> blocked" blocked 'BENCH_TARGET=./x sh ./test'
+o6 Q8 'env BENCH_TARGET=./x sh ./test'
+expect_o6 "O6 Q8 env BENCH_TARGET=… under Bash(env BENCH_TARGET=*) -> blocked" blocked 'env BENCH_TARGET=./x sh ./test'
+
+# Each new rule does work: disable it and its probes flip back to the old prediction.
+PERMCHECK_DISABLE=env-assign o6 Q7 'BENCH_TARGET=./x sh ./test'
+expect_o6 "flip: env-assign disabled -> Q7 predicted ran (the old misprediction)" ran 'BENCH_TARGET=./x sh ./test'
+PERMCHECK_DISABLE=env-assign o6 Q8 'env BENCH_TARGET=./x sh ./test'
+expect_o6 "flip: env-assign disabled -> Q8 predicted ran" ran 'env BENCH_TARGET=./x sh ./test'
+PERMCHECK_DISABLE=sandbox o6 Q1 'rm a.txt'
+expect_o6 "flip: sandbox disabled -> Q1 predicted blocked (no allow rule)" blocked 'rm a.txt'
+PERMCHECK_DISABLE=sandbox o6 Q6 "$q6"
+expect_o6 "flip: sandbox disabled -> Q6 predicted blocked (rm)" blocked 'rm c.txt'
+# The sandbox auto-allow never outranks a deny rule or path scope.
+o6 Q1 'rm grader'
+expect_o6 "sandbox: deny still wins over the auto-allow" blocked 'rm grader'
+o6 Q1 'rm /home/nixos/.cache/x'
+expect_o6 "sandbox: path scope still prompts under the auto-allow" blocked 'rm /home/nixos/.cache/x'
+# Without a sandbox block the auto-allow does not exist: the O3 project has none.
+o3 P4 'rm SPEC.copy'
+expect_done "sandbox: no sandbox block -> rm still prompts" 'rm SPEC.copy' \
+  'length == 1 and .[0].kind == "done_prompts" and .[0].rule == "<no allow rule>"'
+# Only an assignment prompts: bare `env` and `env -i` with no assignment are commands.
+o6 Q1 'env'
+expect_o6 "env-assign: bare env is not an assignment" ran 'env'
+o6 Q1 'env -i FOO=1 sh ./test'
+expect_o6 "env-assign: env -i FOO=1 cmd is an assignment" blocked 'env -i FOO=1 sh ./test'
+
+o6 Q4 'jq --version'
+want=1
+if jq -e '.ok == true' <<<"$out" > /dev/null 2>&1; then want=0; fi
+expect "model_coverage: env-assign is observed, mechanism unverified; sandbox auto-allow listed" "$want" \
+  '.model_coverage | any(test("^env-assign:.*observed.*mechanism unverified")) and any(test("^sandbox:.*observed.*mechanism unverified"))'
+
 # model_coverage names both rules and how sure we are of acceptEdits.
 o3 P1 'jq --version'
 want=1

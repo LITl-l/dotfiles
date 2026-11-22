@@ -9,6 +9,10 @@
 ROW_FIELDS='["run_id","ts","agent","model","harness_rev","task","rep","hidden_pass",
   "test_kill_rate","perf_speedup","false_done","blocked","timeout","wall_s","tokens",
   "tool_cpu_s","lang"]'
+# Optional: allowed, never required. Rows recorded before a field existed stay valid,
+# and they are never rewritten to add it.
+# shellcheck disable=SC2034
+ROW_OPTIONAL_FIELDS='["source_present"]'
 
 # SC2016: the $names below are jq variables, not shell ones.
 # shellcheck disable=SC2034,SC2016
@@ -20,7 +24,7 @@ ROW_CHECK_JQ='
   if type != "object" then ["row is not an object"] else
   ($fields | sort) as $want | (keys | sort) as $have |
   [ ($want - $have | map("missing field: " + .))[],
-    ($have - $want | map("unknown field: " + .))[],
+    ($have - $want - $optional | map("unknown field: " + .))[],
     problem(.run_id | str; "run_id must be a non-empty string"),
     problem(.ts | (str and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$")); "ts must be UTC ISO-8601 (YYYY-MM-DDTHH:MM:SSZ)"),
     problem(.agent | (str and test("^(claude|pi|fixture:.+)$")); "agent must be claude, pi or fixture:<dir>"),
@@ -39,7 +43,9 @@ ROW_CHECK_JQ='
     problem(.wall_s | nnum; "wall_s must be a number >= 0"),
     problem(.tokens | (. == null or (nnum and . == floor)); "tokens must be null or an integer >= 0"),
     problem(.tool_cpu_s | (. == null or nnum); "tool_cpu_s must be null or a number >= 0"),
-    problem(.lang | (. == null or str); "lang must be a string or null")
+    problem(.lang | (. == null or str); "lang must be a string or null"),
+    problem((has("source_present") | not) or (.source_present | type == "boolean");
+      "source_present must be a boolean when present")
   ] end'
 
 # llm-bench rows: one llama-bench `-o jsonl` line wrapped as {"kind":"llm-bench",
@@ -85,6 +91,6 @@ row_problems() {
     llm-bench) fields="$LLM_BENCH_FIELDS" prog="$LLM_BENCH_CHECK_JQ" ;;
     *) echo "unknown kind: $(row_kind "$1") (expected llm-bench, or no kind for a runs row)"; return ;;
   esac
-  jq -r --argjson fields "$fields" "$prog | .[]" <<< "$1" \
+  jq -r --argjson fields "$fields" --argjson optional "$ROW_OPTIONAL_FIELDS" "$prog | .[]" <<< "$1" \
     || echo "schema check failed to run (bug in lib/row.sh)"
 }

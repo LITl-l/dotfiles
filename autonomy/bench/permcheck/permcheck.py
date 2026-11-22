@@ -238,13 +238,27 @@ LISTS = ("allow", "deny", "ask", "additionalDirectories")
 
 
 def load(path):
+    """(permission lists, sandbox block) of one settings file."""
     try:
         with open(path, encoding="utf-8") as f:
-            perms = json.load(f).get("permissions", {})
+            data = json.load(f)
+        perms = data.get("permissions", {})
+        sandbox = data.get("sandbox", {})
     except (OSError, ValueError, AttributeError) as e:
         print(f"permcheck: cannot read {path}: {e}", file=sys.stderr)
         sys.exit(2)
-    return {k: list(perms.get(k, [])) for k in LISTS}
+    if not isinstance(sandbox, dict):
+        sandbox = {}
+    return {k: list(perms.get(k, [])) for k in LISTS}, sandbox
+
+
+def sandbox_auto_allow(sandboxes):
+    """True when the merged sandbox block auto-allows Bash. Later files override earlier
+    ones key by key, as the project file overrides the user file."""
+    merged = {}
+    for s in sandboxes:
+        merged.update(s)
+    return merged.get("enabled") is True and merged.get("autoAllowBashIfSandboxed") is True
 
 
 def merge(files, roots):
@@ -462,13 +476,15 @@ def inside(p, d):
 
 
 class Session:
-    def __init__(self, cwd, home, dirs, mode, disabled):
+    def __init__(self, cwd, home, dirs, mode, disabled, sandbox_auto=False):
         self.cwd = norm(cwd) if cwd else None
         self.home = home
         self.dirs = [d for d in (self.resolve(x, strict=False) for x in dirs)
                      if isinstance(d, str)]
         self.accept_edits = mode == "acceptEdits" and "accept-edits" not in disabled
         self.path_scope = "path-scope" not in disabled
+        self.sandbox_auto = sandbox_auto and "sandbox" not in disabled
+        self.env_assign = "env-assign" not in disabled
 
     def resolve(self, tok, strict=True):
         """Lexical: expand ~, join to the cwd, normalise `..`. No filesystem access."""
@@ -543,20 +559,53 @@ def scope(seg, session):
     return edit_cmd and in_cwd, outside
 
 
+ENV_ASSIGN = "<env assignment>"
+SANDBOX_AUTO = "<sandbox autoAllowBashIfSandboxed>"
+ENV_ARG_FLAGS = {"-u", "--unset", "-C", "--chdir", "-S", "--split-string"}
+
+
+def assigns_env(seg):
+    """Does the segment set an environment variable for its command: `VAR=… cmd`, or
+    `env [flags] VAR=… cmd`? Bare `env` and `env -u VAR cmd` set nothing."""
+    try:
+        toks = shlex.split(seg)
+    except ValueError as e:
+        raise Unverified(f"env assignment: {e}") from e
+    if toks and ASSIGNMENT.match(toks[0]):
+        return True
+    if not toks or toks[0] != "env":
+        return False
+    i = 1
+    while i < len(toks):
+        t = toks[i]
+        if ASSIGNMENT.match(t):
+            return True
+        if t in ENV_ARG_FLAGS:
+            i += 2
+            continue
+        if not t.startswith("-"):
+            return False  # the command word: no assignment before it
+        i += 1
+    return False
+
+
 WORLDS = list(itertools.product([False, True], repeat=2))
 
 
-def verdict(seg, merged, world, auto_edit, outside):
+def verdict(seg, merged, world, auto_edit, outside, env_assign=False, sandbox_auto=False):
     """('ok'|'prompt', rule) for one segment under one reading of the matcher.
 
-    Order: deny/ask, then path scope (which overrides an allow), then allow, then the
-    acceptEdits auto-approve (which stands in only for a missing allow rule).
+    Order: deny/ask, then an env assignment (which prompts even when an allow rule
+    matches), then path scope (which overrides an allow), then allow, then the
+    acceptEdits and sandbox auto-approves (which stand in only for a missing allow rule).
     """
     rules = {k: [BashRule(r) for r in merged[k] if is_bash(r)] for k in ("allow", "deny", "ask")}
     for kind in ("deny", "ask"):
         hit = next((r for r in rules[kind] if r.matches(seg, world)), None)
         if hit:
             return "prompt", hit.text
+    if env_assign:
+        return "prompt", ENV_ASSIGN
     if outside:
         return "prompt", f"path-scope:{outside}"
     hit = next((r for r in rules["allow"] if r.matches(seg, world)), None)
@@ -564,6 +613,8 @@ def verdict(seg, merged, world, auto_edit, outside):
         return "ok", hit.text
     if auto_edit:
         return "ok", "<acceptEdits>"
+    if sandbox_auto:
+        return "ok", SANDBOX_AUTO
     return "prompt", NO_ALLOW
 
 
@@ -578,10 +629,12 @@ def done_violations(merged, done_cmds, session):
         for seg in segs:
             try:
                 auto_edit, outside = scope(seg, session)
+                env_assign = session.env_assign and assigns_env(seg)
             except Unverified as e:
                 out.append({"kind": "unverified", "witness": seg, "rule": str(e)})
                 continue
-            results = {w: verdict(seg, merged, w, auto_edit, outside) for w in WORLDS}
+            results = {w: verdict(seg, merged, w, auto_edit, outside, env_assign,
+                                  session.sandbox_auto) for w in WORLDS}
             outcomes = {o for o, _ in results.values()}
             if outcomes == {"ok"}:
                 continue
@@ -613,10 +666,12 @@ def main(argv):
     args = ap.parse_args(argv)
     roots = args.root or ["/@ROOT@"]
 
-    merged = merge([load(args.settings), load(args.project)], roots)
+    loaded = [load(args.settings), load(args.project)]
+    merged = merge([perms for perms, _ in loaded], roots)
     # Selftest-only switch: proves each rule does work by turning it off.
     disabled = set(filter(None, os.environ.get("PERMCHECK_DISABLE", "").split(",")))
-    session = Session(args.cwd, args.home, merged["additionalDirectories"], args.mode, disabled)
+    session = Session(args.cwd, args.home, merged["additionalDirectories"], args.mode, disabled,
+                      sandbox_auto_allow([sb for _, sb in loaded]))
     violations = []
     for glob in dict.fromkeys(args.protected):
         violations += Searcher(merged, glob).bash_violations()
@@ -631,6 +686,17 @@ def main(argv):
     if session.accept_edits:
         coverage.append("acceptEdits: cp/mv/mkdir/touch with every path inside the cwd "
                         "need no allow rule (observed once, mechanism unverified)")
+    if session.env_assign:
+        coverage.append("env-assign: a command that assigns an environment variable "
+                        "(VAR=... cmd, or env VAR=... cmd) prompts even when an allow rule "
+                        "matches (observed in O6 Q4/Q5/Q7/Q8 under sandbox settings, one "
+                        "sample each; mechanism unverified)")
+    if session.sandbox_auto:
+        coverage.append("sandbox: with sandbox.enabled and autoAllowBashIfSandboxed, a "
+                        "command no allow rule matches runs unprompted; deny, ask, path "
+                        "scope and env-assign still prompt (observed in O6 Q1/Q6, one "
+                        "sample each; mechanism unverified). Done-cmds only: the "
+                        "reads_protected search does not model it or sandbox.filesystem")
     coverage.append("mode: only acceptEdits is modelled; every other mode is judged as default")
     ok = not violations
     print(json.dumps({"ok": ok, "violations": violations, "model_coverage": coverage}))
