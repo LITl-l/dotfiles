@@ -382,6 +382,56 @@ check "P0 env (c): the broken overlay still rendered" test -f "$broken_ws/.claud
 check "P0 env (c): a P0 render without env fails the BENCH_TARGET assertion" \
   exits 1 target_env "$broken_ws/.claude/settings.json"
 
+# P0d: allow rules cannot match past a variable assignment, so a sandboxed session still
+# prompts for one (O6 Q4/Q5/Q7-Q9, and Q11 nondeterministically). A PreToolUse hook
+# approves every Bash call instead; hook decisions never lift deny or ask rules, so the
+# permissions must stay P0's exactly.
+P0D_JSON='{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"bench P0d: Bash runs inside the P0 sandbox"}}'
+P0D_STDIN='{"session_id":"selftest","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"BENCH_TARGET=./x ./test; echo \"exit=$?\""}}'
+p0d_ws="$(render P0,P0d)"
+p0d_s="$p0d_ws/.claude/settings.json"
+p0d_hook() { # exactly one Bash command hook, whose command carries the allow JSON verbatim
+  jq -e --arg want "$P0D_JSON" '[.hooks.PreToolUse[]? | select(.matcher == "Bash") | .hooks[]?
+    | select(.type == "command" and (.command | contains($want)))] | length == 1' "$1" > /dev/null
+}
+p0d_exec() { # runs that hook's command on a sample PreToolUse input; it must print the allow
+  local c
+  c="$(jq -r '[.hooks.PreToolUse[]? | select(.matcher == "Bash") | .hooks[]?
+    | select(.type == "command") | .command][0] // empty' "$1")"
+  [ -n "$c" ] || return 1
+  printf '%s\n' "$P0D_STDIN" | bash -c "$c" > "$tmp/p0d.out" || return 1
+  jq -e --argjson want "$P0D_JSON" '. == $want
+    and .hookSpecificOutput.permissionDecision == "allow"' "$tmp/p0d.out" > /dev/null
+}
+check "P0d: --parts P0,P0d rendered" test -f "$p0d_s"
+check "P0d: the settings hold one Bash PreToolUse command hook with the exact allow JSON" \
+  p0d_hook "$p0d_s"
+check "P0d: the hook command, run on a sample input, prints JSON that jq parses as allow" \
+  p0d_exec "$p0d_s"
+check "P0d: deny and ask are P0's, unchanged" bash -c '
+  [ "$(jq -cS "[.permissions.deny, .permissions.ask]" "$1")" = "$(jq -cS "[.permissions.deny, .permissions.ask]" "$2")" ]' \
+  _ "$p0_s" "$p0d_s"
+check "P0d: hooks aside, the P0,P0d settings are the P0 settings (workspace path aside)" bash -c '
+  cmp -s <(jq -S . "$1" | sed "s|$3|@WS@|g") <(jq -S "del(.hooks)" "$2" | sed "s|$4|@WS@|g")' \
+  _ "$p0_s" "$p0d_s" "$p0_ws" "$p0d_ws"
+check "P0d: --parts none and --parts P0 settings carry no hooks" \
+  exits 0 jq -se 'all(has("hooks") | not)' "$none_s" "$p0_s"
+check "P0d: --parts none settings still match the pre-P0 golden file" bash -c '
+  sed "s|@FIX@|$1|g" "$2" | cmp -s - "$3"' _ "$FIX" "$BENCH/fixtures/settings.parts-none.golden.json" "$none_s"
+n_before_p0d="$(rows)"
+check "P0d: run refuses --parts P0d without P0 (exit 2)" \
+  exits 2 bash "$BENCH/run" --agent fixture:tasks/T0/solution --task T0 --rep 1 --parts P0d --results "$RESULTS"
+check "P0d: the refused runs appended nothing" test "$(rows)" -eq "$n_before_p0d"
+#    The assertions must notice a P0d overlay that lost its hook.
+p0d_overlay="$FIX/repo/autonomy/bench/parts/P0d.settings.json"
+cp "$p0d_overlay" "$tmp/P0d.settings.orig"
+jq 'del(.hooks)' "$tmp/P0d.settings.orig" > "$p0d_overlay"
+broken_d_ws="$(render P0,P0d)"
+cp "$tmp/P0d.settings.orig" "$p0d_overlay"
+check "P0d (broken): a render without the hook still ran" test -f "$broken_d_ws/.claude/settings.json"
+check "P0d (broken): it fails the hook assertion" exits 1 p0d_hook "$broken_d_ws/.claude/settings.json"
+check "P0d (broken): it fails the hook execution assertion" exits 1 p0d_exec "$broken_d_ws/.claude/settings.json"
+
 # (c) permcheck lives in its own WP. Its z3 runtime exists only in the .#bench devShell, so
 # the flake check (jq only) skips this; BENCH_PERMCHECK points at a permcheck elsewhere.
 # The settings are already rendered, so permcheck is given the concrete roots run used:
