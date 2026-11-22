@@ -697,6 +697,9 @@ def main(argv):
                         "scope and env-assign still prompt (observed in O6 Q1/Q6, one "
                         "sample each; mechanism unverified). Done-cmds only: the "
                         "reads_protected search does not model it or sandbox.filesystem")
+    coverage.append("hooks: PreToolUse hook decisions are not modelled. A hook cannot lift "
+                    "deny or ask rules, so those predictions hold; under a hook that "
+                    "approves Bash (bench part P0d) done_prompts is an upper bound")
     coverage.append("mode: only acceptEdits is modelled; every other mode is judged as default")
     ok = not violations
     print(json.dumps({"ok": ok, "violations": violations, "model_coverage": coverage}))

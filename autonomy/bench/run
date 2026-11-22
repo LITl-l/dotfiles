@@ -9,6 +9,8 @@
 # --parts P0 sandboxes the session's Bash and presets BENCH_TARGET (parts/P0.settings.json),
 # and tells the agent so (parts/P0.prompt.md); a part with neither file is recorded but
 # changes nothing.
+# --parts P0d adds a PreToolUse hook that approves every Bash call; it needs P0 in the
+# same list, since only P0's sandbox makes approving arbitrary Bash safe.
 # Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
 #
 # Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
@@ -57,6 +59,10 @@ esac
 [[ "$rep" =~ ^[1-9][0-9]*$ ]] || usage "--rep must be a positive integer (got '$rep')"
 [ -n "$parts" ] || usage "--parts is required (a comma list, or none)"
 [[ "$parts" =~ ^(none|[A-Za-z0-9_-]+(,[A-Za-z0-9_-]+)*)$ ]] || usage "bad --parts '$parts'"
+# Hook decisions cannot lift deny or ask rules, but outside the sandbox P0d's hook would
+# approve anything else that reaches Bash.
+[[ ",$parts," == *,P0d,* && ",$parts," != *,P0,* ]] \
+  && usage "part P0d needs P0 in the same --parts list (its hook approves Bash only because P0 sandboxes it)"
 [ -z "$tmo" ] || [[ "$tmo" =~ ^[1-9][0-9]*$ ]] || usage "--timeout must be whole seconds"
 case "$kind" in
   claude) tmo="${tmo:-3600}" ;;   # spec §1 0c initial value; revised only from 0c data
