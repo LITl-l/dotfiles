@@ -1,0 +1,5 @@
+{
+  "server_flags_extra": [
+    "--no-reasoning-preserve"
+  ]
+}

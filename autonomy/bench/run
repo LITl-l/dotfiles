@@ -7,10 +7,11 @@
 # fixture:<dir> installs <dir> (relative to this bench, or absolute) over the workspace
 # instead of dispatching an agent, so the whole path is testable without spending tokens.
 # --parts P0 sandboxes the session's Bash and presets BENCH_TARGET (parts/P0.settings.json),
-# and tells the agent so (parts/P0.prompt.md); a part with neither file is recorded but
-# changes nothing.
-# --parts P0d adds a PreToolUse hook that approves every Bash call; it needs P0 in the
-# same list, since only P0's sandbox makes approving arbitrary Bash safe.
+# and tells the agent so (parts/P0.prompt.md). --parts P0d adds a PreToolUse hook that
+# approves every Bash call; it needs P0 in the same list, since only P0's sandbox makes
+# approving arbitrary Bash safe. --parts R1 adds llama-server flags for a pi run
+# (parts/R1.llm.json) and is refused for claude. A part with none of these files is
+# recorded but changes nothing.
 # Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
 #
 # Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
@@ -74,6 +75,25 @@ case "$kind" in
     [ -d "$fx" ] || usage "fixture dir not found: $fx" ;;
 esac
 
+part_list=()
+[ "$parts" = none ] || IFS=, read -ra part_list <<< "$parts"
+#    A part that changes the pi model server ships parts/<part>.llm.json,
+#    {"server_flags_extra": [...]}, appended to llama-server's flags for a pi run (via
+#    llm's BENCH_LLM_SERVER_FLAGS_EXTRA). Claude talks to no local server, so a claude
+#    run naming a part that changes nothing else is refused: its rows would carry a
+#    part label for a run the part never touched. Fixture runs dispatch nothing anyway.
+llm_extra='[]'
+for p in "${part_list[@]}"; do
+  f="$BENCH/parts/$p.llm.json"
+  [ -f "$f" ] || continue
+  if [ "$kind" = claude ] && [ ! -f "$BENCH/parts/$p.settings.json" ] && [ ! -f "$BENCH/parts/$p.prompt.md" ]; then
+    usage "part $p only changes the pi model server (parts/$p.llm.json); it has no effect on claude"
+  fi
+  llm_extra="$(jq -ce --argjson acc "$llm_extra" '
+    .server_flags_extra | select(type == "array" and all(.[]; type == "string")) | $acc + .' "$f")" \
+    || usage "parts/$p.llm.json: server_flags_extra must be an array of strings"
+done
+
 run_id="$task-$kind-r$rep-$(date -u +%Y%m%dT%H%M%SZ)-$$$RANDOM"
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ws="${BENCH_WS_ROOT:-$HOME/wkspace/worktree/bench}/$run_id"
@@ -99,7 +119,6 @@ jq --argjson roots "$roots" '
 #    @WS@ is this workspace. The template render itself is left alone so that --parts none
 #    stays byte-identical to the settings the baseline rows ran under.
 if [ "$parts" != none ]; then
-  IFS=, read -ra part_list <<< "$parts"
   for p in "${part_list[@]}"; do
     overlay="$BENCH/parts/$p.settings.json"
     [ -f "$overlay" ] || continue
@@ -202,7 +221,7 @@ case "$kind" in
     # tree (lib/proc.sh). Its output goes to a file, not a pipe: a surviving child
     # holding the pipe open would keep run waiting.
     pi_out="$ws.pi-run.json" marker="$ws.pi-run.timeout"
-    setsid bash "$llm" pi-run "$ws" "$model" "$tmo" > "$pi_out" &
+    BENCH_LLM_SERVER_FLAGS_EXTRA="$llm_extra" setsid bash "$llm" pi-run "$ws" "$model" "$tmo" > "$pi_out" &
     pi_pid=$!
     watchdog "$pi_pid" "$tmo" "$KILL_GRACE" "$marker" &
     wd_pid=$!
@@ -247,6 +266,27 @@ fi
 [ "$parts" = none ] && parts_json='[]' || parts_json="$(jq -Rc 'split(",")' <<< "$parts")"
 done_file=false; [ -f "$ws/DONE" ] && done_file=true
 
+# silent_stop (pi only): pi exited on its own without finishing. Its final assistant
+# message hit the output cap (stopReason "length": a T2 turn spent all 16384 tokens
+# thinking and pi just quit), or it made no tool call and no DONE file exists. A run the
+# limit stopped is a timeout, not a silent stop. null when pi left no events
+# (llm pi-run keeps them in <ws>.pi/events.jsonl).
+# shellcheck disable=SC2016 # a jq program: $ev, $m, $done_file and $timeout are jq variables
+SILENT_STOP_JQ='
+  [inputs | fromjson? | objects] as $ev
+  | if ($ev | any(.type == "agent_start")) | not then null
+    elif $timeout then false
+    else ([$ev[] | select(.type == "message_end" and .message.role? == "assistant")
+            | .message] | last) as $m
+      | ($m.stopReason? == "length")
+        or (([$m.content[]? | select(.type? == "toolCall")] | length) == 0 and ($done_file | not))
+    end'
+silent_stop=absent
+if [ "$kind" = pi ]; then
+  silent_stop="$(jq -Rn --argjson done_file "$done_file" --argjson timeout "$timed_out" \
+    "$SILENT_STOP_JQ" "$ws.pi/events.jsonl" 2> /dev/null)" || silent_stop=null
+fi
+
 row="$(jq -cn \
   --arg run_id "$run_id" --arg ts "$ts" --arg agent "$agent" --arg model "$model" \
   --argjson parts "$parts_json" --argjson plugin_rev "$plugin_rev" \
@@ -254,7 +294,7 @@ row="$(jq -cn \
   --argjson done_file "$done_file" --argjson blocked "$blocked" --argjson timeout "$timed_out" \
   --argjson start "$start" --argjson end "$end" \
   --argjson tokens "$tokens" --argjson tool_cpu "$tool_cpu" --arg lang "$(detect_lang "$ws")" \
-  --argjson source_present "$(source_present "$ws")" '
+  --argjson source_present "$(source_present "$ws")" --arg silent_stop "$silent_stop" '
   {run_id: $run_id, ts: $ts, agent: $agent,
    model: (if $model == "" then null else $model end),
    harness_rev: {parts: $parts, plugin_rev: $plugin_rev},
@@ -266,7 +306,9 @@ row="$(jq -cn \
    wall_s: ((($end - $start) * 1000 | round) / 1000),
    tokens: $tokens, tool_cpu_s: $tool_cpu,
    lang: (if $lang == "unknown" then null else $lang end),
-   source_present: $source_present}')" || fail "cannot build row"
+   source_present: $source_present}
+  + (if $silent_stop == "absent" then {} else {silent_stop: ($silent_stop | fromjson)} end)')" \
+  || fail "cannot build row"
 
 printf '%s\n' "$row" | bash "$BENCH/record" --results "$results" || fail "record rejected the row"
 printf '%s\n' "$row"

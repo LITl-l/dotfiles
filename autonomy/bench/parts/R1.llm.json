@@ -1,0 +1,6 @@
+{
+  "server_flags_extra": [
+    "--reasoning-budget", "4096",
+    "--reasoning-budget-message", "Thinking budget reached. Act now: make the next tool call."
+  ]
+}

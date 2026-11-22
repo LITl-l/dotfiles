@@ -14,6 +14,8 @@
 #   BENCH_LLM_SERVE_CMD     script run as `bash <script> <id> --port N` instead of `llm serve`
 #   BENCH_LLM_LOAD_TIMEOUT  seconds pi-run waits for a server it started (default 900)
 #   BENCH_PI_PROMPT         prompt file for pi-run (default autonomy/bench/prompt.md)
+#   BENCH_LLM_SERVER_FLAGS_EXTRA  JSON array of strings appended to serve's model flags
+#                           (default []); `run` sets it from a part's parts/<P>.llm.json
 #   LLM_DRY_RUN=1           fetch / serve / bench print each argv as a JSON array instead
 #
 # Exit codes: 0 ok, 1 runtime failure, 2 usage error. pi-run exits 0 whenever it could
@@ -54,14 +56,20 @@ cmd_fetch() {
   "${argv[@]}" > /dev/null || fail "fetch failed for $1"
 }
 
-serve_argv() { # serve_argv ENTRY PORT — one argv element per line
+server_extra() { # the validated BENCH_LLM_SERVER_FLAGS_EXTRA, compact, on stdout
+  local x="${BENCH_LLM_SERVER_FLAGS_EXTRA:-[]}"
+  jq -ce 'select(type == "array" and all(.[]; type == "string"))' <<< "$x" 2> /dev/null ||
+    die "BENCH_LLM_SERVER_FLAGS_EXTRA must be a JSON array of strings (got '$x')"
+}
+
+serve_argv() { # serve_argv ENTRY PORT EXTRA — one argv element per line
   # -t is explicit because llama-server's default thread count is not pinned down, and
   # it matters: Qwen3.6-35B-A3B tg128 is 8.63 t/s at -t 8 but 0.65 t/s at -t 16 on this
   # host, unchanged by OPENBLAS_NUM_THREADS=1 (autonomy/results/O2-llama-bench*.md).
-  jq -r --arg port "$2" --arg threads "${BENCH_LLM_THREADS:-8}" '
+  jq -r --arg port "$2" --arg threads "${BENCH_LLM_THREADS:-8}" --argjson extra "$3" '
     ["llama-server", "-hf", "\(.hf_repo):\(.quant)", "--offline",
      "--host", "127.0.0.1", "--port", $port, "--alias", .id, "-t", $threads]
-    + .server_flags
+    + .server_flags + $extra
     + ([.sampling | to_entries[] | ["--" + (.key | gsub("_"; "-")), (.value | tostring)]] | add // [])
     + (if .thinking == false then ["--reasoning", "off"] else [] end)
     | .[]' <<< "$1"
@@ -78,7 +86,9 @@ cmd_serve() {
     esac
   done
   m="$(model_entry "$id")" || exit 2
-  mapfile -t argv < <(serve_argv "$m" "$port")
+  local x
+  x="$(server_extra)" || exit 2
+  mapfile -t argv < <(serve_argv "$m" "$port" "$x")
   if [ -n "${LLM_DRY_RUN:-}" ]; then run_argv "${argv[@]}" "${extra[@]}"; exit 0; fi
   exec "${argv[@]}" "${extra[@]}"
 }
@@ -169,7 +179,14 @@ cmd_pi_run() {
   trap 'pi_run_cleanup' EXIT
 
   # 1. Use the endpoint if it answers; otherwise start serve and wait for it to load.
-  if ! http_get "$base/health" > /dev/null; then
+  #    Extra server flags reach only a server started here: a running one was started
+  #    with flags nobody can read back, so reusing it would silently drop them.
+  local x
+  x="$(server_extra)" || exit 2
+  if http_get "$base/health" > /dev/null; then
+    [ "$x" = '[]' ] ||
+      fail "port $PORT already serves; stop it so pi-run can start one with $x"
+  else
     local serve_cmd=(bash "$LLM_DIR/llm" serve)
     [ -n "${BENCH_LLM_SERVE_CMD:-}" ] && serve_cmd=(bash "$BENCH_LLM_SERVE_CMD")
     "${serve_cmd[@]}" "$id" --port "$PORT" > "$logdir/serve.log" 2>&1 &

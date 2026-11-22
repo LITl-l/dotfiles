@@ -1,0 +1,10 @@
+{"type":"session","version":3,"id":"fixture-normal-stop","timestamp":"2026-11-21T14:57:22.000Z","cwd":"/ws"}
+{"type":"agent_start"}
+{"type":"turn_start"}
+{"type":"message_end","message":{"role":"assistant","content":[{"type":"thinking","thinking":"~17x speedup (708ms / 42ms). The implementation is"},{"type":"toolCall","id":"Cfmdh7ryN6SBpIOyYOvXSaBinoMpNZ68","name":"bash","arguments":{"command":"touch ./DONE"}}],"api":"openai-completions","provider":"bench","model":"qwen3.6-35b-a3b","usage":{"input":120,"output":98,"cacheRead":30000,"cacheWrite":0,"reasoning":0,"totalTokens":30218},"stopReason":"toolUse","rawStopReason":"tool_calls"}}
+{"type":"tool_execution_start","toolCallId":"Cfmdh7ryN6SBpIOyYOvXSaBinoMpNZ68","toolName":"bash","args":{"command":"touch ./DONE"}}
+{"type":"tool_execution_end","toolCallId":"Cfmdh7ryN6SBpIOyYOvXSaBinoMpNZ68","toolName":"bash","isError":false,"result":{"content":[{"type":"text","text":"(no output)"}]},"durationMs":4}
+{"type":"turn_start"}
+{"type":"message_end","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Everything is working correctly. Let me summarize "},{"type":"text","text":"Done. Here's the summary:"}],"api":"openai-completions","provider":"bench","model":"qwen3.6-35b-a3b","usage":{"input":60,"output":435,"cacheRead":30300,"cacheWrite":0,"reasoning":0,"totalTokens":30795},"stopReason":"stop","rawStopReason":"stop"}}
+{"type":"agent_end","willRetry":false}
+{"type":"agent_settled","aborted":false}

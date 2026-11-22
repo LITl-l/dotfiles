@@ -146,6 +146,16 @@ check "record: accepts a row with source_present" \
 check "record: accepts a row without source_present" \
   exits 0 bash "$BENCH/record" --check <(jq -c 'del(.source_present)' <<< "$good")
 reject "a non-boolean source_present" '.source_present = "no"'
+# silent_stop is optional too (pi rows only; older rows and claude rows lack it).
+check "record: accepts a row with silent_stop true" \
+  exits 0 bash "$BENCH/record" --check <(jq -c '.silent_stop = true' <<< "$good")
+check "record: accepts a row with silent_stop null" \
+  exits 0 bash "$BENCH/record" --check <(jq -c '.silent_stop = null' <<< "$good")
+check "record: accepts a row without silent_stop" \
+  exits 0 bash "$BENCH/record" --check <(jq -c 'del(.silent_stop)' <<< "$good")
+reject "a non-boolean silent_stop" '.silent_stop = "yes"'
+check "silent_stop: a fixture row carries no silent_stop field" \
+  test "$(jq -c 'has("silent_stop")' <<< "$good")" = false
 
 # ---------------------------------------------------------------- llm-bench rows
 LLM_RESULTS="$tmp/llm-bench.jsonl"
@@ -204,6 +214,97 @@ check "run: pi carries pi-run's tokens into the row" bash -c '
   BENCH_LLM="$2/llm-stub" bash "$1/run" --agent pi --model stub --timeout 60 --task T0 --rep 1 --parts none \
     --results "$2/pi.jsonl" > /dev/null 2>&1 \
     && jq -e ".tokens == 1234 and .tool_cpu_s == 1.5 and .timeout == false" "$2/pi.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+check "silent_stop: null on a pi row whose run left no events" \
+  exits 0 jq -e 'has("silent_stop") and .silent_stop == null' "$tmp/pi.jsonl"
+
+# ---------------------------------------------------------------- part R1 and silent_stop
+# This stub renders the server argv the real `llm serve` would exec (LLM_DRY_RUN, never a
+# server) under the environment run hands pi-run, then plays back a fixture event stream
+# where pi-run keeps it, and optionally leaves a DONE file.
+cat > "$tmp/llm-stub-r1" <<'EOF'
+[ "$1" = pi-run ] || exit 1
+LLM_DRY_RUN=1 bash "$STUB_REAL_LLM" serve "$3" > "$2.serve-argv.json" || exit 1
+if [ -n "${STUB_EVENTS:-}" ]; then mkdir -p "$2.pi" && cp "$STUB_EVENTS" "$2.pi/events.jsonl"; fi
+[ -z "${STUB_DONE:-}" ] || : > "$2/DONE"
+printf '%s\n' '{"timeout":false,"tool_cpu_s":null,"tokens":null}'
+EOF
+QWEN=qwen3.6-35b-a3b
+R1_RESULTS="$tmp/r1.jsonl"
+pi_stub_run() { # pi_stub_run <parts> [VAR=value...] -- prints the new row's workspace
+  local parts="$1"; shift
+  env "$@" STUB_REAL_LLM="$BENCH/llm/llm" BENCH_LLM="$tmp/llm-stub-r1" bash "$BENCH/run" --agent pi \
+    --model "$QWEN" --timeout 60 --task T0 --rep 1 --parts "$parts" --results "$R1_RESULTS" \
+    > /dev/null 2> "$tmp/r1.err" || return 1
+  printf '%s/%s\n' "$BENCH_WS_ROOT" "$(tail -n 1 "$R1_RESULTS" | jq -r .run_id)"
+}
+has_budget() { jq -e 'index(["--reasoning-budget", "4096"]) != null' "$1" > /dev/null; }
+r1_ws="$(pi_stub_run R1)"
+base_ws="$(pi_stub_run none)"
+direct_argv="$(env -u BENCH_LLM_SERVER_FLAGS_EXTRA LLM_DRY_RUN=1 bash "$BENCH/llm/llm" serve "$QWEN")"
+check "R1: a pi --parts R1 run renders server flags with --reasoning-budget 4096" \
+  has_budget "$r1_ws.serve-argv.json"
+check "R1: ... and the budget message right after it" \
+  exits 0 jq -e '.[(index("--reasoning-budget-message") + 1)] | startswith("Thinking budget reached")' \
+  "$r1_ws.serve-argv.json"
+check "R1: the R1 argv is the plain argv with exactly R1.llm.json's flags inserted" \
+  exits 0 jq -e --argjson plain "$direct_argv" --slurpfile x "$BENCH/parts/R1.llm.json" '
+    $x[0].server_flags_extra as $e | index($e) as $i
+    | $i != null and (.[:$i] + .[$i + ($e | length):]) == $plain' "$r1_ws.serve-argv.json"
+check "R1: harness_rev.parts records [\"R1\"]" \
+  exits 0 jq -se --arg id "$(basename "$r1_ws")" \
+  'map(select(.run_id == $id)) | length == 1 and .[0].harness_rev.parts == ["R1"]' "$R1_RESULTS"
+check "R1: without R1 a pi run's server flags have no reasoning budget" \
+  exits 1 has_budget "$base_ws.serve-argv.json"
+check "R1: without R1 the server argv is the one llm serve renders on its own" \
+  test "$(jq -c . "$base_ws.serve-argv.json")" = "$direct_argv"
+# fleet and claude are shadowed by failing stubs: a broken refusal must not launch a session.
+mkdir -p "$tmp/nosession"
+for b in fleet claude; do printf '#!%s\nexit 1\n' "$(command -v bash)" > "$tmp/nosession/$b"; done
+chmod 0755 "$tmp/nosession/fleet" "$tmp/nosession/claude"
+check "R1: refused for claude, which runs no local server (exit 2)" \
+  exits 2 env PATH="$tmp/nosession:$PATH" bash "$BENCH/run" --agent claude --task T0 --rep 1 \
+  --parts R1 --results "$tmp/r1-claude.jsonl"
+check "R1: the refused claude run appended nothing" test ! -e "$tmp/r1-claude.jsonl"
+
+# R2 drops earlier turns' reasoning from the history llama-server keeps.
+has_nopreserve() { jq -e 'index("--no-reasoning-preserve") != null' "$1" > /dev/null; }
+r12_ws="$(pi_stub_run R1,R2)"
+check "R2: a pi --parts R1,R2 run renders server flags with --reasoning-budget 4096" \
+  has_budget "$r12_ws.serve-argv.json"
+check "R2: ... and with --no-reasoning-preserve" has_nopreserve "$r12_ws.serve-argv.json"
+check "R2: without R2 a pi run's server flags keep reasoning" \
+  exits 1 has_nopreserve "$r1_ws.serve-argv.json"
+check "R2: refused for claude, which runs no local server (exit 2)" \
+  exits 2 env PATH="$tmp/nosession:$PATH" bash "$BENCH/run" --agent claude --task T0 --rep 1 \
+  --parts R2 --results "$tmp/r2-claude.jsonl"
+check "R2: the refused claude run appended nothing" test ! -e "$tmp/r2-claude.jsonl"
+#    the flag check must notice a bench whose R2.llm.json is gone.
+cp -R "$BENCH" "$tmp/bench-noR2"
+rm "$tmp/bench-noR2/parts/R2.llm.json"
+noR2_ws="$(BENCH=$tmp/bench-noR2 pi_stub_run R1,R2)"
+check "R2 (broken): the run without R2.llm.json still rendered" test -f "$noR2_ws.serve-argv.json"
+check "R2 (broken): its server flags fail the --no-reasoning-preserve check" \
+  exits 1 has_nopreserve "$noR2_ws.serve-argv.json"
+check "llm serve: rejects BENCH_LLM_SERVER_FLAGS_EXTRA that is not an array of strings (exit 2)" \
+  exits 2 env LLM_DRY_RUN=1 BENCH_LLM_SERVER_FLAGS_EXTRA='[1]' bash "$BENCH/llm/llm" serve "$QWEN"
+
+PEV="$BENCH/fixtures/pi-events"
+silent_of() { # silent_of [VAR=value...] -- the silent_stop of one stubbed pi run
+  pi_stub_run none "$@" > /dev/null || { echo run-failed; return; }
+  tail -n 1 "$R1_RESULTS" | jq -c '.silent_stop'
+}
+check "silent_stop: true when the last message stopped on length (T2 r3), even with DONE" \
+  test "$(silent_of STUB_EVENTS="$PEV/length-stop.jsonl" STUB_DONE=1)" = true
+check "silent_stop: false for a normal stop with DONE written" \
+  test "$(silent_of STUB_EVENTS="$PEV/normal-stop.jsonl" STUB_DONE=1)" = false
+check "silent_stop: true for a final message without a tool call and no DONE" \
+  test "$(silent_of STUB_EVENTS="$PEV/normal-stop.jsonl")" = true
+check "record: every R1/silent_stop row passes validation" bash "$BENCH/record" --check "$R1_RESULTS"
+bash "$BENCH/report" --runs "$R1_RESULTS" --decisions /dev/null > "$tmp/r1-report.md" 2>&1
+check "report: silent_stop counts the 2 silent rows among pi T0 none (n=4)" \
+  grep -qE '^\| pi \| T0 \| none \| 4 \|.*\| 2 \| [^|]+ \|$' "$tmp/r1-report.md"
+check "report: silent_stop is – for a group with only null silent_stop (pi T0 R1)" \
+  grep -qE '^\| pi \| T0 \| R1 \| 1 \|.*\| – \| [^|]+ \|$' "$tmp/r1-report.md"
 
 # G5: an adapter whose run overran the limit but still says timeout:false, as a pi-run
 # under bwrap --unshare-pid did (wall_s 3550.9 against --timeout 3540, timeout=false).

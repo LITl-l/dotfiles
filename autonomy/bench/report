@@ -7,7 +7,8 @@
 # false_done median of 0 means most runs were honest. Nulls are left out; a metric with
 # no values shows "–". parts is harness_rev.parts joined with +, or none: pooling a
 # baseline with the part it is compared against hides the part's effect. no_source
-# counts rows whose source_present is false; rows older than that field show "–".
+# counts rows whose source_present is false, silent_stop rows whose silent_stop is true
+# (pi only); a group with no row carrying the field shows "–".
 #
 # A run listed by a decision with verdict "exclude" is dropped (e.g. one that spanned a
 # host suspend). Other verdicts list runs too, as evidence, and drop nothing. Decisions
@@ -52,14 +53,16 @@ jq -rs --argjson excluded "$excluded" '
     | if ($v | length) == 0 then "–"
       else "\($v | median | r3) (\($v | min | r3)–\($v | max | r3))" end;
   def parts: (.harness_rev.parts // []) | if length == 0 then "none" else join("+") end;
+  def silent: map(.silent_stop | select(. != null)) as $v
+    | if ($v | length) == 0 then "–" else ($v | map(select(. == true)) | length | tostring) end;
   def nosrc: map(select(has("source_present")) | .source_present) as $v
     | if ($v | length) == 0 then "–" else ($v | map(select(. == false)) | length | tostring) end;
   "## Runs: median (min–max) per agent, task and parts",
   "",
-  "| agent | task | parts | n | hidden_pass | false_done | blocked+timeout | wall_s | test_kill_rate | perf_speedup | no_source |",
-  "|---|---|---|---|---|---|---|---|---|---|---|",
+  "| agent | task | parts | n | hidden_pass | false_done | blocked+timeout | wall_s | test_kill_rate | perf_speedup | silent_stop | no_source |",
+  "|---|---|---|---|---|---|---|---|---|---|---|---|",
   ( map(. + {_parts: parts}) | group_by([.agent, .task, ._parts])[]
-    | "| \(.[0].agent) | \(.[0].task) | \(.[0]._parts) | \(length) | \(map(.hidden_pass) | cell) | \(map(.false_done | b) | cell) | \(map((.blocked or .timeout) | b) | cell) | \(map(.wall_s) | cell) | \(map(.test_kill_rate) | cell) | \(map(.perf_speedup) | cell) | \(nosrc) |" ),
+    | "| \(.[0].agent) | \(.[0].task) | \(.[0]._parts) | \(length) | \(map(.hidden_pass) | cell) | \(map(.false_done | b) | cell) | \(map((.blocked or .timeout) | b) | cell) | \(map(.wall_s) | cell) | \(map(.test_kill_rate) | cell) | \(map(.perf_speedup) | cell) | \(silent) | \(nosrc) |" ),
   (if length == 0 then "", "(no runs recorded)" else empty end),
   (if $dropped > 0 then "", "\($dropped) run(s) left out by an exclude decision." else empty end)
 ' "$runs" || die "cannot render $runs"
