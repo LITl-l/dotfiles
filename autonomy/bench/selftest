@@ -199,8 +199,8 @@ check "run: rejects a missing fixture dir (exit 2)" \
   exits 2 bash "$BENCH/run" --agent fixture:tasks/T0/nope --task T0 --rep 1 --parts none --results "$RESULTS"
 check "run: rejected invocations append nothing" test "$(rows)" -eq "$n_before_bad_runs"
 check "run: --parts a,b is recorded as [\"a\",\"b\"]" bash -c '
-  bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 2 --parts P1,P2 --results "$2/parts.jsonl" > /dev/null 2>&1 \
-    && jq -e ".harness_rev.parts == [\"P1\",\"P2\"] and .rep == 2" "$2/parts.jsonl" > /dev/null' _ "$BENCH" "$tmp"
+  bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 2 --parts Z1,Z2 --results "$2/parts.jsonl" > /dev/null 2>&1 \
+    && jq -e ".harness_rev.parts == [\"Z1\",\"Z2\"] and .rep == 2" "$2/parts.jsonl" > /dev/null' _ "$BENCH" "$tmp"
 check "run: parts without P0 get no sandbox block" bash -c '
   ws="$BENCH_WS_ROOT/$(jq -r .run_id "$1/parts.jsonl")"
   jq -e "has(\"sandbox\") | not" "$ws/.claude/settings.json" > /dev/null' _ "$tmp"
@@ -558,9 +558,255 @@ check "P0 (d): a fixture --parts P0 run records parts [\"P0\"] and its workspace
   jq -e ".harness_rev.parts == [\"P0\"] and .hidden_pass == 1" "$2/p0.jsonl" > /dev/null &&
   jq -e --arg ws "$ws" ".sandbox.enabled == true and .sandbox.filesystem.allowWrite == [\$ws]" "$ws/.claude/settings.json" > /dev/null' _ "$BENCH" "$tmp"
 check "P0 (d): P0 anywhere in the parts list sandboxes the workspace" bash -c '
-  bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 1 --parts P1,P0 --results "$2/p0b.jsonl" > /dev/null 2>&1 || exit 1
+  bash "$1/run" --agent fixture:tasks/T0/solution --task T0 --rep 1 --parts Z1,P0 --results "$2/p0b.jsonl" > /dev/null 2>&1 || exit 1
   ws="$BENCH_WS_ROOT/$(jq -r .run_id "$2/p0b.jsonl")"
   jq -e ".sandbox.enabled == true" "$ws/.claude/settings.json" > /dev/null' _ "$BENCH" "$tmp"
+
+# ---------------------------------------------------------------- done gate (P1, R3)
+# The gate runs on fixture workspaces: a reference ./run, a DONE file and a ./test of a
+# known kind. T0's reference is bash, so these cases also run in the flake check; T1/T2
+# (python) run where python3 exists. Each case is also run against a broken copy of the
+# gate, and must change its verdict there.
+BASH_BIN="$(command -v bash)"
+export DONE_GATE_TIMEOUT=15 # per ./test run; the gate's default is 60
+GATE="$BENCH/lib/done-gate.sh"
+mkdir -p "$tmp/gate" "$tmp/gtmp"
+gws() { # gws <name> <test body, or - for none> [task] — prints the new workspace
+  local w="$tmp/gate/$1"
+  mkdir -p "$w"
+  install -m 0755 "$BENCH/tasks/${3:-T0}/solution/run" "$w/run"
+  : > "$w/DONE"
+  if [ "$2" != - ]; then
+    printf '#!%s\n%s\n' "$BASH_BIN" "$2" > "$w/test"
+    chmod 0755 "$w/test"
+  fi
+  echo "$w"
+}
+verdict() { # verdict <gate script> <ws> — pass, refuse (exit 1 with a reason) or error
+  local out rc
+  out="$(TMPDIR="$tmp/gtmp" bash "$1" "$2" 2> /dev/null)"
+  rc=$?
+  if [ "$rc" -eq 0 ]; then echo pass
+  elif [ "$rc" -eq 1 ] && [ -n "$out" ]; then echo refuse
+  else echo "error$rc"; fi
+}
+gate_variant() { # gate_variant <name> <sed program> — a broken copy of the gate; prints it
+  local f="$tmp/gate-$1.sh"
+  sed "$2" "$GATE" > "$f"
+  cmp -s "$GATE" "$f" && { echo "gate_variant $1: sed changed nothing" >&2; return 1; }
+  echo "$f"
+}
+G_ALWAYS_PASS="$(gate_variant always-pass '/^tmo=/a exit 0')"
+G_ALWAYS_REFUSE="$(gate_variant always-refuse 's/^\[ "\${#survivors\[@\]}" -eq 0 \] && exit 0$/false/')"
+G_NO_G2="$(gate_variant no-g2 's/^survivors=()$/survivors=(); mutants=()/')"
+G_LITERAL_RUN="$(gate_variant literal-run '0,/^run_test "\$t"$/s//run_test .\/run/')"
+G_NO_CLEANUP="$(gate_variant no-cleanup "/^trap 'rm -rf \"\$d\"' EXIT$/d")"
+
+T0_GOOD='out="$(printf "abc\ndef\n" | "$BENCH_TARGET")" || exit 1
+[ "$out" = "$(printf "ABC\nDEF")" ]'
+gw_a="$(gws a -)"
+gw_b="$(gws b 'exit 1')"
+gw_c="$(gws c 'exit 0')"
+gw_d="$(gws d 'printf "abc\n" | "$BENCH_TARGET" > /dev/null')"
+gw_e="$(gws e "$T0_GOOD")"
+gw_f="$(gws f '[ "$BENCH_TARGET" = ./run ]')"
+gate_case() { # gate_case <label> <ws> <want> <broken gate> — the gate, then its broken copy
+  local got
+  [ -f "$4" ] || { bad "gate $1: broken gate missing"; return; }
+  got="$(verdict "$GATE" "$2")"
+  check "gate $1: $3 (got $got)" test "$got" = "$3"
+  got="$(verdict "$4" "$2")"
+  check "gate $1, broken gate ($(basename "$4" .sh)): verdict changes (got $got)" test "$got" != "$3"
+}
+gate_case "(a) no ./test"                         "$gw_a" refuse "$G_ALWAYS_PASS"
+gate_case "(b) ./test fails on the correct run"   "$gw_b" refuse "$G_ALWAYS_PASS"
+gate_case "(c) an exit-0 ./test"                  "$gw_c" refuse "$G_NO_G2"
+gate_case "(d) an exit-status-only ./test"        "$gw_d" refuse "$G_NO_G2"
+gate_case "(e) a \$(…) comparison that checks exit status" "$gw_e" pass "$G_ALWAYS_REFUSE"
+gate_case "(f) a ./test that sniffs BENCH_TARGET" "$gw_f" refuse "$G_LITERAL_RUN"
+check "gate (a): the reason says ./test is required" bash -c '
+  TMPDIR="$3" bash "$1" "$2" | grep -q "./test is missing"' _ "$GATE" "$gw_a" "$tmp/gtmp"
+check "gate (d): the reason names a surviving broken copy" bash -c '
+  TMPDIR="$3" bash "$1" "$2" | grep -q "passed against a copy of ./run that ignores its input"' \
+  _ "$GATE" "$gw_d" "$tmp/gtmp"
+if command -v python3 > /dev/null; then
+  gw_g1="$(gws g1 'out="$(printf "%s\n" "{\"tier\": \"gold\", \"qty\": 12, \"unit_price\": 250, \"coupon\": \"PCT10\", \"day\": \"sat\"}" "{\"tier\": \"Gold\", \"qty\": 0, \"unit_price\": 100, \"coupon\": \"X\", \"day\": \"mon\"}" | "$BENCH_TARGET")" || exit 1
+[ "$out" = "$(printf "%s\n" "{\"price\": 2250}" "{\"error\": \"invalid_tier\"}")" ]' T1)"
+  # --data reaches every copy: the T2 store needs it to start at all.
+  gw_g2="$(gws g2 'd="$(mktemp -d)"; trap "rm -rf \"\$d\"" EXIT
+out="$(printf "SET a 1\nGET a\n" | "$BENCH_TARGET" --data "$d")" || exit 1
+[ "$out" = "$(printf "OK\nVAL 1")" ]' T2)"
+  gate_case "(g) a good T1 ./test" "$gw_g1" pass "$G_ALWAYS_REFUSE"
+  gate_case "(g) a good T2 ./test" "$gw_g2" pass "$G_ALWAYS_REFUSE"
+else
+  echo "skip gate (g): no python3 for the T1/T2 reference ./run"
+fi
+check "gate (h): no copy of ./run is left behind" test -z "$(ls -A "$tmp/gtmp")"
+mkdir -p "$tmp/gtmp-broken"
+TMPDIR="$tmp/gtmp-broken" bash "$G_NO_CLEANUP" "$gw_e" > /dev/null 2>&1
+check "gate (h), broken gate (no-cleanup): copies are left behind" test -n "$(ls -A "$tmp/gtmp-broken")"
+check "gate: refuses a missing workspace with the usage exit 2" exits 2 bash "$GATE" "$tmp/gate/nope"
+
+# Hook: P1.stop-hook.sh on canned Stop input. Its gate runs under bwrap; where user
+# namespaces are unavailable (the flake check's sandbox), a stand-in that honours only the
+# gate's bind and --chdir runs it unsandboxed.
+if bwrap --ro-bind / / --dev /dev --proc /proc --unshare-net --unshare-pid true > /dev/null 2>&1; then
+  hook_bwrap=bwrap
+else
+  echo "note hook: bwrap cannot run here; the hook's gate runs through an unsandboxed stand-in"
+  hook_bwrap="$tmp/fake-bwrap"
+  printf '#!%s\n' "$BASH_BIN" > "$hook_bwrap"
+  cat >> "$hook_bwrap" <<'EOF'
+gate="" dir=.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --) shift; break ;;
+    --ro-bind|--bind) [ "$3" = /tmp/done-gate.sh ] && gate="$2"; shift 3 ;;
+    --chdir) dir="$2"; shift 2 ;;
+    --dev|--proc|--tmpfs) shift 2 ;;
+    *) shift ;;
+  esac
+done
+args=()
+for a in "$@"; do
+  [ "$a" = /tmp/done-gate.sh ] && a="$gate"
+  [ "$a" = TMPDIR=/tmp ] && a="TMPDIR=${TMPDIR:-/tmp}"
+  args+=("$a")
+done
+cd "$dir" && exec "${args[@]}"
+EOF
+  chmod 0755 "$hook_bwrap"
+fi
+# Broken hooks run from a bench-shaped copy, so they still find lib/done-gate.sh.
+hook_variant() { # hook_variant <name> <sed program> — prints the broken hook's path
+  local b="$tmp/hb-$1"
+  mkdir -p "$b/parts" "$b/lib"
+  cp "$GATE" "$b/lib/done-gate.sh"
+  sed "$2" "$BENCH/parts/P1.stop-hook.sh" > "$b/parts/P1.stop-hook.sh"
+  cmp -s "$BENCH/parts/P1.stop-hook.sh" "$b/parts/P1.stop-hook.sh" \
+    && { echo "hook_variant $1: sed changed nothing" >&2; return 1; }
+  echo "$b/parts/P1.stop-hook.sh"
+}
+hook() { # hook <script> <ws> — runs it on a Stop input; stdout in $tmp/hook.out, prints exit
+  jq -cn --arg cwd "$2" '{session_id: "selftest", hook_event_name: "Stop", stop_hook_active: false, cwd: $cwd}' \
+    | BENCH_GATE_BWRAP="$hook_bwrap" bash "$1" "$2" > "$tmp/hook.out" 2> "$tmp/hook.err"
+  echo "$?"
+}
+hk_i() { # (i) no DONE: silent exit 0, gate not run, no ledger
+  [ -f "$2" ] || return 3
+  local w="$tmp/hk-i-$1"; rm -rf "$w" "$w.gate.jsonl"; mkdir -p "$w"
+  install -m 0755 "$BENCH/tasks/T0/solution/run" "$w/run"
+  [ "$(hook "$2" "$w")" = 0 ] && [ ! -s "$tmp/hook.out" ] && [ ! -e "$w.gate.jsonl" ]
+}
+hk_j() { # (j) a bad ./test: block with a reason, DONE gone, one refused ledger line
+  [ -f "$2" ] || return 3
+  local w; w="$(gws "hk-j-$1" 'exit 0')"; rm -f "$w.gate.jsonl"
+  [ "$(hook "$2" "$w")" = 0 ] \
+    && jq -e '.decision == "block" and (.reason | test("passed against a copy of ./run") and test("DONE was removed"))' \
+      "$tmp/hook.out" > /dev/null \
+    && [ ! -e "$w/DONE" ] && [ "$(wc -l < "$w.gate.jsonl")" -eq 1 ] \
+    && jq -e '.verdict == "refused"' "$w.gate.jsonl" > /dev/null
+}
+hk_k() { # (k) the 6th refusal: the stop is allowed, DONE gone, ledger ends exhausted
+  [ -f "$2" ] || return 3
+  local w; w="$(gws "hk-k-$1" 'exit 0')"
+  for _ in 1 2 3 4 5; do printf '%s\n' '{"verdict":"refused"}'; done > "$w.gate.jsonl"
+  [ "$(hook "$2" "$w")" = 0 ] && ! grep -q block "$tmp/hook.out" && [ ! -e "$w/DONE" ] \
+    && [ "$(tail -n 1 "$w.gate.jsonl" | jq -r .verdict)" = exhausted ]
+}
+hk_l() { # (l) a good ./test: the stop is allowed, DONE kept
+  [ -f "$2" ] || return 3
+  local w; w="$(gws "hk-l-$1" "$T0_GOOD")"; rm -f "$w.gate.jsonl"
+  [ "$(hook "$2" "$w")" = 0 ] && [ ! -s "$tmp/hook.out" ] && [ -e "$w/DONE" ] \
+    && [ "$(jq -r .verdict "$w.gate.jsonl")" = pass ]
+}
+HOOK="$BENCH/parts/P1.stop-hook.sh"
+check "hook (i): no DONE -> silent exit 0, no ledger" hk_i real "$HOOK"
+check "hook (j): bad ./test -> decision block, DONE removed, 1 ledger line" hk_j real "$HOOK"
+check "hook (k): 6th refusal -> stop allowed, DONE removed, gate_exhausted" hk_k real "$HOOK"
+check "hook (l): good ./test -> stop allowed, DONE kept" hk_l real "$HOOK"
+check "hook (i), broken hook (no DONE check): fails" \
+  exits 1 hk_i broken "$(hook_variant no-done-check '/^\[ -f "\$ws\/DONE" \] || exit 0$/d')"
+check "hook (j), broken hook (keeps DONE): fails" \
+  exits 1 hk_j broken "$(hook_variant keeps-done '/^rm -f "\$ws\/DONE"$/d')"
+check "hook (k), broken hook (no cap): fails" \
+  exits 1 hk_k broken "$(hook_variant no-cap 's/^CAP=5$/CAP=99/')"
+check "hook (l), broken hook (ignores a pass): fails" \
+  exits 1 hk_l broken "$(hook_variant ignores-pass 's/^if \[ "\$rc" -eq 0 \]; then$/if false; then/')"
+
+# P1 settings: the Stop hook reaches the session with both placeholders filled in.
+p1_ws="$(render P0,P0d,P1)"
+p1_s="$p1_ws/.claude/settings.json"
+check "P1: the settings hold one Stop command hook running P1.stop-hook.sh on this workspace" \
+  exits 0 jq -e --arg c "bash '$FIX/repo/autonomy/bench/parts/P1.stop-hook.sh' '$p1_ws'" '
+    [.hooks.Stop[]?.hooks[]? | select(.type == "command")] | length == 1
+      and .[0].command == $c and .[0].timeout == 400' "$p1_s"
+check "P1: no @BENCH@ or @WS@ placeholder survives" exits 1 grep -qE '@BENCH@|@WS@' "$p1_s"
+check "P1: P0d's PreToolUse hook is kept beside it" \
+  exits 0 jq -e '.hooks.PreToolUse | length == 1' "$p1_s"
+P1_LINE='`./test` is required. When you create `DONE`, a checker runs `./test`'
+check "P1: the prompt carries the ./test-is-required line" grep -qF -- "$P1_LINE" "$p1_ws.prompt.md"
+check "P1/R3: the prompt line does not name the broken copies' kinds" \
+  exits 1 grep -qiE 'exit 1|last line|first line|exits 0' "$BENCH/parts/P1.prompt.md" "$BENCH/parts/R3.prompt.md"
+
+# Gate parts are agent-specific, and their rows carry the gate's verdicts.
+n_before_gate="$(rows)"
+check "R3: run refuses --parts R3 for claude (exit 2)" \
+  exits 2 bash "$BENCH/run" --agent claude --task T0 --rep 1 --parts R3 --results "$RESULTS"
+check "P1: run refuses --parts P1 for pi (exit 2)" \
+  exits 2 bash "$BENCH/run" --agent pi --model stub --timeout 60 --task T0 --rep 1 --parts P1 --results "$RESULTS"
+check "gate: the refused runs appended nothing" test "$(rows)" -eq "$n_before_gate"
+# A stub pi-run that writes a ledger the way the extension would, and keeps what run gave it.
+cat > "$tmp/llm-stub-gate" <<'EOF'
+[ "$1" = pi-run ] || exit 1
+printf '%s' "${BENCH_PI_EXTENSIONS:-}" > "$STUB_SEEN.ext"
+printf '%s' "${BENCH_LLM_SERVER_FLAGS_EXTRA:-}" > "$STUB_SEEN.extra"
+cp "${BENCH_PI_PROMPT:-/dev/null}" "$STUB_SEEN.prompt"
+printf '%s' "$STUB_LEDGER" > "$2.gate.jsonl"
+printf '%s\n' '{"timeout":false,"tool_cpu_s":null,"tokens":null}'
+EOF
+gate_row() { # gate_row <parts> <ledger text> — one stub pi run; prints its row
+  STUB_SEEN="$tmp/seen" STUB_LEDGER="$2" BENCH_LLM="$tmp/llm-stub-gate" bash "$BENCH/run" \
+    --agent pi --model stub --timeout 60 --task T0 --rep 1 --parts "$1" \
+    --results "$tmp/gate-rows.jsonl" 2> /dev/null | tail -n 1
+}
+r="$(gate_row R3 $'{"verdict":"refused"}\n{"verdict":"refused"}\n{"verdict":"pass"}\n')"
+check "R3 row: gate_refusals 2, gate_exhausted false" \
+  exits 0 jq -e '.gate_refusals == 2 and .gate_exhausted == false' <<< "$r"
+check "R3: run hands pi-run the extension" test "$(cat "$tmp/seen.ext")" = "$BENCH/parts/R3.pi-ext.ts"
+check "R3: run hands pi-run the rendered prompt, with the R3 line" grep -qF -- "$P1_LINE" "$tmp/seen.prompt"
+r="$(gate_row R3 "$(printf '{"verdict":"refused"}\n%.0s' 1 2 3 4 5)"$'\n{"verdict":"exhausted"}\n')"
+check "R3 row: an exhausted ledger gives gate_exhausted true" \
+  exits 0 jq -e '.gate_refusals == 5 and .gate_exhausted == true' <<< "$r"
+r="$(gate_row R3 '')"
+check "R3 row: a gate that never refused gives 0 / false" \
+  exits 0 jq -e '.gate_refusals == 0 and .gate_exhausted == false' <<< "$r"
+r="$(gate_row none '')"
+check "gate row: no gate part gives null / null" \
+  exits 0 jq -e '.gate_refusals == null and .gate_exhausted == null' <<< "$r"
+check "gate row: --parts none hands pi-run prompt.md byte for byte, and no extension" bash -c '
+  cmp -s "$1/prompt.md" "$2/seen.prompt" && [ ! -s "$2/seen.ext" ]' _ "$BENCH" "$tmp"
+# R1/R2 change the server, R3 the agent: --parts R1,R2,R3 must carry all three.
+r="$(gate_row R1,R2,R3 $'{"verdict":"refused"}\n{"verdict":"pass"}\n')"
+check "R1,R2,R3: run hands pi-run R1's then R2's server flags, the R3 extension and its line" bash -c '
+  jq -e --slurpfile a "$1/parts/R1.llm.json" --slurpfile b "$1/parts/R2.llm.json" \
+    ". == \$a[0].server_flags_extra + \$b[0].server_flags_extra" "$2/seen.extra" > /dev/null \
+  && [ "$(cat "$2/seen.ext")" = "$1/parts/R3.pi-ext.ts" ] \
+  && grep -qF -- "$3" "$2/seen.prompt"' _ "$BENCH" "$tmp" "$P1_LINE"
+check "R1,R2,R3 row: parts [R1,R2,R3], gate_refusals 1" \
+  exits 0 jq -e '.harness_rev.parts == ["R1","R2","R3"] and .gate_refusals == 1' <<< "$r"
+check "gate rows: all pass record validation" bash "$BENCH/record" --check "$tmp/gate-rows.jsonl"
+
+# done_ok, the guard metric: DONE and hidden_pass 1.
+check "done_ok: true for the T0 solution fixture" \
+  test "$(jq -s '[.[] | select(.agent == "fixture:tasks/T0/solution")][0].done_ok' "$RESULTS")" = true
+check "done_ok: false for every false_done row" \
+  exits 0 jq -se '[.[] | select(.false_done)] | length > 0 and all(.done_ok == false)' "$RESULTS"
+check "record: accepts a row without done_ok, gate_refusals, gate_exhausted" \
+  exits 0 bash "$BENCH/record" --check <(jq -c 'del(.done_ok, .gate_refusals, .gate_exhausted)' <<< "$good")
+reject "a non-boolean done_ok"       '.done_ok = 1'
+reject "a fractional gate_refusals"  '.gate_refusals = 1.5'
+reject "a non-boolean gate_exhausted" '.gate_exhausted = "yes"'
 
 # ---------------------------------------------------------------- report
 # --decisions is always named: left at its default, report would read the real results.
@@ -597,6 +843,12 @@ cp "$BENCH/report" "$tmp/rep/report"
 cp "$RFX/runs.jsonl" "$tmp/rep/results/runs.jsonl"
 check "report: a missing default decisions.jsonl excludes nothing (pi T2 none n=3)" bash -c '
   bash "$1/report" | grep "^| pi | T2 | none | 3 |" > /dev/null' _ "$tmp/rep"
+check "report: done_ok, gate_refusals and gate_exhausted are columns" \
+  grep -q '| false_done | done_ok |.*| gate_refusals | gate_exhausted | silent_stop | no_source |$' "$tmp/rfx.md"
+check "report: a P1 group shows done_ok 1, gate_refusals 3.5 (2–5), gate_exhausted 1" \
+  grep -qE '^\| claude \| T1 \| P0\+P0d\+P1 \| 2 \| [^|]+ \| [^|]+ \| 1 \|.*\| 3\.5 \(2–5\) \| 1 \| [^|]+ \| 0 \|$' "$tmp/rfx.md"
+check "report: groups whose rows predate the gate fields show – for them" \
+  grep -qE '^\| claude \| T1 \| P0 \| 2 \| [^|]+ \| [^|]+ \| – \|.*\| – \| – \| [^|]+ \| 1 \|$' "$tmp/rfx.md"
 
 # ---------------------------------------------------------------- prompt
 for s in Boundary Termination Output; do

@@ -12,6 +12,10 @@
 # approving arbitrary Bash safe. --parts R1 adds llama-server flags for a pi run
 # (parts/R1.llm.json) and is refused for claude. A part with none of these files is
 # recorded but changes nothing.
+# --parts P1 (claude) and R3 (pi) add the done gate (lib/done-gate.sh): a Stop hook
+# (parts/P1.stop-hook.sh) or a pi extension (parts/R3.pi-ext.ts) that deletes DONE unless
+# the agent's ./test passes on ./run and fails on gate-built broken copies. Each is
+# refused for the other agent. Their verdicts land in <ws>.gate.jsonl.
 # Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
 #
 # Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
@@ -93,6 +97,20 @@ for p in "${part_list[@]}"; do
     .server_flags_extra | select(type == "array" and all(.[]; type == "string")) | $acc + .' "$f")" \
     || usage "parts/$p.llm.json: server_flags_extra must be an array of strings"
 done
+#    The done gate has one mechanism per agent: a claude Stop hook, a pi extension. A run
+#    naming the other agent's gate would carry a gate label for a run nothing gated.
+#    Fixture runs dispatch nothing, so either is accepted there.
+gate_parts=() pi_exts=""
+for p in "${part_list[@]}"; do
+  if [ -f "$BENCH/parts/$p.pi-ext.ts" ]; then
+    [ "$kind" = claude ] && usage "part $p is a pi extension (parts/$p.pi-ext.ts); it has no effect on claude"
+    gate_parts+=("$p") pi_exts+="${pi_exts:+:}$BENCH/parts/$p.pi-ext.ts"
+  fi
+  if [ -f "$BENCH/parts/$p.stop-hook.sh" ]; then
+    [ "$kind" = pi ] && usage "part $p is a claude Stop hook (parts/$p.stop-hook.sh); it has no effect on pi"
+    gate_parts+=("$p")
+  fi
+done
 
 run_id="$task-$kind-r$rep-$(date -u +%Y%m%dT%H%M%SZ)-$$$RANDOM"
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -116,18 +134,18 @@ jq --argjson roots "$roots" '
 
 #    A part that changes the session's settings ships parts/<part>.settings.json, merged
 #    over the render above. Its @ROOT@ entries expand once per root like the deny rules;
-#    @WS@ is this workspace. The template render itself is left alone so that --parts none
+#    @WS@ is this workspace, @BENCH@ this bench directory. The template render itself is left alone so that --parts none
 #    stays byte-identical to the settings the baseline rows ran under.
 if [ "$parts" != none ]; then
   for p in "${part_list[@]}"; do
     overlay="$BENCH/parts/$p.settings.json"
     [ -f "$overlay" ] || continue
-    merged="$(jq -s --argjson roots "$roots" --arg ws "$ws" '
+    merged="$(jq -s --argjson roots "$roots" --arg ws "$ws" --arg bench "$BENCH" '
       (.[1] | walk(
         if type == "array" then [ .[] as $e
           | if ($e | type) == "string" and ($e | contains("@ROOT@"))
             then ($roots[] as $root | $e | gsub("@ROOT@"; $root)) else $e end ]
-        elif type == "string" then gsub("@WS@"; $ws)
+        elif type == "string" then gsub("@WS@"; $ws) | gsub("@BENCH@"; $bench)
         else . end)) as $o
       | .[0] * $o' "$ws/.claude/settings.json" "$overlay")" || fail "cannot merge $overlay"
     printf '%s\n' "$merged" > "$ws/.claude/settings.json" || fail "cannot write bench settings"
@@ -220,8 +238,12 @@ case "$kind" in
     # setsid gives the adapter a session of its own, so the watchdog can find the whole
     # tree (lib/proc.sh). Its output goes to a file, not a pipe: a surviving child
     # holding the pipe open would keep run waiting.
+    # pi gets the rendered prompt, so a part's prompt line reaches it as it reaches claude
+    # (without a part line it is prompt.md byte for byte), and the parts' extensions.
     pi_out="$ws.pi-run.json" marker="$ws.pi-run.timeout"
-    BENCH_LLM_SERVER_FLAGS_EXTRA="$llm_extra" setsid bash "$llm" pi-run "$ws" "$model" "$tmo" > "$pi_out" &
+    BENCH_PI_PROMPT="$prompt" BENCH_PI_EXTENSIONS="$pi_exts" \
+      BENCH_LLM_SERVER_FLAGS_EXTRA="$llm_extra" \
+      setsid bash "$llm" pi-run "$ws" "$model" "$tmo" > "$pi_out" &
     pi_pid=$!
     watchdog "$pi_pid" "$tmo" "$KILL_GRACE" "$marker" &
     wd_pid=$!
@@ -287,6 +309,18 @@ if [ "$kind" = pi ]; then
     "$SILENT_STOP_JQ" "$ws.pi/events.jsonl" 2> /dev/null)" || silent_stop=null
 fi
 
+# The done gate's verdicts (parts/P1.stop-hook.sh, parts/R3.pi-ext.ts), one JSON line each
+# in <ws>.gate.jsonl. null when no gate ran: no gate part, or a fixture run.
+gate_refusals=null gate_exhausted=null
+if [ -s "$ws.gate.jsonl" ]; then
+  gate_refusals="$(jq -s '[.[] | select(.verdict == "refused")] | length' "$ws.gate.jsonl")" \
+    || fail "bad gate ledger $ws.gate.jsonl"
+  gate_exhausted="$(jq -s 'any(.[]; .verdict == "exhausted")' "$ws.gate.jsonl")" \
+    || fail "bad gate ledger $ws.gate.jsonl"
+elif [ "${#gate_parts[@]}" -gt 0 ] && [ "$kind" != fixture ]; then
+  gate_refusals=0 gate_exhausted=false
+fi
+
 row="$(jq -cn \
   --arg run_id "$run_id" --arg ts "$ts" --arg agent "$agent" --arg model "$model" \
   --argjson parts "$parts_json" --argjson plugin_rev "$plugin_rev" \
@@ -294,7 +328,8 @@ row="$(jq -cn \
   --argjson done_file "$done_file" --argjson blocked "$blocked" --argjson timeout "$timed_out" \
   --argjson start "$start" --argjson end "$end" \
   --argjson tokens "$tokens" --argjson tool_cpu "$tool_cpu" --arg lang "$(detect_lang "$ws")" \
-  --argjson source_present "$(source_present "$ws")" --arg silent_stop "$silent_stop" '
+  --argjson source_present "$(source_present "$ws")" --arg silent_stop "$silent_stop" \
+  --argjson gate_refusals "$gate_refusals" --argjson gate_exhausted "$gate_exhausted" '
   {run_id: $run_id, ts: $ts, agent: $agent,
    model: (if $model == "" then null else $model end),
    harness_rev: {parts: $parts, plugin_rev: $plugin_rev},
@@ -302,11 +337,13 @@ row="$(jq -cn \
    hidden_pass: $g.hidden_pass, test_kill_rate: $g.test_kill_rate,
    perf_speedup: $g.perf_speedup,
    false_done: ($done_file and $g.hidden_pass < 1),
+   done_ok: ($done_file and $g.hidden_pass == 1),
    blocked: $blocked, timeout: $timeout,
    wall_s: ((($end - $start) * 1000 | round) / 1000),
    tokens: $tokens, tool_cpu_s: $tool_cpu,
    lang: (if $lang == "unknown" then null else $lang end),
-   source_present: $source_present}
+   source_present: $source_present,
+   gate_refusals: $gate_refusals, gate_exhausted: $gate_exhausted}
   + (if $silent_stop == "absent" then {} else {silent_stop: ($silent_stop | fromjson)} end)')" \
   || fail "cannot build row"
 

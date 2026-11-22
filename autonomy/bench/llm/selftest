@@ -220,5 +220,60 @@ check "pi-run: an endpoint serving another model is refused (exit 1)" \
   exits 1 env BENCH_LLM_PORT="$port3" bash "$LLM" pi-run "$T/ws2" "$MODEL" 30
 check "pi-run: no chat request reached the wrong model" test ! -s "$T/requests-other.jsonl"
 
+# --- 5. part R3: the done gate as a pi extension ---------------------------------------
+# The workspace already holds DONE; the stub's first reply ends the run, so the gate decides
+# at the first agent_before_settle. A refusal must reach the model as a 2nd request and
+# delete DONE; a pass must leave exactly 1 request. The control run, without the
+# extension, shows the refusal case's assertions fail when nothing gates.
+R3_EXT="$BENCH/parts/R3.pi-ext.ts"
+gate_ws() { # gate_ws DIR TEST-BODY — T0's reference ./run, DONE, and that ./test
+  mkdir -p "$1"
+  install -m 0755 "$BENCH/tasks/T0/solution/run" "$1/run"
+  : > "$1/DONE"
+  printf '#!%s\n%s\n' "$(command -v bash)" "$2" > "$1/test"
+  chmod 0755 "$1/test"
+}
+gate_run() { # gate_run NAME EXTENSIONS TEST-BODY — one pi-run; requests in $T/NAME.jsonl
+  local p
+  p="$(free_port)"
+  gate_ws "$T/$1" "$3"
+  jq -n '[{content: "Finished."}]' > "$T/$1.scenario.json"
+  start_stub "$p" "$MODEL" "$T/$1.scenario.json" "$T/$1.jsonl"
+  BENCH_LLM_PORT="$p" BENCH_PI_EXTENSIONS="$2" bash "$LLM" pi-run "$T/$1" "$MODEL" 120 \
+    > "$T/$1.out" 2> "$T/$1.err"
+}
+# refused NAME — the 2nd request carries the gate's message and DONE is gone
+refused() {
+  [ "$(wc -l < "$T/$1.jsonl")" -eq 2 ] && [ ! -e "$T/$1/DONE" ] &&
+    sed -n 2p "$T/$1.jsonl" | jq -e '[.messages[] | .content | tostring] | join(" ")
+      | test("DONE was removed") and test("passed against a copy of ./run")' > /dev/null
+}
+# requests_done NAME OP N (-e | ! -e) — the request count compares OP N; DONE exists (or not)
+requests_done() {
+  test "$(wc -l < "$T/$1.jsonl")" "$2" "$3" || return 1
+  if [ "$4" = '!' ]; then [ ! -e "$T/$1/DONE" ]; else [ -e "$T/$1/DONE" ]; fi
+}
+# shellcheck disable=SC2016 # a ./test body: its $ expands when the test runs
+GOOD_TEST='out="$(printf "abc\ndef\n" | "$BENCH_TARGET")" || exit 1
+[ "$out" = "$(printf "ABC\nDEF")" ]'
+gate_run r3-bad "$R3_EXT" 'exit 0'
+check "R3 (m): DONE + an exit-0 ./test -> a 2nd request carries the gate message, DONE deleted" \
+  refused r3-bad
+check "R3 (m): the ledger beside the workspace holds one refusal" \
+  jq -se 'length == 1 and .[0].verdict == "refused" and .[0].agent == "pi"' "$T/r3-bad.gate.jsonl"
+gate_run r3-off "" 'exit 0'
+check "R3 (m), control without the extension: the refusal assertions fail" exits 1 refused r3-off
+check "R3 (m), control: no ledger is created without an extension" test ! -e "$T/r3-off.gate.jsonl"
+gate_run r3-good "$R3_EXT" "$GOOD_TEST"
+check "R3 (n): DONE + a good ./test -> exactly 1 request, DONE kept" \
+  requests_done r3-good -eq 1 -e
+check "R3 (n): the ledger records the pass" \
+  jq -se 'length == 1 and .[0].verdict == "pass"' "$T/r3-good.gate.jsonl"
+# A broken extension whose gate cannot run refuses everything: (n) must notice.
+sed 's|/run/llm-tools/done-gate.sh|/run/llm-tools/no-such-gate.sh|' "$R3_EXT" > "$T/R3-broken.pi-ext.ts"
+gate_run r3-broken "$T/R3-broken.pi-ext.ts" "$GOOD_TEST"
+check "R3 (n), broken extension: more than 1 request, DONE deleted" \
+  requests_done r3-broken -gt 1 ! -e
+
 printf 'selftest: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

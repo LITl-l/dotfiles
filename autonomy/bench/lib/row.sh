@@ -12,7 +12,7 @@ ROW_FIELDS='["run_id","ts","agent","model","harness_rev","task","rep","hidden_pa
 # Optional: allowed, never required. Rows recorded before a field existed stay valid,
 # and they are never rewritten to add it.
 # shellcheck disable=SC2034
-ROW_OPTIONAL_FIELDS='["source_present","silent_stop"]'
+ROW_OPTIONAL_FIELDS='["source_present","silent_stop","done_ok","gate_refusals","gate_exhausted"]'
 
 # SC2016: the $names below are jq variables, not shell ones.
 # shellcheck disable=SC2034,SC2016
@@ -47,7 +47,13 @@ ROW_CHECK_JQ='
     problem((has("source_present") | not) or (.source_present | type == "boolean");
       "source_present must be a boolean when present"),
     problem((has("silent_stop") | not) or (.silent_stop | . == null or type == "boolean");
-      "silent_stop must be a boolean or null when present")
+      "silent_stop must be a boolean or null when present"),
+    problem((has("done_ok") | not) or (.done_ok | type == "boolean");
+      "done_ok must be a boolean when present"),
+    problem((has("gate_refusals") | not) or (.gate_refusals | . == null or (nnum and . == floor));
+      "gate_refusals must be null or an integer >= 0 when present"),
+    problem((has("gate_exhausted") | not) or (.gate_exhausted | . == null or type == "boolean");
+      "gate_exhausted must be a boolean or null when present")
   ] end'
 
 # llm-bench rows: one llama-bench `-o jsonl` line wrapped as {"kind":"llm-bench",

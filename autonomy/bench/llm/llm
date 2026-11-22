@@ -16,6 +16,9 @@
 #   BENCH_PI_PROMPT         prompt file for pi-run (default autonomy/bench/prompt.md)
 #   BENCH_LLM_SERVER_FLAGS_EXTRA  JSON array of strings appended to serve's model flags
 #                           (default []); `run` sets it from a part's parts/<P>.llm.json
+#   BENCH_PI_EXTENSIONS     colon-separated pi extension files (bench parts) loaded with -e;
+#                           lib/done-gate.sh goes into the sandbox beside them, and
+#                           <ws>.gate.jsonl is bound at /run/llm-gate.jsonl for their verdicts
 #   LLM_DRY_RUN=1           fetch / serve / bench print each argv as a JSON array instead
 #
 # Exit codes: 0 ok, 1 runtime failure, 2 usage error. pi-run exits 0 whenever it could
@@ -226,6 +229,20 @@ cmd_pi_run() {
         models: [{id: $id} + (if $c then {contextWindow: ($m.server_flags[$c + 1] | tonumber)} else {} end)]}}}' \
     > "$rt/agent/models.json"
   install -m 0755 "$LLM_DIR/bridge.py" "$LLM_DIR/sandbox-init" "$rt/tools/"
+  # Phase 1 pi parts: each extension is copied in (the bench checkout is not mounted)
+  # and loaded with -e. The done gate's ledger is the one file of the host they write.
+  local exts=() ext ext_args=() gate_bind=()
+  [ -n "${BENCH_PI_EXTENSIONS:-}" ] && IFS=: read -ra exts <<< "$BENCH_PI_EXTENSIONS"
+  for ext in "${exts[@]}"; do
+    [ -r "$ext" ] || die "cannot read pi extension $ext"
+    install -m 0644 "$ext" "$rt/tools/" || fail "cannot stage $ext"
+    ext_args+=(-e "/run/llm-tools/$(basename "$ext")")
+  done
+  if [ "${#exts[@]}" -gt 0 ]; then
+    install -m 0755 "$BENCH/lib/done-gate.sh" "$rt/tools/" || fail "cannot stage done-gate.sh"
+    : >> "${ws%/}.gate.jsonl" || fail "cannot create ${ws%/}.gate.jsonl"
+    gate_bind=(--bind "${ws%/}.gate.jsonl" /run/llm-gate.jsonl)
+  fi
 
   python3 "$LLM_DIR/bridge.py" unix2tcp "$rt/sock/llm.sock" 127.0.0.1 "$PORT" &
   bridge_pid=$!
@@ -244,7 +261,7 @@ cmd_pi_run() {
   local pi_args=(-p --mode json --no-session --offline --no-extensions
     --provider bench --model "$id")
   [ "$(jq -r '.thinking' <<< "$m")" = false ] && pi_args+=(--thinking off)
-  pi_args+=(-- "$(cat "$prompt_file")")
+  pi_args+=("${ext_args[@]}" -- "$(cat "$prompt_file")")
   local bw=(
     "$bwrap_bin" --unshare-all --die-with-parent --new-session
     --ro-bind /nix/store /nix/store
@@ -258,6 +275,7 @@ cmd_pi_run() {
     --ro-bind "$rt/tools" /run/llm-tools
     --bind "$rt/sock" /run/llm-sock
     --bind "$rt/out" /run/llm-out
+    "${gate_bind[@]}"
   )
   [ -d "$agent_src" ] && bw+=(--ro-bind "$agent_src" /run/pi-agent-src)
   bw+=(--bind "$ws" "$ws" --chdir "$ws"
