@@ -265,6 +265,26 @@ check "R1: refused for claude, which runs no local server (exit 2)" \
   exits 2 env PATH="$tmp/nosession:$PATH" bash "$BENCH/run" --agent claude --task T0 --rep 1 \
   --parts R1 --results "$tmp/r1-claude.jsonl"
 check "R1: the refused claude run appended nothing" test ! -e "$tmp/r1-claude.jsonl"
+
+# R2 drops earlier turns' reasoning from the history llama-server keeps.
+has_nopreserve() { jq -e 'index("--no-reasoning-preserve") != null' "$1" > /dev/null; }
+r12_ws="$(pi_stub_run R1,R2)"
+check "R2: a pi --parts R1,R2 run renders server flags with --reasoning-budget 4096" \
+  has_budget "$r12_ws.serve-argv.json"
+check "R2: ... and with --no-reasoning-preserve" has_nopreserve "$r12_ws.serve-argv.json"
+check "R2: without R2 a pi run's server flags keep reasoning" \
+  exits 1 has_nopreserve "$r1_ws.serve-argv.json"
+check "R2: refused for claude, which runs no local server (exit 2)" \
+  exits 2 env PATH="$tmp/nosession:$PATH" bash "$BENCH/run" --agent claude --task T0 --rep 1 \
+  --parts R2 --results "$tmp/r2-claude.jsonl"
+check "R2: the refused claude run appended nothing" test ! -e "$tmp/r2-claude.jsonl"
+#    the flag check must notice a bench whose R2.llm.json is gone.
+cp -R "$BENCH" "$tmp/bench-noR2"
+rm "$tmp/bench-noR2/parts/R2.llm.json"
+noR2_ws="$(BENCH=$tmp/bench-noR2 pi_stub_run R1,R2)"
+check "R2 (broken): the run without R2.llm.json still rendered" test -f "$noR2_ws.serve-argv.json"
+check "R2 (broken): its server flags fail the --no-reasoning-preserve check" \
+  exits 1 has_nopreserve "$noR2_ws.serve-argv.json"
 check "llm serve: rejects BENCH_LLM_SERVER_FLAGS_EXTRA that is not an array of strings (exit 2)" \
   exits 2 env LLM_DRY_RUN=1 BENCH_LLM_SERVER_FLAGS_EXTRA='[1]' bash "$BENCH/llm/llm" serve "$QWEN"
 
