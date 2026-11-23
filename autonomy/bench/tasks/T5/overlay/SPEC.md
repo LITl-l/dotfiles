@@ -109,6 +109,8 @@ pending *case*.
 
 A text atom writes itself as a fragment: words go **space-before** — a space is written in
 front of each word unless it is attached. Example: `["hello", "world"]` → `hello world`.
+One text atom is one fragment, however many words it holds: `hello world` is a single
+fragment that starts at `hello`, not two.
 
 ### Attach
 
@@ -168,9 +170,23 @@ After punctuation the next word gets its space as usual. Examples:
   last two words). Otherwise it does nothing.
 - `{*?}` inserts a space in front of the last fragment, if it has none.
 
-Neither changes *attach*, *case* or *glue*. With no fragment written yet, both do nothing.
+Both update the last fragment's has-space flag: after `{*!}` the last fragment has no
+space (so a second `{*!}` does nothing), and after `{*?}` it has one. Neither changes
+*attach*, *case* or *glue*. With no fragment written yet, both do nothing. The last
+fragment is the whole fragment, so `["red", "fish tank", "{*!}"]` → `redfish tank`.
 Examples: `["hello", "world", "{*!}"]` → `helloworld`; `["in", "{^side}", "{*?}"]` →
-`in side`.
+`in side`; `["p", "q", "{*!}", "{*?}"]` → `p q`.
+
+`{*?}` applies even when the last fragment is the first one in the text, which was
+written attached because *attach* starts true. The space then lands at the very start
+of the text: `["left", "{*?}", "right"]` → ` left right`. "The first word is attached" (State)
+describes how that word is written, not a guarantee that the text never starts with a
+space.
+
+These two operate on the rendered output text exactly as described here. They
+deliberately differ from Plover's retro macros, which work on translations: Plover's
+`{*?}` would split the last multi-stroke translation, and both are no-ops right after
+another retro command in Plover. Implement this SPEC, not Plover.
 
 ### Cancel, escapes and unknown metas
 
@@ -198,6 +214,9 @@ words).
 - Write your formatter tests in `crates/steno-core/tests/format*.rs` (for example
   `crates/steno-core/tests/format.rs`), using **only the public API above**
   (`steno_core::{format, Formatter, Output}`). Every existing test must keep passing.
+- Your own tests are also run against a reference implementation of this SPEC; assert
+  only behaviour this SPEC states — tests that pin down behaviour SPEC leaves open will
+  fail against the reference and count as not catching anything.
 - Build and test with `cargo test -p steno-core --offline` only. Never build the whole
   workspace (`cargo test` at the root): `steno-app` needs GUI system libraries that are
   not available here. There is no network access.

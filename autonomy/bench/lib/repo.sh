@@ -6,7 +6,7 @@
 # commit id>}. A clone, never `jj workspace add`: a workspace would share the source's
 # .jj/repo, so the agent's jj (and the grader's snapshot of a copy) would write the
 # owner's operation log and reach their bookmarks. The clone reads the source's git store
-# once and fetches one branch.
+# once and fetches one branch, then cuts it back to rev so later commits stay invisible.
 
 # jj without a user config prints an identity warning on every command; the bench needs
 # no identity (nothing is pushed), so commits carry this one.
@@ -29,9 +29,18 @@ repo_install() {
   "${REPO_JJ[@]}" git clone --branch "$branch" "$src" "$ws" > /dev/null || return 1
   "${REPO_JJ[@]}" -R "$ws" new "$rev" > /dev/null || return 1
   "${REPO_JJ[@]}" -R "$ws" git remote remove origin > /dev/null || return 1
+  # The fetched branch may have moved past rev; anything after rev must not reach the
+  # agent. Pin the bookmark back to rev, so later commits become hidden, then drop the
+  # operations that recorded them and prune their objects.
+  "${REPO_JJ[@]}" -R "$ws" bookmark set "$branch" -r "$rev" --allow-backwards > /dev/null \
+    || return 1
+  "${REPO_JJ[@]}" -R "$ws" op abandon '..@-' > /dev/null || return 1
+  "${REPO_JJ[@]}" -R "$ws" util gc --expire=now > /dev/null || return 1
   # The clone must stand on exactly the pinned tree, whatever the branch has become.
   [ "$("${REPO_JJ[@]}" -R "$ws" log --no-graph -r '@-' -T commit_id)" = "$rev" ] \
     || { echo "repo_install: $ws is not on $rev" >&2; return 1; }
+  [ -z "$("${REPO_JJ[@]}" -R "$ws" log --no-graph -r 'all() ~ ::@' -T commit_id)" ] \
+    || { echo "repo_install: $ws shows commits beyond $rev" >&2; return 1; }
   printf '%s\n' "$rev" > "$ws.base" || return 1
   if [ -d "$task_dir/overlay" ]; then
     install_tree "$task_dir/overlay" "$ws" || return 1
