@@ -11,7 +11,9 @@
       "allowWrite": ["@WS@"],
       "denyRead": [
         "@ROOT@/autonomy/**/grader/**",
-        "@ROOT@/**/autonomy/**/grader/**"
+        "@ROOT@/**/autonomy/**/grader/**",
+        "@ROOT@/autonomy/**/solution/**",
+        "@ROOT@/**/autonomy/**/solution/**"
       ]
     },
     "network": {

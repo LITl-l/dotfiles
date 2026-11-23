@@ -944,11 +944,6 @@ check "report: ref_fail is – for a group whose rows predate the field" \
 # In the fixed layout (HOME and the repo root under $FIX), so the rendered deny rules can
 # be checked against known roots. The perf journal is shrunk: the 500k-posting case
 # needs minutes of generation the flake check need not spend.
-# The reference is C. The flake check's runCommand has no compiler, so there the whole
-# block is skipped, loudly; `nix develop .#bench -c bash autonomy/bench/selftest` runs it.
-if ! command -v cc > /dev/null 2>&1; then
-  printf 'SKIP T4: no C compiler on PATH, so the T4 reference cannot be built\n'
-else
 mkdir -p "$FIX/repo/autonomy/bench/tasks"
 cp -R "$BENCH/tasks/T4" "$FIX/repo/autonomy/bench/tasks/T4"
 rm -rf "$FIX/repo/autonomy/bench/tasks/T4/solution/.build"
@@ -1061,6 +1056,26 @@ check "T4: the glob check itself rejects a path outside any grader tree" \
   | all($roots[] + "/autonomy/bench/tasks/T4/skeleton/SPEC.md"; . as $p | any($g[]; . as $x | $p | test($x | g2r)))' \
   "$p0_s"
 
+# The reference solutions are answers (T4's is a complete ledger.c): denied like the grader.
+# covers_solution <settings> — every Read and Edit deny set covers T1's and T4's solution
+# under every root, and the P0 sandbox denyRead (when present) does too.
+SOL_JQ="$G2R"'
+  def covered($g): all($roots[] + ("/autonomy/bench/tasks/T4/solution/ledger.c", "/autonomy/bench/tasks/T1/solution/run");
+    . as $p | any($g[]; . as $x | $p | test($x | g2r)));
+  def rules($t): [.permissions.deny[] | select(startswith($t + "(")) | ltrimstr($t + "(") | rtrimstr(")") | sub("^//"; "/")];
+  covered(rules("Read")) and covered(rules("Edit"))
+  and (if .sandbox then covered(.sandbox.filesystem.denyRead) else true end)'
+covers_solution() { jq -e --argjson roots "$t4_roots" "$SOL_JQ" "$1" > /dev/null; }
+check "T4: rendered settings deny Read and Edit of tasks/T4/solution and tasks/T1/solution" \
+  covers_solution "$t4_ws/.claude/settings.json"
+check "P0: rendered settings and sandbox denyRead cover the solution trees too" covers_solution "$p0_s"
+jq '.permissions.deny |= map(select(test("/solution/") | not))' "$t4_ws/.claude/settings.json" > "$tmp/nosol.json"
+check "T4: the solution check rejects settings without the solution denies" \
+  exits 1 covers_solution "$tmp/nosol.json"
+jq '.sandbox.filesystem.denyRead |= map(select(test("/solution/") | not))' "$p0_s" > "$tmp/nosol-p0.json"
+check "P0: the solution check rejects a sandbox denyRead without the solution trees" \
+  exits 1 covers_solution "$tmp/nosol-p0.json"
+
 # The periodic milestone check writes nothing into the workspace it samples.
 snapws="$tmp/snapws"
 mkdir -p "$snapws"
@@ -1120,7 +1135,6 @@ check "report: renders a T4 table for T4 rows" bash -c '
   bash "$1/report" --runs "$2" | grep -q "^## T4: median"' _ "$BENCH" "$T4R"
 check "report: no T4 table without T4 rows" bash -c '
   ! bash "$1/report" --runs "$2" | grep -q "^## T4"' _ "$BENCH" "$RESULTS"
-fi
 
 # ---------------------------------------------------------------- prompt
 for s in Boundary Termination Output; do

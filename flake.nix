@@ -295,7 +295,8 @@
               # the agent toolchains in devShells.bench, so the check stays cheap.
               # patchShebangs: the sandbox has no /usr/bin/env, and the graders exec
               # each solution's `./run` directly, as they would an agent's.
-              bench-selftest = pkgs.runCommand "bench-selftest"
+              # runCommandCC: the T4 reference is C and is built by the selftest.
+              bench-selftest = pkgs.runCommandCC "bench-selftest"
                 {
                   src = ./autonomy;
                   nativeBuildInputs = [ pkgs.jq pkgs.util-linux ];
