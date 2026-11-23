@@ -18,6 +18,10 @@ ROW_OPTIONAL_FIELDS='["source_present","silent_stop","done_ok","gate_refusals","
 # shellcheck disable=SC2034
 ROW_T4_FIELDS='["t4_milestones_reached","t4_milestone_t","t4_regressions","t4_prop_pass",
   "t4_perf_ok","t4_loc","t4_files","t4_fmt_clean","t4_lint_clean","t4_compactions"]'
+# T5 only, the same way.
+# shellcheck disable=SC2034
+ROW_T5_FIELDS='["boundary_ok","t5_regress_ok","t5_hidden_compiled","t5_loc","t5_fmt_clean",
+  "t5_lint_clean","t5_compactions"]'
 
 # SC2016: the $names below are jq variables, not shell ones.
 # shellcheck disable=SC2034,SC2016
@@ -29,11 +33,14 @@ ROW_CHECK_JQ='
   def nint: type == "number" and . >= 0 and . == floor;
   def optbool: . == null or type == "boolean";
   if type != "object" then ["row is not an object"] else
-  (.task == "T4") as $t4
-  | ($fields + (if $t4 then $t4fields else [] end) | sort) as $want | (keys | sort) as $have |
+  (.task == "T4") as $t4 | (.task == "T5") as $t5
+  | ($fields + (if $t4 then $t4fields else [] end) + (if $t5 then $t5fields else [] end) | sort) as $want
+  | (keys | sort) as $have |
   [ ($want - $have | map("missing field: " + .))[],
-    ($have - $want - $optional | map(if $t4 or (IN($t4fields[]) | not) then "unknown field: " + .
-      else "field only for T4 rows: " + . end))[],
+    ($have - $want - $optional | map(
+      if ($t4 | not) and IN($t4fields[]) then "field only for T4 rows: " + .
+      elif ($t5 | not) and IN($t5fields[]) then "field only for T5 rows: " + .
+      else "unknown field: " + . end))[],
     problem(.run_id | str; "run_id must be a non-empty string"),
     problem(.ts | (str and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$")); "ts must be UTC ISO-8601 (YYYY-MM-DDTHH:MM:SSZ)"),
     problem(.agent | (str and test("^(claude|pi|fixture:.+)$")); "agent must be claude, pi or fixture:<dir>"),
@@ -41,7 +48,7 @@ ROW_CHECK_JQ='
     problem(.harness_rev | (type == "object" and (keys == ["parts","plugin_rev"])
       and (.parts | type == "array" and all(.[]; str))
       and (.plugin_rev | (. == null or str))); "harness_rev must be {parts:[string], plugin_rev:string|null}"),
-    problem(.task | (type == "string" and test("^T[0-4]$")); "task must be T0..T4"),
+    problem(.task | (type == "string" and test("^T[0-5]$")); "task must be T0..T5"),
     problem(.rep | (type == "number" and . >= 1 and . == floor); "rep must be an integer >= 1"),
     problem(.hidden_pass | num01; "hidden_pass must be a number in 0..1"),
     problem(.test_kill_rate | (. == null or num01); "test_kill_rate must be null or in 0..1"),
@@ -77,6 +84,15 @@ ROW_CHECK_JQ='
       problem(.t4_fmt_clean | optbool; "t4_fmt_clean must be a boolean or null"),
       problem(.t4_lint_clean | optbool; "t4_lint_clean must be a boolean or null"),
       problem(.t4_compactions | (. == null or nint); "t4_compactions must be null or an integer >= 0")
+    else empty end),
+    (if $t5 then
+      problem(.boundary_ok | optbool; "boundary_ok must be a boolean or null"),
+      problem(.t5_regress_ok | type == "boolean"; "t5_regress_ok must be a boolean"),
+      problem(.t5_hidden_compiled | type == "boolean"; "t5_hidden_compiled must be a boolean"),
+      problem(.t5_loc | nint; "t5_loc must be an integer >= 0"),
+      problem(.t5_fmt_clean | optbool; "t5_fmt_clean must be a boolean or null"),
+      problem(.t5_lint_clean | optbool; "t5_lint_clean must be a boolean or null"),
+      problem(.t5_compactions | (. == null or nint); "t5_compactions must be null or an integer >= 0")
     else empty end)
   ] end'
 
@@ -124,6 +140,6 @@ row_problems() {
     *) echo "unknown kind: $(row_kind "$1") (expected llm-bench, or no kind for a runs row)"; return ;;
   esac
   jq -r --argjson fields "$fields" --argjson optional "$ROW_OPTIONAL_FIELDS" \
-    --argjson t4fields "$ROW_T4_FIELDS" "$prog | .[]" <<< "$1" \
+    --argjson t4fields "$ROW_T4_FIELDS" --argjson t5fields "$ROW_T5_FIELDS" "$prog | .[]" <<< "$1" \
     || echo "schema check failed to run (bug in lib/row.sh)"
 }

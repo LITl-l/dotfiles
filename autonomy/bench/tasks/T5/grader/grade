@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+# T5 hidden grader. Usage: grade <workspace>. Contract: ../../../lib/grader.sh, plus one
+# "extra" object (below) that bench `run` turns into the row's t5_* fields.
+#
+# <workspace> is a clone made by lib/repo.sh: <workspace>.base holds the pinned rev and
+# <workspace>.cargo/registry the cargo registry. Everything below runs on a `cp -a` copy
+# (a self-contained clone, so snapshotting it is safe); the workspace itself is only read.
+# Every cargo call is scoped to `-p steno-core` and runs offline.
+#
+# 1. Boundary (hard gate): the files changed since the base, minus SPEC.md, DONE and
+#    .claude/**, all lie under crates/steno-core/; no dependency table of
+#    crates/steno-core/Cargo.toml changed; every name in baseline-tests.txt is still a
+#    lib test. A violation sets passed to 0.
+# 2. Regression: every baseline test passes on the agent's tree (`--lib`; the agent's own
+#    tests are not the existing tests and are judged by the kill rate instead).
+# 3. Quality: `cargo fmt --check` on the .rs files the change touched (the base itself is
+#    not fmt-clean), `cargo clippy --all-targets -D warnings`, and loc = lines added plus
+#    removed in the boundary diff.
+# 4. Hidden acceptance: build-cases turns goldens.json into tests/plover_format_hidden.rs,
+#    one #[test] per case; a compile failure fails every case.
+# 5. Kill rate: the agent's tests/format*.rs on the pristine base plus the reference
+#    (ref_pass), then plus each broken/<name> variant (killed when the tests fail).
+#
+# extra: {boundary_ok, regress_ok, hidden_compiled, fmt_clean, lint_clean, loc}.
+# boundary_ok is null when the tree has no jj repository or no base to diff against;
+# fmt_clean / lint_clean are null without rustfmt / cargo-clippy on PATH (fmt_clean also
+# when boundary_ok is null: no diff says which files were touched); regress_ok is
+# false when the lib tests do not build. A `T5 timing:` line goes to stderr.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$here/../../../lib/grader.sh"
+# shellcheck source=/dev/null
+. "$here/../../../lib/fs.sh"
+# shellcheck source=/dev/null
+. "$here/../../../lib/repo.sh"
+# shellcheck source=/dev/null
+. "$here/lib.sh"
+
+sol="${1:?usage: grade <workspace>}"
+sol="$(cd "$sol" && pwd)" || exit 2
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+errf="$tmp/errors"
+: > "$errf"
+CARGO_TMO="${T5_CARGO_TIMEOUT:-1800}"
+TEST_TMO="${T5_TEST_TIMEOUT:-600}"
+t_start=$SECONDS
+
+# jj resolves path arguments and prints paths relative to the current directory, not to
+# -R, so every jj call runs inside the copy.
+gj() { (cd "$w" && "${REPO_JJ[@]}" --config snapshot.max-new-file-size=1GiB "$@"); }
+total="$(jq 'length' "$here/goldens.json")" || exit 2
+t5_cargo_env "$tmp" "$sol" || { echo "grade: cannot set up CARGO_HOME" >&2; exit 2; }
+
+w="$tmp/w"
+cp -a "$sol" "$w" || { echo "grade: cannot copy $sol" >&2; exit 2; }
+cargo_w() { (cd "$w" && timeout "$CARGO_TMO" cargo "$@"); }
+
+# ------------------------------------------------------------------ 1. boundary
+boundary_ok=null base=""
+[ -f "$sol.base" ] && base="$(head -n 1 "$sol.base")"
+if [ -z "$base" ]; then
+  echo "boundary: no $sol.base to diff against" >> "$errf"
+elif ! gj diff --from "$base" --name-only > "$tmp/changed" 2> "$tmp/jj.err"; then
+  echo "boundary: jj diff failed: $(head -n 1 "$tmp/jj.err")" >> "$errf"
+else
+  boundary_ok=true
+  grep -vxE 'SPEC\.md|DONE|\.claude/.*' "$tmp/changed" | grep -vE '^crates/steno-core/' > "$tmp/outside"
+  if [ -s "$tmp/outside" ]; then
+    boundary_ok=false
+    sed 's/^/boundary: changed outside crates\/steno-core: /' "$tmp/outside" >> "$errf"
+  fi
+  # deps <file> — every dependency table of a manifest, header and entries, in order.
+  deps() { awk '/^\[/ { on = ($0 ~ /dependencies[]."]/) } on && NF' "$1"; }
+  manifest=crates/steno-core/Cargo.toml
+  gj file show -r "$base" "$manifest" > "$tmp/base.toml" 2> /dev/null \
+    || { echo "grade: no $manifest at $base" >&2; exit 2; }
+  if ! cmp -s <(deps "$tmp/base.toml") <(deps "$w/$manifest" 2> /dev/null); then
+    boundary_ok=false
+    echo "boundary: the dependencies of $manifest changed" >> "$errf"
+  fi
+fi
+
+# ------------------------------------------------------------------ 2. regression
+cargo_w test -p steno-core --offline --lib --no-fail-fast > "$tmp/lib.out" 2>&1
+regress_ok=false
+if grep -q '^test result:' "$tmp/lib.out"; then
+  sed -nE 's/^test (.*) \.\.\. (ok|FAILED|ignored)$/\1 \2/p' "$tmp/lib.out" | LC_ALL=C sort > "$tmp/lib.res"
+  missing="$(cut -d' ' -f1 "$tmp/lib.res" | LC_ALL=C comm -23 <(LC_ALL=C sort "$here/baseline-tests.txt") -)"
+  if [ -n "$missing" ]; then
+    [ "$boundary_ok" = true ] && boundary_ok=false
+    # shellcheck disable=SC2086 # one line per name
+    printf 'boundary: baseline test gone: %s\n' $missing >> "$errf"
+  fi
+  notok="$(awk '$2 != "ok" { print $1 }' "$tmp/lib.res" | LC_ALL=C comm -12 <(LC_ALL=C sort "$here/baseline-tests.txt") -)"
+  if [ -z "$missing" ] && [ -z "$notok" ]; then
+    regress_ok=true
+  else
+    # shellcheck disable=SC2086 # one line per name
+    [ -z "$notok" ] || printf 'regression: baseline test not ok: %s\n' $notok >> "$errf"
+  fi
+else
+  echo "regression: the steno-core lib tests did not build" >> "$errf"
+fi
+
+# ------------------------------------------------------------------ 3. quality
+loc=0
+if [ -n "$base" ] && gj diff --from "$base" --git > "$tmp/diff" 2> /dev/null; then
+  loc="$(awk '/^diff --git / { f = $3; sub(/^a\//, "", f); skip = (f == "SPEC.md" || f == "DONE" || f ~ /^\.claude\//); next }
+              !skip && /^[-+]/ && !/^(\+\+\+|---) / { n++ } END { print n + 0 }' "$tmp/diff")"
+fi
+fmt_clean=null lint_clean=null
+# The pinned base is not rustfmt-clean itself (20 diffs in modules the task never
+# touches), so `cargo fmt --check` over the crate is false for every tree; the verdict is
+# rustfmt's diff restricted to the .rs files the change touched.
+if command -v rustfmt > /dev/null 2>&1 && [ "$boundary_ok" != null ]; then
+  cargo_w fmt --check -p steno-core > "$tmp/fmt.out" 2>&1
+  sed -nE "s|^Diff in $w/(.*):[0-9]+:\$|\\1|p" "$tmp/fmt.out" | LC_ALL=C sort -u > "$tmp/fmt.files"
+  grep -E '^crates/steno-core/.*\.rs$' "$tmp/changed" | LC_ALL=C sort -u > "$tmp/changed.rs"
+  if [ -s "$tmp/fmt.out" ] && ! grep -q '^Diff in ' "$tmp/fmt.out"; then
+    fmt_clean=false   # rustfmt failed outright (a parse error), not a style diff
+    echo "quality: cargo fmt --check failed: $(head -n 1 "$tmp/fmt.out")" >> "$errf"
+  elif [ -n "$(LC_ALL=C comm -12 "$tmp/fmt.files" "$tmp/changed.rs")" ]; then
+    fmt_clean=false
+  else
+    fmt_clean=true
+  fi
+fi
+if command -v cargo-clippy > /dev/null 2>&1; then
+  if cargo_w clippy -p steno-core --all-targets --offline -- -D warnings > /dev/null 2>&1; then
+    lint_clean=true
+  else
+    lint_clean=false
+  fi
+fi
+
+# ------------------------------------------------------------------ 4. hidden acceptance
+mkdir -p "$w/crates/steno-core/tests"
+bash "$here/build-cases" "$here/goldens.json" > "$w/crates/steno-core/tests/plover_format_hidden.rs" \
+  || { echo "grade: build-cases failed" >&2; exit 2; }
+cargo_w test -p steno-core --offline --test plover_format_hidden --no-fail-fast > "$tmp/hidden.out" 2>&1
+read -r passed hidden_compiled < <(t5_hidden_count "$tmp/hidden.out")
+if [ "$hidden_compiled" != true ]; then
+  echo "hidden: the acceptance suite did not compile against the public API" >> "$errf"
+  grep -m 3 -E '^error' "$tmp/hidden.out" | sed 's/^/hidden: /' >> "$errf"
+fi
+grep -E '^test case_[0-9]+ \.\.\. FAILED$' "$tmp/hidden.out" | sed -E 's/^test (case_[0-9]+).*/hidden: \1 failed/' >> "$errf"
+mismatch=$((total - passed))
+if [ "$boundary_ok" = false ]; then
+  echo "boundary: violated, so no hidden case counts" >> "$errf"
+  passed=0
+fi
+
+# ------------------------------------------------------------------ 5. kill rate
+ktr='{"test_kill_rate":null,"ref_pass":null}'
+tests_dir="$w/crates/steno-core/tests"
+mapfile -t agent_tests < <(cd "$tests_dir" && find . -maxdepth 1 -name 'format*.rs' -type f | sed 's|^\./||' | LC_ALL=C sort)
+if [ "${#agent_tests[@]}" -gt 0 ] && [ -n "$base" ]; then
+  mkdir -p "$tmp/agent-tests"
+  (cd "$tests_dir" && cp -a format* "$tmp/agent-tests/") || exit 2
+  targets=()
+  for f in "${agent_tests[@]}"; do targets+=(--test "${f%.rs}"); done
+  # Back to the pristine base in the copy: jj snapshots the agent's tree into its own
+  # change first, and target/ (ignored) stays warm.
+  gj new "$base" > /dev/null 2>&1 || { echo "grade: cannot check out $base in the copy" >&2; exit 2; }
+  mkdir -p "$tests_dir"
+  cp -a "$tmp/agent-tests/." "$tests_dir/" || exit 2
+  agent_pass() { (cd "$w" && timeout "$TEST_TMO" cargo test -p steno-core --offline "${targets[@]}") > /dev/null 2>&1; }
+  t5_install_ref "$w" || { echo "grade: cannot install the reference" >&2; exit 2; }
+  if ! agent_pass; then
+    ktr='{"test_kill_rate":0,"ref_pass":false}'
+    echo "kill rate: the agent's tests/format*.rs fail on the reference" >> "$errf"
+  else
+    n=0 killed=0
+    while IFS= read -r b; do
+      t5_install_broken "$b" "$w" || { echo "grade: cannot build broken/$b" >&2; exit 2; }
+      n=$((n + 1))
+      agent_pass || killed=$((killed + 1))
+    done < <(t5_broken_names)
+    ktr="$(jq -cn --argjson k "$killed" --argjson n "$n" \
+      '{test_kill_rate: (if $n == 0 then null else $k / $n end), ref_pass: true}')"
+  fi
+fi
+
+printf 'T5 timing: grade_s=%s\n' "$((SECONDS - t_start))" >&2
+
+# ------------------------------------------------------------------ emit
+extra="$(jq -cn --argjson b "$boundary_ok" --argjson r "$regress_ok" --argjson h "$hidden_compiled" \
+  --argjson fmt "$fmt_clean" --argjson lint "$lint_clean" --argjson loc "$loc" '
+  {boundary_ok: $b, regress_ok: $r, hidden_compiled: $h, fmt_clean: $fmt, lint_clean: $lint, loc: $loc}')" || exit 2
+emit "$passed" "$total" "$ktr" null "$mismatch" "$errf" | jq -c --argjson x "$extra" '. + {extra: $x}'

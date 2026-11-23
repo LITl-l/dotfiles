@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run — one bench run: workspace -> agent -> wait -> grade -> append one runs.jsonl row.
 #
-#   run --agent claude|pi|fixture:<dir> --task T0..T4 --rep N --parts <list|none>
+#   run --agent claude|pi|fixture:<dir> --task T0..T5 --rep N --parts <list|none>
 #       [--model ID] [--timeout S] [--results FILE]
 #
 # fixture:<dir> installs <dir> (relative to this bench, or absolute) over the workspace
@@ -20,10 +20,18 @@
 # agent works: run starts it beside the session and stops it when the session ends. Its
 # points land in <ws>.milestones.jsonl. The grader's "extra" then becomes the row's t4_*
 # fields (t4_row below); other tasks' rows never carry them.
+# A "repo" task (T5) ships tasks/<T>/repo.json instead of a skeleton: its workspace is a
+# clone of an existing repository (lib/repo.sh), named bench-<run_id> under a directory
+# named after the repository. Any task may ship tasks/<T>/prompt.md, used in place of
+# prompt.md, and tasks/<T>/settings.json, merged after the parts with its arrays appended
+# rather than replaced; there @DEVPATH@ is the bench devShell's PATH (cargo and friends).
+# The T5 grader's "extra" becomes the row's boundary_ok and t5_* fields (t5_row below).
 # Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
 #
-# Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
+# Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench,
+#        or ~/wkspace/worktree/<repo name> for a repo task).
 #      BENCH_SNAPSHOT_INTERVAL overrides the milestone check's period (default 1200 s).
+#      BENCH_DEVPATH and BENCH_CARGO_REGISTRY: see lib/repo.sh.
 set -uo pipefail
 
 BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,6 +45,8 @@ REPO="$(cd "$BENCH/../.." && pwd)"
 . "$BENCH/lib/clock.sh"
 # shellcheck source=/dev/null
 . "$BENCH/lib/proc.sh"
+# shellcheck source=/dev/null
+. "$BENCH/lib/repo.sh"
 
 KILL_GRACE=5  # seconds between the watchdog's TERM and its KILL
 
@@ -64,8 +74,11 @@ case "$agent" in
   fixture:?*) kind=fixture ;;
   *) usage "--agent must be claude, pi or fixture:<dir> (got '$agent')" ;;
 esac
-[[ "$task" =~ ^T[0-4]$ ]] || usage "--task must be T0..T4 (got '$task')"
-[ -d "$BENCH/tasks/$task/skeleton" ] || usage "task $task has no skeleton/ yet"
+[[ "$task" =~ ^T[0-5]$ ]] || usage "--task must be T0..T5 (got '$task')"
+repo_task=false
+[ -f "$BENCH/tasks/$task/repo.json" ] && repo_task=true
+[ "$repo_task" = true ] || [ -d "$BENCH/tasks/$task/skeleton" ] \
+  || usage "task $task has no skeleton/ or repo.json yet"
 [[ "$rep" =~ ^[1-9][0-9]*$ ]] || usage "--rep must be a positive integer (got '$rep')"
 [ -n "$parts" ] || usage "--parts is required (a comma list, or none)"
 [[ "$parts" =~ ^(none|[A-Za-z0-9_-]+(,[A-Za-z0-9_-]+)*)$ ]] || usage "bad --parts '$parts'"
@@ -76,8 +89,9 @@ esac
 [ -z "$tmo" ] || [[ "$tmo" =~ ^[1-9][0-9]*$ ]] || usage "--timeout must be whole seconds"
 case "$kind" in
   # spec §1 0c initial value; revised only from 0c data. T4 is staged over five
-  # milestones and gets four times as long (phase2a design).
-  claude) if [ "$task" = T4 ]; then tmo="${tmo:-14400}"; else tmo="${tmo:-3600}"; fi ;;
+  # milestones and gets four times as long (phase2a design); T5 builds Rust cold in an
+  # existing repo and gets twice as long (phase2b design).
+  claude) case "$task" in T4) tmo="${tmo:-14400}" ;; T5) tmo="${tmo:-7200}" ;; *) tmo="${tmo:-3600}" ;; esac ;;
   pi) [ -n "$model" ] || usage "--agent pi needs --model"
       [ -n "$tmo" ] || usage "--agent pi needs --timeout (set from Phase 0b)" ;;
   fixture)
@@ -121,11 +135,22 @@ done
 
 run_id="$task-$kind-r$rep-$(date -u +%Y%m%dT%H%M%SZ)-$$$RANDOM"
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-ws="${BENCH_WS_ROOT:-$HOME/wkspace/worktree/bench}/$run_id"
+if [ "$repo_task" = true ]; then
+  repo_name="$(jq -r '.src // "" | sub("/+$"; "") | split("/") | last | sub("\\.git$"; "")' \
+    "$BENCH/tasks/$task/repo.json")" || usage "tasks/$task/repo.json is not valid JSON"
+  [ -n "$repo_name" ] || usage "tasks/$task/repo.json has no src"
+  ws="${BENCH_WS_ROOT:-$HOME/wkspace/worktree/$repo_name}/bench-$run_id"
+else
+  ws="${BENCH_WS_ROOT:-$HOME/wkspace/worktree/bench}/$run_id"
+fi
 [ -e "$ws" ] && fail "workspace already exists: $ws"
 
-# 1. Workspace from the task skeleton.
-install_tree "$BENCH/tasks/$task/skeleton" "$ws" || fail "cannot populate $ws"
+# 1. Workspace from the task skeleton, or a clone of the task's repository.
+if [ "$repo_task" = true ]; then
+  repo_install "$BENCH/tasks/$task" "$ws" || fail "cannot clone the task repository into $ws"
+else
+  install_tree "$BENCH/tasks/$task/skeleton" "$ws" || fail "cannot populate $ws"
+fi
 
 # 2. Bench-only project settings. Every deny entry holding @ROOT@ is expanded once per
 #    root: this checkout, the canonical checkout, and the worktree root that holds every
@@ -159,11 +184,39 @@ if [ "$parts" != none ]; then
   done
 fi
 
+#    A task that needs settings of its own ships tasks/<task>/settings.json, merged last.
+#    Unlike a part's overlay, its arrays are appended to (a task adds an allowWrite entry
+#    beside P0's, it does not replace it). Placeholders as above, plus @DEVPATH@.
+task_overlay="$BENCH/tasks/$task/settings.json"
+if [ -f "$task_overlay" ]; then
+  devpath=""
+  if grep -q '@DEVPATH@' "$task_overlay"; then
+    devpath="$(repo_devpath "$REPO")"
+    [ -n "$devpath" ] || fail "cannot resolve @DEVPATH@ (nix develop $REPO#bench --offline)"
+  fi
+  merged="$(jq -s --argjson roots "$roots" --arg ws "$ws" --arg bench "$BENCH" --arg devpath "$devpath" '
+    def merge($a; $b):
+      if ($a | type) == "object" and ($b | type) == "object" then
+        reduce ($b | keys_unsorted[]) as $k ($a; .[$k] = merge($a[$k]; $b[$k]))
+      elif ($a | type) == "array" and ($b | type) == "array" then $a + ($b - $a)
+      else $b end;
+    (.[1] | walk(
+      if type == "array" then [ .[] as $e
+        | if ($e | type) == "string" and ($e | contains("@ROOT@"))
+          then ($roots[] as $root | $e | gsub("@ROOT@"; $root)) else $e end ]
+      elif type == "string" then gsub("@WS@"; $ws) | gsub("@BENCH@"; $bench) | gsub("@DEVPATH@"; $devpath)
+      else . end)) as $o
+    | merge(.[0]; $o)' "$ws/.claude/settings.json" "$task_overlay")" || fail "cannot merge $task_overlay"
+  printf '%s\n' "$merged" > "$ws/.claude/settings.json" || fail "cannot write bench settings"
+fi
+
 #    The prompt handed to the agent. A part that must tell the agent something ships
 #    parts/<part>.prompt.md, inserted as the last lines of the ## Boundary section. It is
 #    written beside the workspace, not in it, so the agent's tree and the grader never see
 #    it; --parts none renders prompt.md byte for byte.
 prompt="$ws.prompt.md"
+base_prompt="$BENCH/prompt.md"
+[ -f "$BENCH/tasks/$task/prompt.md" ] && base_prompt="$BENCH/tasks/$task/prompt.md"
 additions=""
 if [ "$parts" != none ]; then
   for p in "${part_list[@]}"; do
@@ -171,13 +224,13 @@ if [ "$parts" != none ]; then
   done
 fi
 if [ -z "$additions" ]; then
-  cat "$BENCH/prompt.md" > "$prompt" || fail "cannot write $prompt"
+  cat "$base_prompt" > "$prompt" || fail "cannot write $prompt"
 else
   awk -v add="$additions" '
     /^## / { if (inb) { printf "%s", add; inb = 0; done = 1 } if (/^## *Boundary/) inb = 1 }
     inb && /^$/ { blank++; next }
     { while (blank > 0) { print ""; blank-- } print }
-    END { if (!done) exit 1 }' "$BENCH/prompt.md" > "$prompt" || fail "cannot render $prompt"
+    END { if (!done) exit 1 }' "$base_prompt" > "$prompt" || fail "cannot render $prompt"
 fi
 
 # 3-5. Dispatch, wait, reap.
@@ -382,6 +435,19 @@ if [ "$task" = T4 ]; then
        t4_compactions: $comp}')" || fail "cannot build the T4 fields"
 fi
 
+# T5: the grader's extra becomes boundary_ok and the t5_* fields, as T4's does without the
+# milestone series (T5 has no periodic check).
+t5_row=null
+if [ "$task" = T5 ]; then
+  # shellcheck disable=SC2016 # a jq program; $g and $comp are jq variables
+  t5_row="$(jq -cn --argjson g "$g" --argjson comp "$compactions" '
+    ($g.extra // error("the T5 grader printed no extra")) as $x
+    | {boundary_ok: $x.boundary_ok, t5_regress_ok: $x.regress_ok,
+       t5_hidden_compiled: $x.hidden_compiled, t5_loc: $x.loc,
+       t5_fmt_clean: $x.fmt_clean, t5_lint_clean: $x.lint_clean,
+       t5_compactions: $comp}')" || fail "cannot build the T5 fields"
+fi
+
 row="$(jq -cn \
   --arg run_id "$run_id" --arg ts "$ts" --arg agent "$agent" --arg model "$model" \
   --argjson parts "$parts_json" --argjson plugin_rev "$plugin_rev" \
@@ -391,7 +457,7 @@ row="$(jq -cn \
   --argjson tokens "$tokens" --argjson tool_cpu "$tool_cpu" --arg lang "$(detect_lang "$ws")" \
   --argjson source_present "$(source_present "$ws")" --arg silent_stop "$silent_stop" \
   --argjson gate_refusals "$gate_refusals" --argjson gate_exhausted "$gate_exhausted" \
-  --argjson t4 "$t4_row" '
+  --argjson t4 "$t4_row" --argjson t5 "$t5_row" '
   {run_id: $run_id, ts: $ts, agent: $agent,
    model: (if $model == "" then null else $model end),
    harness_rev: {parts: $parts, plugin_rev: $plugin_rev},
@@ -407,7 +473,7 @@ row="$(jq -cn \
    source_present: $source_present,
    gate_refusals: $gate_refusals, gate_exhausted: $gate_exhausted}
   + (if $silent_stop == "absent" then {} else {silent_stop: ($silent_stop | fromjson)} end)
-  + ($t4 // {})')" \
+  + ($t4 // {}) + ($t5 // {})')" \
   || fail "cannot build row"
 
 printf '%s\n' "$row" | bash "$BENCH/record" --results "$results" || fail "record rejected the row"

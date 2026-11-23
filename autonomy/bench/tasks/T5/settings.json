@@ -1,0 +1,12 @@
+{
+  "env": {
+    "CARGO_HOME": "@WS@.cargo",
+    "CARGO_NET_OFFLINE": "true",
+    "PATH": "@DEVPATH@"
+  },
+  "sandbox": {
+    "filesystem": {
+      "allowWrite": ["@WS@.cargo"]
+    }
+  }
+}

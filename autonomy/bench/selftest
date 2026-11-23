@@ -1160,6 +1160,188 @@ check "report: renders a T4 table for T4 rows" bash -c '
 check "report: no T4 table without T4 rows" bash -c '
   ! bash "$1/report" --runs "$2" | grep -q "^## T4"' _ "$BENCH" "$RESULTS"
 
+# ---------------------------------------------------------------- T5 (repo task)
+# T5 clones an existing repository and builds Rust, so beyond jj and cargo it makes the
+# two reads outside the temp tree that T5 needs at all: the clone source named in
+# tasks/T5/repo.json (read once by `jj git clone`, never written) and the cargo registry,
+# reached read-only through <ws>.cargo/registry (BENCH_CARGO_REGISTRY, default
+# ~/.cargo/registry). Where one is missing (the flake check's sandbox) the T5 cases are
+# skipped and say so. Runs use the fixed layout, so the deny rules have known roots;
+# BENCH_DEVPATH is this shell's PATH, so no `nix develop` runs under the temp HOME.
+T5_SRC="$(jq -r '.src | sub("^file://"; "")' "$BENCH/tasks/T5/repo.json")"
+T5_REG="${BENCH_CARGO_REGISTRY:-$HOME/.cargo/registry}"
+if command -v jj > /dev/null && command -v cargo > /dev/null && [ -d "$T5_SRC" ] && [ -d "$T5_REG" ]; then
+  cp -R "$BENCH/tasks/T5" "$T4B/tasks/T5"
+  T5R="$FIX/t5.jsonl"
+  t5_run() { # t5_run <fixture> <parts> -- one T5 run in the fixed layout; prints its workspace
+    HOME="$FIX/home" BENCH_WS_ROOT="$FIX/ws5" BENCH_CARGO_REGISTRY="$T5_REG" BENCH_DEVPATH="$PATH" \
+      bash "$T4B/run" --agent "fixture:$1" --task T5 --rep 1 --parts "$2" --results "$T5R" \
+      > "$tmp/t5run.out" 2> "$tmp/t5run.err" || return 1
+    printf '%s/bench-%s\n' "$FIX/ws5" "$(tail -n 1 "$T5R" | jq -r .run_id)"
+  }
+  t5last() { tail -n 1 "$T5R" | jq -c "$1"; }
+
+  ref5="$(t5_run tasks/T5/solution P0)"
+  check "T5: the reference fixture run (under P0) exits 0" test -n "$ref5"
+  check "T5: reference hidden_pass 1, boundary_ok, t5_regress_ok and t5_hidden_compiled true" \
+    test "$(t5last '[.hidden_pass, .boundary_ok, .t5_regress_ok, .t5_hidden_compiled]')" = '[1,true,true,true]'
+  check "T5: reference tests pass on the reference (ref_pass) and kill every broken variant" \
+    test "$(t5last '[.ref_pass, .test_kill_rate]')" = '[true,1]'
+  check "T5: reference is rustfmt- and clippy-clean, with a non-zero t5_loc" \
+    test "$(t5last '[.t5_fmt_clean, .t5_lint_clean, .t5_loc > 0, .t5_compactions]')" = '[true,true,true,null]'
+  check "T5: the clone stands on the pinned rev (<ws>.base) with no remote left" bash -c '
+    [ "$(cat "$1.base")" = "$(jq -r .rev "$2")" ] && cd "$1" && [ -z "$(jj --ignore-working-copy git remote list)" ]' \
+    _ "$ref5" "$BENCH/tasks/T5/repo.json"
+  check "T5: <ws>.cargo/registry links the cargo registry" test "$(readlink "$ref5.cargo/registry")" = "$T5_REG"
+  check "T5: the workspace holds the overlay SPEC.md" cmp -s "$BENCH/tasks/T5/overlay/SPEC.md" "$ref5/SPEC.md"
+  check "T5: the run copied no grader file into the workspace" \
+    test -z "$(find "$ref5" -path "$ref5/.jj" -prune -o -path '*grader*' -print -quit)"
+
+  s5="$ref5/.claude/settings.json"
+  check "T5 settings: env has CARGO_HOME=<ws>.cargo, CARGO_NET_OFFLINE, PATH, and P0's BENCH_TARGET" \
+    exits 0 jq -e --arg ws "$ref5" --arg p "$PATH" '.env == {BENCH_TARGET: "./run",
+      CARGO_HOME: ($ws + ".cargo"), CARGO_NET_OFFLINE: "true", PATH: $p}' "$s5"
+  check "T5 settings: allowWrite is P0's workspace plus <ws>.cargo (appended, not replaced)" \
+    exits 0 jq -e --arg ws "$ref5" '.sandbox.filesystem.allowWrite == [$ws, $ws + ".cargo"]' "$s5"
+  check "T5 settings: no allowWrite reaches the cargo registry itself" \
+    exits 0 jq -e --arg r "$T5_REG" '[.sandbox.filesystem.allowWrite[] | select(startswith($r))] == []' "$s5"
+  check "T5 settings: P0's sandbox and permissions survive the task overlay" bash -c '
+    [ "$(jq -cS ".permissions, (.sandbox | del(.filesystem.allowWrite))" "$1")" = \
+      "$(jq -cS ".permissions, (.sandbox | del(.filesystem.allowWrite))" "$2")" ]' _ "$s5" "$p0_s"
+  check "T5 settings: no placeholder survives" exits 1 grep -qE '@ROOT@|@WS@|@DEVPATH@|@BENCH@' "$s5"
+  check "T5: rendered Read denies cover tasks/T5/grader under every root" \
+    exits 0 jq -e --argjson roots "$t4_roots" "$G2R"'
+    [.permissions.deny[] | select(startswith("Read(")) | ltrimstr("Read(") | rtrimstr(")") | sub("^//"; "/")] as $g
+    | all($roots[] + ("/autonomy/bench/tasks/T5/grader/goldens.json", "/autonomy/bench/tasks/T5/grader/broken/glue-leaks/mutate.sed");
+        . as $p | any($g[]; . as $x | $p | test($x | g2r)))' "$s5"
+  check "T5: P0 sandbox denyRead covers tasks/T5/grader and tasks/T5/solution under every root" \
+    exits 0 jq -e --argjson roots "$t4_roots" "$G2R"'
+    .sandbox.filesystem.denyRead as $g
+    | all($roots[] + ("/autonomy/bench/tasks/T5/grader/goldens.json", "/autonomy/bench/tasks/T5/solution/crates/steno-core/src/format.rs");
+        . as $p | any($g[]; . as $x | $p | test($x | g2r)))' "$s5"
+  check "T5: rendered Read and Edit denies cover tasks/T5/solution under every root" \
+    exits 0 jq -e --argjson roots "$t4_roots" "$G2R"'
+    def rules($t): [.permissions.deny[] | select(startswith($t + "(")) | ltrimstr($t + "(") | rtrimstr(")") | sub("^//"; "/")];
+    def covered($g): all($roots[] + "/autonomy/bench/tasks/T5/solution/crates/steno-core/src/format.rs";
+      . as $p | any($g[]; . as $x | $p | test($x | g2r)));
+    covered(rules("Read")) and covered(rules("Edit"))' "$s5"
+
+  # What the agent sees: SPEC.md and the rendered prompt.
+  check "T5 SPEC and rendered prompt: no grader path or content" \
+    exits 1 grep -nE '/home|~/|\.\./|autonomy|grader|wkspace|golden|hidden|plover_format|case_[0-9]|mutate|broken/|oracle' \
+    "$BENCH/tasks/T5/overlay/SPEC.md" "$ref5.prompt.md"
+  check "T5 SPEC: no hidden format case's input is written in it" bash -c '
+    jq -r ".[] | select(.kind == \"format\") | \"[\" + (.input | map(\"\\\"\" + . + \"\\\"\") | join(\", \")) + \"]\"" "$1" > "$3"
+    [ -s "$3" ] && ! grep -qFf "$3" "$2"' _ "$BENCH/tasks/T5/grader/goldens.json" "$BENCH/tasks/T5/overlay/SPEC.md" "$tmp/t5lits"
+  check "T5 SPEC: states the fixed public API" bash -c '
+    for l in "pub use format::{format, Formatter, Output};" "pub struct Output { pub backspaces: usize, pub text: String }" \
+      "pub fn new() -> Self;" "pub fn apply(&mut self, translation: &str) -> Output;" "pub fn undo(&mut self) -> Output;" \
+      "pub fn text(&self) -> &str;" "pub fn format(translations: &[&str]) -> String;" "cargo test -p steno-core --offline" \
+      "crates/steno-core/tests/format*.rs"; do grep -qF -- "$l" "$1" || exit 1; done' _ "$BENCH/tasks/T5/overlay/SPEC.md"
+  check "T5 prompt: tasks/T5/prompt.md, with P0's line inserted into its Boundary section" bash -c '
+    grep -q "crates/steno-core/" "$1" && grep -qF -- "$(cat "$2")" "$1" && ! cmp -s "$1" "$3"' \
+    _ "$ref5.prompt.md" "$BENCH/parts/P0.prompt.md" "$BENCH/prompt.md"
+  for s in Boundary Termination Output; do
+    check "T5 prompt: has a ## $s section" grep -qi "^## *$s" "$BENCH/tasks/T5/prompt.md"
+  done
+
+  # An untouched clone (only DONE): the hidden suite cannot compile against an API that
+  # does not exist. That is a score of 0 recorded in the row, not a harness error.
+  mkdir -p "$tmp/t5-untouched"
+  : > "$tmp/t5-untouched/DONE"
+  un5="$(t5_run "$tmp/t5-untouched" none)"
+  check "T5 untouched clone: the run exits 0" test -n "$un5"
+  check "T5 untouched clone: hidden_pass 0, t5_hidden_compiled false, false_done true" \
+    test "$(t5last '[.hidden_pass, .t5_hidden_compiled, .false_done]')" = '[0,false,true]'
+  check "T5 untouched clone: boundary and regression hold, no tests to rate, t5_loc 0" \
+    test "$(t5last '[.boundary_ok, .t5_regress_ok, .test_kill_rate, .ref_pass, .t5_loc]')" = '[true,true,null,null,0]'
+  check "T5 untouched clone: --parts none gives the task overlay without a P0 sandbox" \
+    exits 0 jq -e --arg ws "$un5" '.env.CARGO_HOME == $ws + ".cargo" and .sandbox == {filesystem: {allowWrite: [$ws + ".cargo"]}}' \
+    "$un5/.claude/settings.json"
+
+  # The boundary gate: the reference formatter plus one file outside crates/steno-core, and
+  # the reference plus a new dependency. Each scores 0 whatever the hidden suite says.
+  mkdir -p "$tmp/t5-outside"
+  cp -R "$BENCH/tasks/T5/solution/." "$tmp/t5-outside/"
+  printf 'notes\n' > "$tmp/t5-outside/NOTES.md"
+  out5="$(t5_run "$tmp/t5-outside" none)"
+  check "T5 boundary: the outside-file run exits 0" test -n "$out5"
+  check "T5 boundary: a file outside crates/steno-core fails the gate (boundary_ok false, hidden_pass 0)" \
+    test "$(t5last '[.boundary_ok, .hidden_pass, .t5_hidden_compiled, .done_ok]')" = '[false,0,true,false]'
+  mkdir -p "$tmp/t5-dep"
+  cp -R "$BENCH/tasks/T5/solution/." "$tmp/t5-dep/"
+  if [ -n "$ref5" ]; then
+    { cat "$ref5/crates/steno-core/Cargo.toml"; printf 'itoa = "1"\n'; } > "$tmp/t5-dep/crates/steno-core/Cargo.toml"
+  fi
+  dep5="$(t5_run "$tmp/t5-dep" none)"
+  check "T5 boundary: the new-dependency run exits 0" test -n "$dep5"
+  # Only crates/steno-core/Cargo.toml differs from the reference run, so the gate can only
+  # have tripped on its dependency table.
+  check "T5 boundary: a new steno-core dependency fails the gate" \
+    test "$(t5last '[.boundary_ok, .hidden_pass]')" = '[false,0]'
+
+  # Every broken variant compiles and fails at least one hidden case. One copy of the
+  # reference workspace, the hidden suite built once, each variant swapped into format.rs.
+  # shellcheck source=/dev/null
+  . "$T4B/lib/repo.sh"
+  # shellcheck source=/dev/null
+  . "$T4B/tasks/T5/grader/lib.sh"
+  total5="$(jq length "$T4B/tasks/T5/grader/goldens.json")"
+  check "T5: the grader ships at least 80 hidden cases ($total5)" test "$total5" -ge 80
+  hw5="$tmp/t5hidden"
+  hidden5() { # hidden5 -- "<passed> <compiled>" of the hidden suite in $hw5
+    ( t5_cargo_env "$tmp/t5cargo" "$ref5" > /dev/null && cd "$hw5" \
+      && cargo test -p steno-core --offline --test plover_format_hidden > "$tmp/t5h.out" 2>&1 )
+    t5_hidden_count "$tmp/t5h.out"
+  }
+  nb5=0
+  if [ -n "$ref5" ] && cp -a "$ref5" "$hw5" \
+     && bash "$T4B/tasks/T5/grader/build-cases" > "$hw5/crates/steno-core/tests/plover_format_hidden.rs"; then
+    check "T5: the reference passes every hidden case" test "$(hidden5)" = "$total5 true"
+    for b in $(t5_broken_names); do
+      nb5=$((nb5 + 1))
+      if t5_install_broken "$b" "$hw5" 2> /dev/null; then
+        read -r p5 c5 < <(hidden5)
+        check "T5 broken/$b: compiles and fails at least one hidden case ($p5 / $total5)" \
+          bash -c '[ "$1" = true ] && [ "$2" -lt "$3" ]' _ "$c5" "$p5" "$total5"
+      else
+        bad "T5 broken/$b: applies"
+      fi
+    done
+  else
+    bad "T5: the hidden suite could be set up on a copy of the reference workspace"
+  fi
+  check "T5 ships the 10 broken variants of the design" test "$nb5" -eq 10
+  check "T5: a mutation that changes nothing is refused, not passed off as broken" bash -c '
+    . "$1"; . "$2"; mkdir -p "$3/broken/noop"; : > "$3/broken/noop/mutate.sed"
+    T5_GRADER="$3" t5_install_broken noop "$4" 2> /dev/null; [ $? -ne 0 ]' _ \
+    "$T4B/lib/repo.sh" "$T4B/tasks/T5/grader/lib.sh" "$tmp/t5noop" "$tmp/t5noop-out"
+
+  # Rows: T5 rows carry the T5 fields, and no other task's row does.
+  check "T5: every T5 row validates" bash "$T4B/record" --check "$T5R"
+  t5good="$(head -n 1 "$T5R")"
+  t5reject() { # t5reject <description> <jq transform of the good T5 row>
+    if jq -c "$2" <<< "$t5good" | bash "$T4B/record" --check /dev/stdin > /dev/null 2>&1; then
+      bad "record: rejects $1"
+    else ok "record: rejects $1"; fi
+  }
+  t5reject "a T5 row without t5_regress_ok" 'del(.t5_regress_ok)'
+  t5reject "a T5 row without boundary_ok" 'del(.boundary_ok)'
+  t5reject "a T5 row whose t5_loc is negative" '.t5_loc = -1'
+  t5reject "a T0 row carrying T5 fields" '.task = "T0"'
+  if jq -c '. + {boundary_ok: true}' <<< "$t4good" | bash "$T4B/record" --check /dev/stdin > /dev/null 2>&1; then
+    bad "record: rejects a T4 row carrying boundary_ok"
+  else ok "record: rejects a T4 row carrying boundary_ok"; fi
+  check "report: renders a T5 table for T5 rows" bash -c '
+    bash "$1/report" --runs "$2" | grep -q "^## T5: median"' _ "$BENCH" "$T5R"
+else
+  echo "skip T5: needs jj, cargo, the clone source $T5_SRC and a cargo registry at $T5_REG"
+fi
+check "T0..T4 rows: no boundary_ok or t5_* field anywhere" \
+  test "$(cat "$RESULTS" "$T4R" | jq -sc '[.[] | keys[] | select(. == "boundary_ok" or startswith("t5_"))] == []')" = true
+check "report: no T5 table without T5 rows" bash -c '
+  ! bash "$1/report" --runs "$2" | grep -q "^## T5"' _ "$BENCH" "$RESULTS"
+
 # ---------------------------------------------------------------- prompt
 for s in Boundary Termination Output; do
   check "prompt.md: has a ## $s section" grep -qi "^## *$s" "$BENCH/prompt.md"
