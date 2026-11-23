@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '@BENCH@/parts/P1.stop-hook.sh' '@WS@'",
+            "timeout": 400
+          }
+        ]
+      }
+    ]
+  }
+}

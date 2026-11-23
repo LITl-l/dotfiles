@@ -9,6 +9,12 @@
 # baseline with the part it is compared against hides the part's effect. no_source
 # counts rows whose source_present is false, silent_stop rows whose silent_stop is true
 # (pi only); a group with no row carrying the field shows "–".
+# done_ok counts rows that wrote DONE with hidden_pass 1: the guard on false_done, since a
+# done gate could otherwise "win" by turning false DONEs into missing ones. gate_refusals
+# is a median (min–max) cell, gate_exhausted a count; both are "–" where no gate ran.
+# ref_fail counts rows whose ref_pass is false: their test_kill_rate 0 means the agent's
+# own ./test failed (or timed out) on the reference, not that it was weak; "–" where no
+# row carries a non-null ref_pass.
 #
 # A run listed by a decision with verdict "exclude" is dropped (e.g. one that spanned a
 # host suspend). Other verdicts list runs too, as evidence, and drop nothing. Decisions
@@ -57,12 +63,16 @@ jq -rs --argjson excluded "$excluded" '
     | if ($v | length) == 0 then "–" else ($v | map(select(. == true)) | length | tostring) end;
   def nosrc: map(select(has("source_present")) | .source_present) as $v
     | if ($v | length) == 0 then "–" else ($v | map(select(. == false)) | length | tostring) end;
+  def count_true(f): map(f | select(. != null)) as $v
+    | if ($v | length) == 0 then "–" else ($v | map(select(. == true)) | length | tostring) end;
+  def count_false(f): map(f | select(. != null)) as $v
+    | if ($v | length) == 0 then "–" else ($v | map(select(. == false)) | length | tostring) end;
   "## Runs: median (min–max) per agent, task and parts",
   "",
-  "| agent | task | parts | n | hidden_pass | false_done | blocked+timeout | wall_s | test_kill_rate | perf_speedup | silent_stop | no_source |",
-  "|---|---|---|---|---|---|---|---|---|---|---|---|",
+  "| agent | task | parts | n | hidden_pass | false_done | done_ok | blocked+timeout | wall_s | test_kill_rate | ref_fail | perf_speedup | gate_refusals | gate_exhausted | silent_stop | no_source |",
+  "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
   ( map(. + {_parts: parts}) | group_by([.agent, .task, ._parts])[]
-    | "| \(.[0].agent) | \(.[0].task) | \(.[0]._parts) | \(length) | \(map(.hidden_pass) | cell) | \(map(.false_done | b) | cell) | \(map((.blocked or .timeout) | b) | cell) | \(map(.wall_s) | cell) | \(map(.test_kill_rate) | cell) | \(map(.perf_speedup) | cell) | \(silent) | \(nosrc) |" ),
+    | "| \(.[0].agent) | \(.[0].task) | \(.[0]._parts) | \(length) | \(map(.hidden_pass) | cell) | \(map(.false_done | b) | cell) | \(count_true(.done_ok)) | \(map((.blocked or .timeout) | b) | cell) | \(map(.wall_s) | cell) | \(map(.test_kill_rate) | cell) | \(count_false(.ref_pass)) | \(map(.perf_speedup) | cell) | \(map(.gate_refusals) | cell) | \(count_true(.gate_exhausted)) | \(silent) | \(nosrc) |" ),
   (if length == 0 then "", "(no runs recorded)" else empty end),
   (if $dropped > 0 then "", "\($dropped) run(s) left out by an exclude decision." else empty end)
 ' "$runs" || die "cannot render $runs"
