@@ -1,0 +1,7 @@
+; household journal
+2024-01-01 open Assets:Wallet
+2024-01-01 open Income:Salary
+
+2024-01-31 * Employer ; January
+    Assets:Wallet     2500.00 EUR
+    Income:Salary    -2500.00 EUR

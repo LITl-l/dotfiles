@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# milestones <ws> <out.jsonl> <interval_s> — the periodic milestone check for one run.
+#
+# Started in the background by bench `run` while an agent works, and stopped by it
+# (TERM to the whole tree) when the agent ends. Every <interval_s> seconds it copies the
+# workspace to <ws>.snap/<t>, a sibling outside the agent's tree, grades the copy in
+# T4_GRADE_MODE=milestones (acceptance and property, never perf), appends
+# {"t":<s since start>,"M1".."M5","prop"} to <out.jsonl> and deletes the copy.
+# It never writes into <ws> and sends nothing to the session (D9). The agent's code is
+# graded on a copy, not in place, because running an agent's ./run can build into its
+# own tree (target/, a build cache) while the agent works there.
+set -uo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ws="${1:?usage: milestones <ws> <out.jsonl> <interval_s>}"
+out="${2:?usage: milestones <ws> <out.jsonl> <interval_s>}"
+interval="${3:?usage: milestones <ws> <out.jsonl> <interval_s>}"
+snaps="$ws.snap"
+
+sp=""
+trap '[ -n "$sp" ] && kill "$sp" 2> /dev/null; rm -rf "$snaps"; exit 0' TERM INT
+t0="$SECONDS"
+while :; do
+  sleep "$interval" & sp=$!
+  wait "$sp"
+  t=$((SECONDS - t0))
+  snap="$snaps/$t"
+  mkdir -p "$snap" || continue
+  # A copy taken mid-write is noise; run's "reached" rule needs the final grade to agree.
+  cp -a "$ws/." "$snap/" 2> /dev/null
+  if g="$(T4_GRADE_MODE=milestones bash "$here/grade" "$snap" 2> /dev/null)"; then
+    jq -c --argjson t "$t" '{t: $t} + .' <<< "$g" >> "$out"
+  fi
+  rm -rf "$snap"
+done

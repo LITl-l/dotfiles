@@ -1,0 +1,9 @@
+2024-01-01 open Assets:Wallet
+2024-01-01 open Equity
+2024-01-01 * opening
+    Assets:Wallet     10 EUR
+    Assets:Wallet     5 USD
+    Equity
+2024-01-02 * spend
+    Assets:Wallet    -2.5 EUR
+    Equity

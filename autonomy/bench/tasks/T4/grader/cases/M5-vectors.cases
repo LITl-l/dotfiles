@@ -1,0 +1,741 @@
+=== v1-81b560f4
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+2024-02-28 close Expenses:Item
+
+2023-02-29 * 81b560f4
+    Expenses:Item  3 AAPL @ 19.99 EUR = 3 AAPL
+    Assets:B
+--- out
+6: BAD_DATE
+=== v2-7c05a6a9
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+2023-12-31 close Expenses:Item
+
+2024-13-01 * 7c05a6a9
+    Expenses:Item  7 AAPL @ 0.25 EUR = 8 AAPL
+    Assets:B
+    Assets:E
+--- out
+6: BAD_DATE
+=== v3-1c7c03c3
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-07-01 open Expenses:Item
+2024-12-31 close Expenses:Item
+
+2024-00-10 * 1c7c03c3
+    Expenses:Item  1999.99 EUR = 2000.00 EUR
+    Assets:B  -1998.99 EUR
+--- out
+6: BAD_DATE
+=== v4-88b8a63d
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-29 open Expenses:Item
+
+0000-01-01 * 88b8a63d
+    Expenses:Item  -40.05 EUR = -40.05 EUR
+    Assets:B
+    Assets:E
+--- out
+5: BAD_DATE
+=== v5-d19767d1
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-30 close Expenses:Item
+
+2024-06-31 * d19767d1
+    Expenses:Item  12.50 EUR = 12.51 EUR
+    Assets:B  -12.50 EUR
+    Assets:E
+--- out
+5: BAD_DATE
+=== v6-219c3000
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-15 open Expenses:Item
+2024-06-14 close Expenses:Item
+
+2023-02-29 * 219c3000
+    Expenses:Item  2 AAPL @ 1.50 EUR
+    Assets:B  -2.00 EUR
+--- out
+6: BAD_DATE
+=== v7-41d7a284
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2025-02-28 close Expenses:Item
+
+2024-13-01 * 41d7a284
+    Expenses:Item  3 AAPL @ 19.99 EUR = 3 AAPL
+    Assets:B  -59.97 EUR
+--- out
+5: BAD_DATE
+=== v8-5baf812f
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+
+2024-00-10 * 5baf812f
+    Expenses:Item  7 AAPL @ 0.25 EUR
+    Assets:B  -1.75 EUR
+    Assets:E
+--- out
+5: BAD_DATE
+=== v11-d3088cf4
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+
+2023-02-29 * d3088cf4
+    Expenses:Item  0.10 EUR = 0.11 EUR
+    Assets:B
+    Assets:E
+--- out
+5: BAD_DATE
+=== v13-1a679f0c
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+2024-02-28 close Expenses:Item
+
+2024-02-29 * 1a679f0c
+    Expenses:Item  3 AAPL @ 19.99 EUR = 3 AAPL
+    Assets:B
+    Assets:E
+--- out
+6: MULTI_ELIDED
+=== v14-92865918
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+2023-12-31 close Expenses:Item
+
+2023-12-31 * 92865918
+    Expenses:Item  7 AAPL @ 0.25 EUR = 8 AAPL
+    Assets:B
+    Assets:E
+--- out
+6: MULTI_ELIDED
+=== v15-47eff863
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 close Expenses:Item
+
+2024-06-15 * 47eff863
+    Expenses:Item  12.50 EUR = 12.51 EUR
+    Assets:B
+    Assets:E
+--- out
+5: MULTI_ELIDED
+=== v16-b6e03a51
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+2024-02-29 close Expenses:Item
+
+2024-02-29 * b6e03a51
+    Expenses:Item  0.10 EUR = 0.10 EUR
+    Assets:B
+    Assets:E
+--- out
+6: MULTI_ELIDED
+=== v17-025b3fb6
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-01-01 open Expenses:Item
+
+2023-12-31 * 025b3fb6
+    Expenses:Item  7 AAPL @ 0.25 EUR
+    Assets:B
+    Assets:E
+--- out
+5: MULTI_ELIDED
+=== v19-c00a635b
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2025-02-28 close Expenses:Item
+
+2024-02-29 * c00a635b
+    Expenses:Item  3 AAPL @ 19.99 EUR
+    Assets:B
+    Assets:E
+--- out
+5: MULTI_ELIDED
+=== v20-a917a34e
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+
+2023-12-31 * a917a34e
+    Expenses:Item  12.50 EUR = 12.51 EUR
+    Assets:B
+    Assets:E
+--- out
+5: MULTI_ELIDED
+=== v21-5fa731bf
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+
+2024-06-15 * 5fa731bf
+    Expenses:Item  0.10 EUR = 0.10 EUR
+    Assets:B
+    Assets:E
+--- out
+4: MULTI_ELIDED
+=== v23-de0819b2
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-01-01 open Expenses:Item
+
+2023-12-31 * de0819b2
+    Expenses:Item  1999.99 EUR = 1999.99 EUR
+    Assets:B
+    Assets:E
+--- out
+5: MULTI_ELIDED
+=== v25-f14dbd44
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+2024-02-28 close Expenses:Item
+
+2024-02-29 * f14dbd44
+    Expenses:Item  3 AAPL @ 19.99 EUR = 3 AAPL
+    Assets:B  -58.97 EUR
+--- out
+6: UNBALANCED
+=== v26-999f4801
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+2023-12-31 close Expenses:Item
+
+2023-12-31 * 999f4801
+    Expenses:Item  0.10 EUR = 0.11 EUR
+    Assets:B  0.90 EUR
+--- out
+6: UNBALANCED
+=== v27-dbe8e2bc
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+
+2024-06-15 * dbe8e2bc
+    Expenses:Item  2 AAPL @ 1.50 EUR = 3 AAPL
+    Assets:B  -2.00 EUR
+--- out
+4: UNBALANCED
+=== v28-d4260d50
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+2024-02-29 close Expenses:Item
+
+2024-02-29 * d4260d50
+    Expenses:Item  3 AAPL @ 19.99 EUR
+    Assets:B  -58.97 EUR
+--- out
+6: UNBALANCED
+=== v29-5b8decc7
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-30 close Expenses:Item
+
+2023-12-31 * 5b8decc7
+    Expenses:Item  -40.05 EUR = -40.05 EUR
+    Assets:B  41.05 EUR
+--- out
+5: UNBALANCED
+=== v30-cda96b1e
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-15 open Expenses:Item
+
+2024-06-15 * cda96b1e
+    Expenses:Item  2 AAPL @ 1.50 EUR = 2 AAPL
+    Assets:B  -2.00 EUR
+--- out
+5: UNBALANCED
+=== v31-04c665a7
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+
+2024-02-29 * 04c665a7
+    Expenses:Item  0.10 EUR = 0.11 EUR
+    Assets:B  0.90 EUR
+--- out
+5: UNBALANCED
+=== v33-59edf035
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-12-31 close Expenses:Item
+
+2024-06-15 * 59edf035
+    Expenses:Item  1999.99 EUR = 1999.99 EUR
+    Assets:B  -1998.99 EUR
+--- out
+5: UNBALANCED
+=== v34-22fd3c39
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-28 close Expenses:Item
+
+2024-02-29 * 22fd3c39
+    Expenses:Item  -40.05 EUR = -40.04 EUR
+    Assets:B  41.05 EUR
+--- out
+5: UNBALANCED
+=== v36-12da85f7
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-16 open Expenses:Item
+2024-06-14 close Expenses:Item
+
+2024-06-15 * 12da85f7
+    Expenses:Item  2 AAPL @ 1.50 EUR = 2 AAPL
+    Assets:B
+--- out
+7: NOT_OPEN
+=== v37-13f96871
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+2025-02-28 close Expenses:Item
+
+2024-02-29 * 13f96871
+    Expenses:Item  3 AAPL @ 19.99 EUR = 4 AAPL
+    Assets:B  -59.97 EUR
+--- out
+7: NOT_OPEN
+=== v38-55769907
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 close Expenses:Item
+
+2023-12-31 * 55769907
+    Expenses:Item  1999.99 EUR = 2000.00 EUR
+    Assets:B
+--- out
+6: NOT_OPEN
+=== v39-52d64f3c
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 close Expenses:Item
+
+2024-06-15 * 52d64f3c
+    Expenses:Item  -40.05 EUR = -40.05 EUR
+    Assets:B  40.05 EUR
+--- out
+6: NOT_OPEN
+=== v40-a05b5895
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+
+2024-02-29 * a05b5895
+    Expenses:Item  3 AAPL @ 19.99 EUR
+    Assets:B
+--- out
+6: NOT_OPEN
+=== v41-0fffb579
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+
+2023-12-31 * 0fffb579
+    Expenses:Item  0.10 EUR = 0.10 EUR
+    Assets:B  -0.10 EUR
+    Assets:E
+--- out
+6: NOT_OPEN
+=== v42-ea23bb86
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+
+2024-06-15 * ea23bb86
+    Expenses:Item  2 AAPL @ 1.50 EUR = 3 AAPL
+    Assets:B  -3.00 EUR
+--- out
+5: NOT_OPEN
+=== v44-fe3cb5c9
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-30 close Expenses:Item
+
+2023-12-31 * fe3cb5c9
+    Expenses:Item  -40.05 EUR = -40.04 EUR
+    Assets:B  40.05 EUR
+--- out
+6: NOT_OPEN
+=== v46-a4a22bb5
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-29 close Expenses:Item
+
+2024-02-29 * a4a22bb5
+    Expenses:Item  0.10 EUR = 0.10 EUR
+    Assets:B  -0.10 EUR
+--- out
+6: NOT_OPEN
+=== v48-2d2875b9
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-15 open Expenses:Item
+2024-06-14 close Expenses:Item
+
+2024-06-15 * 2d2875b9
+    Expenses:Item  2 AAPL @ 1.50 EUR = 2 AAPL
+    Assets:B
+--- out
+7: CLOSED
+=== v49-68214524
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-01 open Expenses:Item
+2024-02-28 close Expenses:Item
+
+2024-02-29 * 68214524
+    Expenses:Item  3 AAPL @ 19.99 EUR = 4 AAPL
+    Assets:B  -59.97 EUR
+--- out
+7: CLOSED
+=== v50-21dd4a51
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+2023-12-30 close Expenses:Item
+
+2023-12-31 * 21dd4a51
+    Expenses:Item  12.50 EUR = 12.51 EUR
+    Assets:B
+--- out
+7: CLOSED
+=== v51-9e045895
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+2024-03-01 close Expenses:Item
+
+2024-06-15 * 9e045895
+    Expenses:Item  0.10 EUR = 0.10 EUR
+    Assets:B  -0.10 EUR
+--- out
+7: CLOSED
+=== v52-52b2f300
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-29 open Expenses:Item
+2024-02-28 close Expenses:Item
+
+2024-02-29 * 52b2f300
+    Expenses:Item  3 AAPL @ 19.99 EUR
+    Assets:B  -59.97 EUR
+    Assets:E
+--- out
+7: CLOSED
+=== v54-7130236e
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-15 open Expenses:Item
+
+2024-06-15 * 7130236e
+    Expenses:Item  -40.05 EUR = -40.04 EUR
+    Assets:B  40.05 EUR
+--- out
+6: ASSERT_FAILED
+=== v55-d13f54d9
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-01 open Expenses:Item
+2025-02-28 close Expenses:Item
+
+2024-02-29 * d13f54d9
+    Expenses:Item  3 AAPL @ 19.99 EUR = 4 AAPL
+    Assets:B
+--- out
+7: ASSERT_FAILED
+=== v56-12f032d9
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+2023-12-31 close Expenses:Item
+
+2023-12-31 * 12f032d9
+    Expenses:Item  7 AAPL @ 0.25 EUR = 8 AAPL
+    Assets:B  -1.75 EUR
+--- out
+7: ASSERT_FAILED
+=== v57-8825999a
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+
+2024-06-15 * 8825999a
+    Expenses:Item  7.00 EUR = 7.01 EUR
+    Assets:B
+--- out
+6: ASSERT_FAILED
+=== v58-be66ac05
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-29 open Expenses:Item
+2024-02-29 close Expenses:Item
+
+2024-02-29 * be66ac05
+    Expenses:Item  1999.99 EUR = 2000.00 EUR
+    Assets:B  -1999.99 EUR
+    Assets:E
+--- out
+7: ASSERT_FAILED
+=== v59-d9bc3a6c
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-01-01 open Expenses:Item
+
+2023-12-31 * d9bc3a6c
+    Expenses:Item  7 AAPL @ 0.25 EUR = 8 AAPL
+    Assets:B  -1.75 EUR
+--- out
+6: ASSERT_FAILED
+=== v61-714470d8
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-01 open Expenses:Item
+2025-02-28 close Expenses:Item
+
+2024-02-29 * 714470d8
+    Expenses:Item  3 AAPL @ 19.99 EUR = 3 AAPL
+    Assets:B  -59.97 EUR
+--- out
+OK
+=== v62-72f40bed
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+
+2023-12-31 * 72f40bed
+    Expenses:Item  7.00 EUR = 7.00 EUR
+    Assets:B  -7.00 EUR
+--- out
+OK
+=== v64-4510ddfe
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-29 open Expenses:Item
+
+2024-02-29 * 4510ddfe
+    Expenses:Item  3 AAPL @ 19.99 EUR
+    Assets:B  -59.97 EUR
+--- out
+OK
+=== v66-20346605
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-15 open Expenses:Item
+2024-06-15 close Expenses:Item
+
+2024-06-15 * 20346605
+    Expenses:Item  2 AAPL @ 1.50 EUR = 2 AAPL
+    Assets:B
+--- out
+OK
+=== v67-5172f5c2
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-01 open Expenses:Item
+2025-02-28 close Expenses:Item
+
+2024-02-29 * 5172f5c2
+    Expenses:Item  7.00 EUR = 7.00 EUR
+    Assets:B  -7.00 EUR
+    Assets:E
+--- out
+OK
+=== v68-703ee8fb
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+
+2023-12-31 * 703ee8fb
+    Expenses:Item  7 AAPL @ 0.25 EUR
+    Assets:B
+--- out
+OK
+=== v69-bc884406
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+
+2024-06-15 * bc884406
+    Expenses:Item  2 AAPL @ 1.50 EUR = 2 AAPL
+    Assets:B  -3.00 EUR
+    Assets:E
+--- out
+OK

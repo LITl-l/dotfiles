@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../../../../../claude/marketplaces/local/plugins/trs/skills/trs-spec/tool/src/trs/schema/trs.schema.json
+# T4 hidden decision table: which error one transaction reports. The agent never sees
+# this file; it reads skeleton/SPEC.md. Account state is two factors, because SPEC
+# defines it by two independent directives (open, close) and not as one state.
+schema: trs/v2
+id: T4
+title: ledger transaction validation
+
+sources:
+  - {id: SRC-1, kind: 仕様書, ref: "autonomy/bench/tasks/T4/skeleton/SPEC.md", rev: "2026-11-23"}
+
+factors:
+  - {id: date, label: header date, levels: [valid, bad], status: fixed, basis: ["SRC-1 M1 Dates"]}
+  - {id: elided, label: elided postings, levels: ["0", "1", ge2], status: fixed, basis: ["SRC-1 M2 Balancing"]}
+  - {id: residual, label: residual of the explicit weights, levels: [zero, nonzero], status: fixed, basis: ["SRC-1 M2 Balancing"]}
+  - {id: has_cost, label: a posting carries a cost, levels: ["no", "yes"], status: fixed, basis: ["SRC-1 M5 Cost"]}
+  - {id: open_dir, label: open directive of the posted account, levels: [absent, after_d, on_or_before_d], status: fixed, basis: ["SRC-1 M2 Accounts"]}
+  - {id: close_dir, label: close directive of the posted account, levels: [absent, before_d, on_or_after_d], status: fixed, basis: ["SRC-1 M2 Accounts"]}
+  - {id: assertion, label: assertion on the posting, levels: [none, holds, fails], status: fixed, basis: ["SRC-1 M5 Assertions"]}
+
+outcomes:
+  - {id: result, label: what check reports for the transaction, levels: [OK, BAD_DATE, MULTI_ELIDED, UNBALANCED, NOT_OPEN, CLOSED, ASSERT_FAILED]}
+
+rules:
+  - id: R-01
+    ears: unwanted
+    text: If the header date is not a real date, the system shall report BAD_DATE and nothing else for the transaction.
+    expr: 'date == "bad" => result == "BAD_DATE"'
+    basis: ["SRC-1 M1 check"]
+  - id: R-02
+    ears: unwanted
+    text: If a transaction with a valid date has two or more elided postings, the system shall report MULTI_ELIDED.
+    expr: 'date == "valid" && elided == "ge2" => result == "MULTI_ELIDED"'
+    basis: ["SRC-1 M2 Balancing"]
+  - id: R-03
+    ears: ubiquitous
+    text: The system shall report an account-state or assertion error only for a balanced transaction.
+    expr: 'result in ["NOT_OPEN", "CLOSED", "ASSERT_FAILED"] => (elided == "1" || (elided == "0" && residual == "zero"))'
+    basis: ["SRC-1 M2 Error precedence"]
+  - id: R-04
+    ears: unwanted
+    text: If a balanced transaction posts to an account that is not open on its date, the system shall report NOT_OPEN, even when the account also has a close dated earlier.
+    expr: 'date == "valid" && (elided == "1" || (elided == "0" && residual == "zero")) && open_dir != "on_or_before_d" => result == "NOT_OPEN"'
+    basis: ["SRC-1 M2 Accounts"]
+
+stories:
+  - {id: US-01, as_a: bookkeeper, i_want: every broken transaction named with one error, so_that: I can fix the journal line by line}
+
+use_cases:
+  - id: UC-01
+    story: US-01
+    title: validate one transaction
+    inputs: [date, elided, residual, has_cost, open_dir, close_dir, assertion]
+    scope: {正常: あり, 準正常: なし, 例外: あり}
+    acs:
+      - id: AC-例外例外-001
+        title: a bad header date skips the transaction
+        then: ["<header line>: BAD_DATE"]
+        pre: 'date == "bad"'
+        post: {result: BAD_DATE}
+        basis: ["SRC-1 M1 check"]
+      - id: AC-例外例外-002
+        title: two or more elided postings
+        then: ["<header line>: MULTI_ELIDED"]
+        pre: 'date == "valid" && elided == "ge2"'
+        post: {result: MULTI_ELIDED}
+        basis: ["SRC-1 M2 Balancing"]
+      - id: AC-例外例外-003
+        title: no elided posting and a non-zero residual
+        then: ["<header line>: UNBALANCED"]
+        pre: 'date == "valid" && elided == "0" && residual == "nonzero"'
+        post: {result: UNBALANCED}
+        basis: ["SRC-1 M2 Balancing"]
+      - id: AC-例外例外-004
+        title: posting to an account not yet opened
+        then: ["<posting line>: NOT_OPEN"]
+        pre: 'date == "valid" && (elided == "1" || (elided == "0" && residual == "zero")) && open_dir in ["absent", "after_d"]'
+        post: {result: NOT_OPEN}
+        basis: ["SRC-1 M2 Accounts"]
+      - id: AC-例外例外-005
+        title: posting to an account closed before the date
+        then: ["<posting line>: CLOSED"]
+        pre: 'date == "valid" && (elided == "1" || (elided == "0" && residual == "zero")) && open_dir == "on_or_before_d" && close_dir == "before_d"'
+        post: {result: CLOSED}
+        basis: ["SRC-1 M2 Accounts"]
+      - id: AC-例外例外-006
+        title: a failing assertion on an open account
+        then: ["<posting line>: ASSERT_FAILED"]
+        pre: 'date == "valid" && (elided == "1" || (elided == "0" && residual == "zero")) && open_dir == "on_or_before_d" && close_dir != "before_d" && assertion == "fails"'
+        post: {result: ASSERT_FAILED}
+        basis: ["SRC-1 M5 Assertions", "SRC-1 M2 Error precedence"]
+      - id: AC-基本正常-001
+        title: balanced as written, open account, no failing assertion
+        then: [OK]
+        pre: 'date == "valid" && elided == "0" && residual == "zero" && open_dir == "on_or_before_d" && close_dir != "before_d" && assertion != "fails"'
+        post: {result: OK}
+        basis: ["SRC-1 M2 Balancing"]
+      - id: AC-代替正常-001
+        title: one elided posting takes the negated residual
+        then: [OK]
+        pre: 'date == "valid" && elided == "1" && open_dir == "on_or_before_d" && close_dir != "before_d" && assertion != "fails"'
+        post: {result: OK}
+        basis: ["SRC-1 M2 Balancing"]
+
+open_issues: []

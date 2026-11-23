@@ -14,6 +14,10 @@ ROW_FIELDS='["run_id","ts","agent","model","harness_rev","task","rep","hidden_pa
 # shellcheck disable=SC2034
 ROW_OPTIONAL_FIELDS='["source_present","silent_stop","done_ok","gate_refusals","gate_exhausted",
   "ref_pass"]'
+# T4 only: required on a T4 row, refused on any other, so T0..T3 rows keep their shape.
+# shellcheck disable=SC2034
+ROW_T4_FIELDS='["t4_milestones_reached","t4_milestone_t","t4_regressions","t4_prop_pass",
+  "t4_perf_ok","t4_loc","t4_files","t4_fmt_clean","t4_lint_clean","t4_compactions"]'
 
 # SC2016: the $names below are jq variables, not shell ones.
 # shellcheck disable=SC2034,SC2016
@@ -22,10 +26,14 @@ ROW_CHECK_JQ='
   def nnum: type == "number" and . >= 0;
   def str: type == "string" and length > 0;
   def problem(cond; msg): if cond then empty else msg end;
+  def nint: type == "number" and . >= 0 and . == floor;
+  def optbool: . == null or type == "boolean";
   if type != "object" then ["row is not an object"] else
-  ($fields | sort) as $want | (keys | sort) as $have |
+  (.task == "T4") as $t4
+  | ($fields + (if $t4 then $t4fields else [] end) | sort) as $want | (keys | sort) as $have |
   [ ($want - $have | map("missing field: " + .))[],
-    ($have - $want - $optional | map("unknown field: " + .))[],
+    ($have - $want - $optional | map(if $t4 or (IN($t4fields[]) | not) then "unknown field: " + .
+      else "field only for T4 rows: " + . end))[],
     problem(.run_id | str; "run_id must be a non-empty string"),
     problem(.ts | (str and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$")); "ts must be UTC ISO-8601 (YYYY-MM-DDTHH:MM:SSZ)"),
     problem(.agent | (str and test("^(claude|pi|fixture:.+)$")); "agent must be claude, pi or fixture:<dir>"),
@@ -33,7 +41,7 @@ ROW_CHECK_JQ='
     problem(.harness_rev | (type == "object" and (keys == ["parts","plugin_rev"])
       and (.parts | type == "array" and all(.[]; str))
       and (.plugin_rev | (. == null or str))); "harness_rev must be {parts:[string], plugin_rev:string|null}"),
-    problem(.task | (type == "string" and test("^T[0-3]$")); "task must be T0..T3"),
+    problem(.task | (type == "string" and test("^T[0-4]$")); "task must be T0..T4"),
     problem(.rep | (type == "number" and . >= 1 and . == floor); "rep must be an integer >= 1"),
     problem(.hidden_pass | num01; "hidden_pass must be a number in 0..1"),
     problem(.test_kill_rate | (. == null or num01); "test_kill_rate must be null or in 0..1"),
@@ -56,7 +64,20 @@ ROW_CHECK_JQ='
     problem((has("gate_exhausted") | not) or (.gate_exhausted | . == null or type == "boolean");
       "gate_exhausted must be a boolean or null when present"),
     problem((has("ref_pass") | not) or (.ref_pass | . == null or type == "boolean");
-      "ref_pass must be a boolean or null when present")
+      "ref_pass must be a boolean or null when present"),
+    (if $t4 then
+      problem(.t4_milestones_reached | (nint and . <= 5); "t4_milestones_reached must be an integer in 0..5"),
+      problem(.t4_milestone_t | (type == "object" and (keys == ["M1","M2","M3","M4","M5"])
+        and all(.[]; . == null or nnum)); "t4_milestone_t must be {M1..M5: seconds or null}"),
+      problem(.t4_regressions | nint; "t4_regressions must be an integer >= 0"),
+      problem(.t4_prop_pass | num01; "t4_prop_pass must be a number in 0..1"),
+      problem(.t4_perf_ok | type == "boolean"; "t4_perf_ok must be a boolean"),
+      problem(.t4_loc | nint; "t4_loc must be an integer >= 0"),
+      problem(.t4_files | nint; "t4_files must be an integer >= 0"),
+      problem(.t4_fmt_clean | optbool; "t4_fmt_clean must be a boolean or null"),
+      problem(.t4_lint_clean | optbool; "t4_lint_clean must be a boolean or null"),
+      problem(.t4_compactions | (. == null or nint); "t4_compactions must be null or an integer >= 0")
+    else empty end)
   ] end'
 
 # llm-bench rows: one llama-bench `-o jsonl` line wrapped as {"kind":"llm-bench",
@@ -102,6 +123,7 @@ row_problems() {
     llm-bench) fields="$LLM_BENCH_FIELDS" prog="$LLM_BENCH_CHECK_JQ" ;;
     *) echo "unknown kind: $(row_kind "$1") (expected llm-bench, or no kind for a runs row)"; return ;;
   esac
-  jq -r --argjson fields "$fields" --argjson optional "$ROW_OPTIONAL_FIELDS" "$prog | .[]" <<< "$1" \
+  jq -r --argjson fields "$fields" --argjson optional "$ROW_OPTIONAL_FIELDS" \
+    --argjson t4fields "$ROW_T4_FIELDS" "$prog | .[]" <<< "$1" \
     || echo "schema check failed to run (bug in lib/row.sh)"
 }

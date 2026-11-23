@@ -1,0 +1,431 @@
+=== empty-journal
+--- args
+check
+--- in
+--- out
+OK
+=== comments-and-blanks-only
+--- args
+check
+--- in
+; a journal with nothing in it
+
+   ; indented comment
+
+--- out
+OK
+=== flags-and-payees
+--- args
+check
+--- in
+2024-01-01 open Assets:Cash
+2024-01-01 open Income:Gift
+2024-01-02 * Aunt ; birthday
+    Assets:Cash   20 EUR
+    Income:Gift  -20 EUR
+2024-01-03 ! pending; with a semicolon right after
+    Assets:Cash   1 EUR
+    Income:Gift  -1 EUR
+2024-01-04
+    Assets:Cash   2 EUR
+    Income:Gift  -2 EUR
+2024-01-05 !
+    Assets:Cash   3 EUR
+    Income:Gift  -3 EUR
+2024-01-06 * * payee may hold any text: 2024-01-01 open X @ = ;
+    Assets:Cash   4 EUR
+    Income:Gift  -4 EUR
+--- out
+OK
+=== last-line-without-newline
+--- args
+check
+--- in -n
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 x
+    A  1 EUR
+    B  -1 EUR
+--- out
+OK
+=== last-line-without-newline-bad
+--- args
+check
+--- in -n
+2024-01-01 open A
+2024-01-02 x
+    A  1 EUR
+    A  1.1234567 EUR
+--- out
+4: PARSE
+=== tabs-everywhere
+--- args
+check
+--- in
+2024-01-01	open	A
+2024-01-01 open	B
+2024-01-02	*	tabbed
+	A		5.5	EUR
+ 	B	 -5.5 EUR
+--- out
+OK
+=== posting-before-any-header
+--- args
+check
+--- in
+    A  1 EUR
+2024-01-01 open A
+    A  1 EUR
+--- out
+1: PARSE
+3: PARSE
+=== bad-amounts
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 plus sign
+    A  +5 EUR
+    B
+2024-01-03 leading point
+    A  .5 EUR
+    B
+2024-01-04 thousands
+    A  1,000 EUR
+    B
+2024-01-05 trailing point
+    A  5. EUR
+    B
+2024-01-06 seven decimals
+    A  0.1234567 EUR
+    B
+2024-01-07 eleven digits
+    A  12345678901 EUR
+    B
+2024-01-08 two minus
+    A  --5 EUR
+    B
+2024-01-09 unit glued
+    A  5EUR
+    B
+2024-01-10 limits are fine
+    A  9999999999.999999 EUR
+    B  -9999999999.999999 EUR
+--- out
+4: PARSE
+7: PARSE
+10: PARSE
+13: PARSE
+16: PARSE
+19: PARSE
+22: PARSE
+25: PARSE
+=== bad-commodities
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 lower
+    A  1 eur
+    B
+2024-01-03 digit
+    A  1 EUR1
+    B
+2024-01-04 eleven letters
+    A  1 ABCDEFGHIJK
+    B
+2024-01-05 ten letters are fine
+    A  1 ABCDEFGHIJ
+    B
+2024-01-06 one letter is fine
+    A  1 X
+    B
+--- out
+4: PARSE
+7: PARSE
+10: PARSE
+=== bad-accounts
+--- args
+check
+--- in
+2024-01-01 open Assets:Cash
+2024-01-01 open B
+2024-01-02 double colon
+    Assets::Cash  1 EUR
+    B
+2024-01-03 leading colon
+    :Cash  1 EUR
+    B
+2024-01-04 trailing colon
+    Assets:  1 EUR
+    B
+2024-01-05 dollar
+    Ass$ets  1 EUR
+    B
+2024-01-06 dot
+    Assets.Cash  1 EUR
+    B
+2024-01-07 every allowed character
+    Assets:Cash  1 EUR
+    B
+--- out
+4: PARSE
+7: PARSE
+10: PARSE
+13: PARSE
+16: PARSE
+=== bad-header-dates-shape
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-1-01 short month
+    A  1 EUR
+    !!garbage that is skipped
+2024-01-1 short day
+    A  1 EUR
+20240101 no dashes
+    A  1 EUR
+2024-01-01x glued
+    A  1 EUR
+2024/01/01 slashes
+    A  1 EUR
+2024-01-02 fine
+    A  1 EUR
+    B
+--- out
+3: PARSE
+6: PARSE
+8: PARSE
+10: PARSE
+12: PARSE
+=== bad-dates-calendar
+--- args
+check
+--- in
+1900-01-01 open A
+1900-01-01 open B
+2023-02-29 not a leap year
+    A  1 EUR
+    B
+2024-02-29 leap year
+    A  1 EUR
+    B
+1900-02-29 century not leap
+    A  1 EUR
+    B
+2000-02-29 400 years leap
+    A  1 EUR
+    B
+2024-04-31 april has 30
+    A  1 EUR
+    B
+2024-00-10 month zero
+    A  1 EUR
+    B
+2024-12-00 day zero
+    A  1 EUR
+    B
+0000-01-01 year zero
+    A  1 EUR
+    B
+2024-12-31 last day
+    A  1 EUR
+    B
+--- out
+3: BAD_DATE
+9: BAD_DATE
+15: BAD_DATE
+18: BAD_DATE
+21: BAD_DATE
+24: BAD_DATE
+=== bad-date-skips-bad-postings
+--- args
+check
+--- in
+2024-01-01 open A
+2024-02-30 skipped
+    A  1 EUR
+    this is not a posting %%%
+    B  1 eur
+--- out
+2: BAD_DATE
+=== header-without-postings
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 nothing follows
+2024-01-03 nothing then blank
+
+2024-01-04 the last one
+--- out
+3: PARSE
+4: PARSE
+6: PARSE
+=== blank-line-ends-transaction
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 split by a blank line
+    A  1 EUR
+    B  -1 EUR
+
+    B  0 EUR
+--- out
+7: PARSE
+=== comment-line-ends-transaction
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 a comment line is a blank line
+    A  1 EUR
+    B  -1 EUR
+    ; a note
+    B  0 EUR
+--- out
+7: PARSE
+=== trailing-comment-on-posting
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B ; opening B
+2024-01-02 fine
+    A  1 EUR ; one
+    B  -1 EUR;minus one
+--- out
+OK
+=== unknown-lines
+--- args
+check
+--- in
+2024-01-01 open A
+include other.journal
+Price 2024-01-01 X 1 EUR
+p 2024-01-01 X 1 EUR
+-2024-01-01 x
+--- out
+2: PARSE
+3: PARSE
+4: PARSE
+5: PARSE
+=== directive-forms
+--- args
+check
+--- in
+2024-01-01 open
+2024-01-01 open A B
+2024-01-01 close
+2024-01-01 open A:
+2024-01-01 OPEN A
+    A  1 EUR
+    B  -1 EUR
+2024-01-01 opening balance
+    A  1 EUR
+    B  -1 EUR
+2024-01-01 open B
+2024-01-01 open A
+--- out
+1: PARSE
+2: PARSE
+3: PARSE
+4: PARSE
+=== bad-posting-shapes
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 amount without commodity
+    A  5
+    B
+2024-01-03 cost without amount
+    A  @ 5 EUR
+    B
+2024-01-04 extra token
+    A  5 EUR extra
+    B
+2024-01-05 cost without commodity
+    A  5 X @ 2
+    B
+2024-01-06 assertion without commodity
+    A  5 EUR = 5
+    B
+2024-01-07 two amounts
+    A  5 EUR 6 EUR
+    B
+2024-01-08 cost after assertion
+    A  5 X = 5 X @ 1 EUR
+    B
+--- out
+4: PARSE
+7: PARSE
+10: PARSE
+13: PARSE
+16: PARSE
+19: PARSE
+22: PARSE
+=== many-errors-sorted
+--- args
+check
+--- in
+oops
+2024-01-01 open A
+2024-02-31 open B
+2024-01-02 t
+    A  1 EUR
+    A  x EUR
+    A  1 EUR
+2024-13-01 t
+    A  1 EUR
+also wrong
+    A  1 EUR
+--- out
+1: PARSE
+3: BAD_DATE
+6: PARSE
+8: BAD_DATE
+10: PARSE
+11: PARSE
+=== usage-check
+--- args
+check
+extra
+--- in
+2024-01-01 open A
+--- out
+USAGE
+=== usage-no-command
+--- args
+--- in
+2024-01-01 open A
+--- out
+USAGE
+=== usage-unknown-command
+--- args
+balances
+--- in
+2024-01-01 open A
+--- out
+USAGE
+=== zero-forms-balance
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 zeros
+    A  -0 EUR
+    B  0.000000 EUR
+    A  0 EUR
+--- out
+OK

@@ -1,0 +1,557 @@
+=== cost-weight-balances
+--- args
+balance
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-02 buy
+    Assets:Broker   10 AAPL @ 150.25 USD
+    Assets:Bank   -1502.50 USD
+--- out
+Assets 10 AAPL
+Assets -1502.50 USD
+Assets:Bank -1502.50 USD
+Assets:Broker 10 AAPL
+=== cost-weight-unbalanced
+--- args
+check
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-02 the amount alone does not balance
+    Assets:Broker   10 AAPL @ 150.25 USD
+    Assets:Bank   -10 AAPL
+--- out
+3: UNBALANCED
+=== cost-elided-extends-scale
+--- args
+balance
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-02 3 x 1.125 = 3.375, more decimals than USD is written with
+    Assets:Broker   3 XYZ @ 1.125 USD
+    Assets:Bank
+2024-01-03 USD written with 2
+    Assets:Bank   1.50 USD
+    Assets:Broker -1.50 USD
+--- out
+Assets -3.375 USD
+Assets 3 XYZ
+Assets:Bank -1.875 USD
+Assets:Broker -1.500 USD
+Assets:Broker 3 XYZ
+=== cost-decimals-multiply
+--- args
+register
+Assets:Bank
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-02 0.5 x 0.25 = 0.125
+    Assets:Broker   0.5 GOLD @ 0.25 EUR
+    Assets:Bank
+--- out
+2024-01-02 Assets:Bank -0.125 EUR -0.125 EUR
+=== cost-register-shows-amount
+--- args
+register
+Assets
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-02 buy
+    Assets:Broker   2 AAPL @ 100 USD
+    Assets:Bank
+--- out
+2024-01-02 Assets:Broker 2 AAPL 2 AAPL
+2024-01-02 Assets:Bank -200 USD -200 USD
+=== value-basic
+--- args
+balance
+--value
+EUR
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Cash
+2024-01-01 open Equity
+P 2024-01-01 AAPL 150.00 EUR
+2024-01-02 opening
+    Assets:Broker   4 AAPL
+    Assets:Cash     20.00 EUR
+    Equity         -4 AAPL
+    Equity         -20.00 EUR
+--- out
+Assets 620.00 EUR
+Assets:Broker 600.00 EUR
+Assets:Cash 20.00 EUR
+Equity -620.00 EUR
+=== value-latest-price
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 1.00 EUR
+P 2024-03-01 X 3.00 EUR
+P 2024-02-01 X 2.00 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  10 X
+    B
+--- out
+A 30.00 EUR
+B -30.00 EUR
+=== value-price-on-end-date
+--- args
+balance
+--value
+EUR
+--end
+2024-02-01
+--- in
+P 2024-01-01 X 1.00 EUR
+P 2024-02-01 X 2.00 EUR
+P 2024-03-01 X 3.00 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  10 X
+    B
+--- out
+A 20.00 EUR
+B -20.00 EUR
+=== value-price-before-end
+--- args
+balance
+--value
+EUR
+--end
+2024-02-15
+--- in
+P 2024-03-01 X 3.00 EUR
+P 2024-02-01 X 2.00 EUR
+P 2024-01-01 X 1.00 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  10 X
+    B
+--- out
+A 20.00 EUR
+B -20.00 EUR
+=== value-same-day-later-wins
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 1.00 EUR
+P 2024-01-01 X 5.00 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  10 X
+    B
+--- out
+A 50.00 EUR
+B -50.00 EUR
+=== value-no-price-sorted
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 1.00 EUR
+P 2024-01-01 EUR 1.10 USD
+P 2024-01-01 USD 0.90 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  1 ZZZ
+    A  1 USD
+    A  1 BBB
+    A  1 X
+    A  1 EUR
+    B
+--- out
+NO_PRICE BBB
+NO_PRICE ZZZ
+=== value-no-inverse
+--- args
+balance
+--value
+USD
+--- in
+P 2024-01-01 USD 0.90 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 only USD in EUR is priced
+    A  5 EUR
+    B
+--- out
+NO_PRICE EUR
+=== value-no-chain
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 AAPL 150 USD
+P 2024-01-01 USD 0.9 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 AAPL to USD to EUR is not followed
+    A  1 AAPL
+    B
+--- out
+NO_PRICE AAPL
+=== value-price-after-end-missing
+--- args
+balance
+--value
+EUR
+--end
+2024-01-15
+--- in
+P 2024-02-01 X 2.00 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  10 X
+    B
+--- out
+NO_PRICE X
+=== value-cost-is-not-price
+--- args
+balance
+--value
+USD
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-02 buy
+    Assets:Broker   10 AAPL @ 150.25 USD
+    Assets:Bank
+--- out
+NO_PRICE AAPL
+=== value-rounding-half-away
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 0.25 EUR
+2024-01-01 open Long
+2024-01-01 open Short
+2024-01-02 0.5 x 0.25 = 0.125, at EUR scale 2: 0.13 and -0.13
+    Long    0.5 X
+    Short  -0.5 X
+--- out
+Long 0.13 EUR
+Short -0.13 EUR
+=== value-rounding-below-half
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 0.9999 USD
+P 2024-01-01 X 0.0041 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 0.1 x 0.0041 = 0.00041, at EUR scale 4: 0.0004
+    A  0.1 X
+    A  1.00 EUR
+    B
+--- out
+A 1.0004 EUR
+B -1.0004 EUR
+=== value-parent-converts-own-total
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 0.01 EUR
+2024-01-01 open Assets:A
+2024-01-01 open Assets:B
+2024-01-01 open Equity
+2024-01-02 each child rounds 0.005 to 0.01; the parent rounds 0.010 to 0.01
+    Assets:A  0.5 X
+    Assets:B  0.5 X
+    Equity   -1 X
+--- out
+Assets 0.01 EUR
+Assets:A 0.01 EUR
+Assets:B 0.01 EUR
+Equity -0.01 EUR
+=== value-converts-to-zero
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 2.00 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 A holds 1 X and -2 EUR, worth zero
+    A  1 X
+    A  -2.00 EUR
+    B  -1 X
+    B  2 EUR
+--- out
+=== value-with-depth
+--- args
+balance
+--value
+EUR
+--depth
+1
+--- in
+P 2024-01-01 X 2.50 EUR
+2024-01-01 open Assets:A
+2024-01-01 open Assets:B
+2024-01-01 open Equity
+2024-01-02 t
+    Assets:A  2 X
+    Assets:B  1.10 EUR
+    Equity   -2 X
+    Equity   -1.10 EUR
+--- out
+Assets 6.10 EUR
+Equity -6.10 EUR
+=== value-unknown-currency
+--- args
+balance
+--value
+GBP
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  1 EUR
+    B
+--- out
+NO_PRICE EUR
+=== value-errors-first
+--- args
+balance
+--value
+EUR
+--- in
+2024-01-01 open A
+2024-01-02 t
+    A  1 X
+    Z
+--- out
+4: NOT_OPEN
+=== price-directive-forms
+--- args
+check
+--- in
+P 2024-01-01 X 1 X
+P 2024-01-01 X 1
+P 2024-01-01 X 1 EUR extra
+P 2024-02-30 X 1 EUR
+P 2024-01-01 x 1 EUR
+P 2024-01-01 X 1.1234567 EUR
+P	2024-01-01	X	2	EUR
+--- out
+1: PARSE
+2: PARSE
+3: PARSE
+4: BAD_DATE
+5: PARSE
+6: PARSE
+=== price-bad-date-reported
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-01 X 1 EUR
+P 2024-02-30 X 9 EUR
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  1 X
+    B
+--- out
+2: BAD_DATE
+=== assert-holds-and-fails
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  10 EUR = 10 EUR
+    B
+2024-01-03 t
+    A  -3 EUR = 7.00 EUR
+    B
+2024-01-04 t
+    A  1 EUR = 7 EUR
+    B
+--- out
+10: ASSERT_FAILED
+=== assert-same-day-later-in-file
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-05 first in file
+    A  10 EUR = 15 EUR
+    B
+2024-01-05 same day, later in file
+    A  5 EUR
+    B
+--- out
+OK
+=== assert-same-txn-later-posting
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-05 the second A posting counts too
+    A  10 EUR = 12 EUR
+    A  2 EUR
+    B
+--- out
+OK
+=== assert-excludes-later-dates
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-06 dated after, written before
+    A  100 EUR
+    B
+2024-01-05 the 100 is not counted yet, the 1 dated before is
+    A  10 EUR = 11 EUR
+    B
+2024-01-04 dated before, written after
+    A  1 EUR
+    B
+--- out
+OK
+=== assert-exact-account-only
+--- args
+check
+--- in
+2024-01-01 open Assets
+2024-01-01 open Assets:Cash
+2024-01-01 open B
+2024-01-02 children are not counted
+    Assets:Cash  5 EUR
+    Assets       1 EUR = 1 EUR
+    B
+--- out
+OK
+=== assert-other-commodity-zero
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 A has no USD
+    A  5 EUR = 0 USD
+    B
+2024-01-03 A has EUR
+    A  5 EUR = 0 EUR
+    B
+--- out
+7: ASSERT_FAILED
+=== assert-on-elided
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  12.50 EUR
+    B  = -12.5 EUR
+2024-01-03 t
+    A  1 EUR
+    B  = -12.5 EUR
+--- out
+8: ASSERT_FAILED
+=== assert-skipped-when-not-open
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-02 Z is not open, the assertion is not checked
+    A  1 EUR = 999 EUR
+    Z
+--- out
+4: NOT_OPEN
+=== assert-counts-stage3-transactions
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 Z not open, but A still gets the 5
+    A  5 EUR
+    Z
+2024-01-03 the 5 counts
+    A  1 EUR = 6 EUR
+    B
+--- out
+5: NOT_OPEN
+=== assert-ignores-unbalanced
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 unbalanced, contributes nothing
+    A  5 EUR
+    B  -4 EUR
+2024-01-03 so A only has this 1
+    A  1 EUR = 1 EUR
+    B
+--- out
+3: UNBALANCED
+=== assert-with-cost
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 the asserted balance is in AAPL, not the cost currency
+    A  3 AAPL @ 10 USD = 3 AAPL
+    B
+2024-01-03 t
+    A  1 AAPL @ 10 USD = 30 USD
+    B
+--- out
+7: ASSERT_FAILED
+=== value-cost-and-prices
+--- args
+balance
+--value
+USD
+--- in
+P 2024-01-01 AAPL 150 USD
+P 2024-06-01 AAPL 200.5 USD
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-01 open Equity
+2024-01-01 * funding
+    Assets:Bank   10000.00 USD
+    Equity
+2024-01-02 * buy
+    Assets:Broker   10 AAPL @ 150 USD
+    Assets:Bank
+--- out
+Assets 10505.00 USD
+Assets:Bank 8500.00 USD
+Assets:Broker 2005.00 USD
+Equity -10000.00 USD

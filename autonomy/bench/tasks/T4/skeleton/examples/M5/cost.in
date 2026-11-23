@@ -1,0 +1,5 @@
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-10 * buy
+    Assets:Broker     5 ACME @ 20.10 USD
+    Assets:Bank

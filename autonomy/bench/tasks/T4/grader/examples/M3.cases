@@ -1,0 +1,91 @@
+=== balance
+--- args
+balance
+--- in
+2024-01-01 open Assets:Bank
+2024-01-01 open Assets:Wallet
+2024-01-01 open Equity:Opening
+2024-01-01 open Expenses:Coffee
+2024-01-01 * opening
+    Assets:Bank       1200 EUR
+    Assets:Wallet       40.5 EUR
+    Assets:Wallet       20 USD
+    Equity:Opening
+2024-01-02 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+--- out
+Assets 1237.30 EUR
+Assets 20 USD
+Assets:Bank 1200.00 EUR
+Assets:Wallet 37.30 EUR
+Assets:Wallet 20 USD
+Equity -1240.50 EUR
+Equity -20 USD
+Equity:Opening -1240.50 EUR
+Equity:Opening -20 USD
+Expenses 3.20 EUR
+Expenses:Coffee 3.20 EUR
+=== depth
+--- args
+balance
+--depth
+1
+--- in
+2024-01-01 open Assets:Bank
+2024-01-01 open Assets:Wallet
+2024-01-01 open Equity:Opening
+2024-01-01 * opening
+    Assets:Bank       1200 EUR
+    Assets:Wallet       40.5 EUR
+    Equity:Opening
+--- out
+Assets 1240.5 EUR
+Equity -1240.5 EUR
+=== end
+--- args
+balance
+--end
+2024-01-31
+--- in
+2024-01-01 open Assets:Bank
+2024-01-01 open Income:Salary
+2024-01-31 * January
+    Assets:Bank       2500 EUR
+    Income:Salary
+2024-02-29 * February
+    Assets:Bank       2500 EUR
+    Income:Salary
+--- out
+Assets 2500 EUR
+Assets:Bank 2500 EUR
+Income -2500 EUR
+Income:Salary -2500 EUR
+=== ordering
+--- args
+balance
+--- in
+2024-01-01 open Assets
+2024-01-01 open Assets:Bank
+2024-01-01 open Assets-Old
+2024-01-01 open Equity
+2024-01-01 * opening
+    Assets-Old        1 EUR
+    Assets:Bank       2 EUR
+    Assets            3 EUR
+    Equity
+--- out
+Assets 5 EUR
+Assets:Bank 2 EUR
+Assets-Old 1 EUR
+Equity -6 EUR
+=== errors
+--- args
+balance
+--- in
+2024-01-01 open Assets:Bank
+2024-01-02 * missing open
+    Assets:Bank       1 EUR
+    Equity
+--- out
+4: NOT_OPEN

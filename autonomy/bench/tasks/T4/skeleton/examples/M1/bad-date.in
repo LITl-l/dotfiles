@@ -1,0 +1,8 @@
+2024-01-01 open Assets:Wallet
+2024-01-01 open Income:Salary
+2024-02-30 * no such day
+    Assets:Wallet     1 EUR
+    Income:Salary    -1 EUR
+2024-02-29 * a leap day
+    Assets:Wallet     1 EUR
+    Income:Salary    -1 EUR

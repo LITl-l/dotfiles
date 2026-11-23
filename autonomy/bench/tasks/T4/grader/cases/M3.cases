@@ -1,0 +1,409 @@
+=== tree-basic
+--- args
+balance
+--- in
+2024-01-01 open Assets:Bank:Checking
+2024-01-01 open Assets:Bank:Savings
+2024-01-01 open Assets:Cash
+2024-01-01 open Equity:Opening
+2024-01-01 open Expenses:Food
+2024-01-01 open Expenses:Rent
+2024-01-01 * opening
+    Assets:Bank:Checking   1500.00 EUR
+    Assets:Bank:Savings    5000 EUR
+    Assets:Cash              80.5 EUR
+    Equity:Opening
+2024-01-03 * rent
+    Expenses:Rent           900 EUR
+    Assets:Bank:Checking
+2024-01-04 * food
+    Expenses:Food            23.45 EUR
+    Assets:Cash
+--- out
+Assets 5657.05 EUR
+Assets:Bank 5600.00 EUR
+Assets:Bank:Checking 600.00 EUR
+Assets:Bank:Savings 5000.00 EUR
+Assets:Cash 57.05 EUR
+Equity -6580.50 EUR
+Equity:Opening -6580.50 EUR
+Expenses 923.45 EUR
+Expenses:Food 23.45 EUR
+Expenses:Rent 900.00 EUR
+=== parent-own-postings
+--- args
+balance
+--- in
+2024-01-01 open Assets
+2024-01-01 open Assets:Cash
+2024-01-01 open Assets:Cash:Wallet
+2024-01-01 open Equity
+2024-01-02 posted to every level
+    Assets              100 EUR
+    Assets:Cash          10 EUR
+    Assets:Cash:Wallet    1 EUR
+    Equity
+--- out
+Assets 111 EUR
+Assets:Cash 11 EUR
+Assets:Cash:Wallet 1 EUR
+Equity -111 EUR
+=== parent-own-postings-depth
+--- args
+balance
+--depth
+1
+--- in
+2024-01-01 open Assets
+2024-01-01 open Assets:Cash
+2024-01-01 open Equity
+2024-01-02 posted to both levels
+    Assets              100 EUR
+    Assets:Cash          10 EUR
+    Equity
+--- out
+Assets 110 EUR
+Equity -110 EUR
+=== order-segment-wise
+--- args
+balance
+--- in
+2024-01-01 open Assets-Old
+2024-01-01 open Assets:Cash
+2024-01-01 open Assets0
+2024-01-01 open Assets
+2024-01-01 open AssetsX:Y
+2024-01-01 open Asset
+2024-01-01 open assets
+2024-01-01 open Equity
+2024-01-02 order
+    Assets-Old   1 EUR
+    Assets:Cash  2 EUR
+    Assets0      3 EUR
+    Assets       4 EUR
+    AssetsX:Y    5 EUR
+    Asset        6 EUR
+    assets       7 EUR
+    Equity
+--- out
+Asset 6 EUR
+Assets 6 EUR
+Assets:Cash 2 EUR
+Assets-Old 1 EUR
+Assets0 3 EUR
+AssetsX 5 EUR
+AssetsX:Y 5 EUR
+Equity -28 EUR
+assets 7 EUR
+=== order-commodities
+--- args
+balance
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 commodities
+    A  1 USD
+    A  2 AB
+    A  3 B
+    A  4 A
+    A  5 EUR
+    B
+--- out
+A 4 A
+A 2 AB
+A 3 B
+A 5 EUR
+A 1 USD
+B -4 A
+B -2 AB
+B -3 B
+B -5 EUR
+B -1 USD
+=== depth-two
+--- args
+balance
+--depth
+2
+--- in
+2024-01-01 open Assets:Bank:Checking:Main
+2024-01-01 open Assets:Bank:Savings
+2024-01-01 open Assets:Cash
+2024-01-01 open Equity:Opening:Year:2024
+2024-01-01 * opening
+    Assets:Bank:Checking:Main  10 EUR
+    Assets:Bank:Savings        20 EUR
+    Assets:Cash                 3 EUR
+    Equity:Opening:Year:2024
+--- out
+Assets 33 EUR
+Assets:Bank 30 EUR
+Assets:Cash 3 EUR
+Equity -33 EUR
+Equity:Opening -33 EUR
+=== depth-deeper-than-tree
+--- args
+balance
+--depth
+9
+--- in
+2024-01-01 open Assets:Cash
+2024-01-01 open Equity
+2024-01-01 * opening
+    Assets:Cash  3 EUR
+    Equity
+--- out
+Assets 3 EUR
+Assets:Cash 3 EUR
+Equity -3 EUR
+=== end-inclusive
+--- args
+balance
+--end
+2024-01-03
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 two
+    A  2 EUR
+    B
+2024-01-03 three, on the end date
+    A  30 EUR
+    B
+2024-01-04 four, after it
+    A  400 EUR
+    B
+--- out
+A 32 EUR
+B -32 EUR
+=== end-before-everything
+--- args
+balance
+--end
+2023-12-31
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 later
+    A  2 EUR
+    B
+--- out
+=== end-and-depth
+--- args
+balance
+--depth
+1
+--end
+2024-01-02
+--- in
+2024-01-01 open Assets:A
+2024-01-01 open Assets:B
+2024-01-01 open Income:X
+2024-01-02 in
+    Assets:A  5 EUR
+    Assets:B  7 EUR
+    Income:X
+2024-01-03 out
+    Assets:A  50 EUR
+    Income:X
+--- out
+Assets 12 EUR
+Income -12 EUR
+=== zero-balances-left-out
+--- args
+balance
+--- in
+2024-01-01 open Assets:A
+2024-01-01 open Assets:B
+2024-01-01 open Income
+2024-01-02 move
+    Assets:A  5 EUR
+    Assets:B  -5 EUR
+2024-01-03 net zero for C, not for D
+    Income    1 USD
+    Income   -1 USD
+    Income    2 CHF
+    Assets:A  -2 CHF
+--- out
+Assets -2 CHF
+Assets:A -2 CHF
+Assets:A 5 EUR
+Assets:B -5 EUR
+Income 2 CHF
+=== scale-max-decimals
+--- args
+balance
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 EUR scale 3 from one amount
+    A  5 EUR
+    A  1.250 EUR
+    B
+2024-01-03 USD scale 0, JPY scale 0
+    A  7 USD
+    A  100 JPY
+    B
+--- out
+A 6.250 EUR
+A 100 JPY
+A 7 USD
+B -6.250 EUR
+B -100 JPY
+B -7 USD
+=== scale-from-assertion
+--- args
+balance
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 the assertion is written with 4 decimals
+    A  5 EUR = 5.0000 EUR
+    B
+--- out
+A 5.0000 EUR
+B -5.0000 EUR
+=== scale-trailing-zeros-count
+--- args
+balance
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 trailing zeros still count as written
+    A  2.500000 EUR
+    B  -2.5 EUR
+--- out
+A 2.500000 EUR
+B -2.500000 EUR
+=== negative-and-small
+--- args
+balance
+--- in
+2024-01-01 open Assets
+2024-01-01 open Liabilities:Card
+2024-01-02 small amounts
+    Liabilities:Card  -0.05 EUR
+    Assets             0.05 EUR
+--- out
+Assets 0.05 EUR
+Liabilities -0.05 EUR
+Liabilities:Card -0.05 EUR
+=== exact-sums-many
+--- args
+balance
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 tenths
+    A  0.1 EUR
+    A  0.2 EUR
+    A  0.3 EUR
+    A  0.4 EUR
+    B
+2024-01-02 tenths again
+    A  0.7 EUR
+    A  0.3 EUR
+    B
+2024-01-03 large
+    A  9999999999.99 EUR
+    A  9999999999.99 EUR
+    B
+--- out
+A 20000000001.98 EUR
+B -20000000001.98 EUR
+=== errors-instead-of-balance
+--- args
+balance
+--- in
+2024-01-01 open A
+2024-01-02 unbalanced
+    A  1 EUR
+    B  -1 EUR
+--- out
+4: NOT_OPEN
+=== empty-journal-balance
+--- args
+balance
+--- in
+--- out
+=== usage-depth-zero
+--- args
+balance
+--depth
+0
+--- in
+--- out
+USAGE
+=== usage-depth-word
+--- args
+balance
+--depth
+two
+--- in
+--- out
+USAGE
+=== usage-depth-negative
+--- args
+balance
+--depth
+-1
+--- in
+--- out
+USAGE
+=== usage-depth-twice
+--- args
+balance
+--depth
+1
+--depth
+2
+--- in
+--- out
+USAGE
+=== usage-end-bad-date
+--- args
+balance
+--end
+2024-02-30
+--- in
+--- out
+USAGE
+=== usage-end-shape
+--- args
+balance
+--end
+2024-2-3
+--- in
+--- out
+USAGE
+=== usage-unknown-flag
+--- args
+balance
+--start
+2024-01-01
+--- in
+--- out
+USAGE
+=== usage-missing-value
+--- args
+balance
+--depth
+--- in
+--- out
+USAGE
+=== usage-value-not-commodity
+--- args
+balance
+--value
+eur
+--- in
+--- out
+USAGE
+=== usage-check-before-reading
+--- args
+balance
+--depth
+x
+--- in
+not a journal at all
+--- out
+USAGE

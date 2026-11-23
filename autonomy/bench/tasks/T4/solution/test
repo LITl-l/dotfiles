@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# test — check the program at $BENCH_TARGET against hand-worked T4 expectations.
+# Exits 1 on the first wrong output. Each case pins one rule of SPEC.md that is easy to
+# get almost right.
+set -uo pipefail
+target="${BENCH_TARGET:-./run}"
+
+expect() { # expect <name> <journal> <want> <args...>
+  local name="$1" in="$2" want="$3" got
+  shift 3
+  got="$(printf '%s' "$in" | "$target" "$@"; echo "exit=$?")"
+  if [ "$got" != "$want"$'\n'"exit=0" ]; then
+    printf 'FAIL %s\n--- want\n%s\n--- got\n%s\n' "$name" "$want" "$got" >&2
+    exit 1
+  fi
+}
+
+opens=$'2020-01-01 open Assets\n2020-01-01 open Assets:Cash\n2020-01-01 open Assets-Old\n2020-01-01 open Income\n'
+
+# Decimal amounts are exact: 0.1 + 0.2 - 0.3 is zero.
+expect exact-decimals "$opens"$'2024-01-01 * a\n    Assets:Cash  0.1 EUR\n    Assets:Cash  0.2 EUR\n    Income  -0.3 EUR\n' \
+  'OK' check
+
+# The elided posting takes the negated residual.
+expect elided-sign "$opens"$'2024-01-01 * a\n    Assets:Cash  10 EUR\n    Income\n' \
+  $'Assets 10 EUR\nAssets:Cash 10 EUR\nIncome -10 EUR' balance
+
+# Balancing is checked before account state.
+expect balance-first $'2024-01-01 * a\n    Nowhere  1 EUR\n    Income  -2 EUR\n' \
+  '1: UNBALANCED' check
+
+# A parent's balance includes what was posted to the parent itself; ':' orders before
+# '-', so Assets-Old follows every Assets:* account.
+expect rollup-and-order "$opens"$'2024-01-01 * a\n    Assets  5 EUR\n    Assets:Cash  2 EUR\n    Assets-Old  1 EUR\n    Income\n' \
+  $'Assets 7 EUR\nAssets:Cash 2 EUR\nAssets-Old 1 EUR\nIncome -8 EUR' balance
+
+# --end is inclusive.
+expect end-inclusive "$opens"$'2024-01-01 * a\n    Assets:Cash  1 EUR\n    Income\n2024-01-05 * b\n    Assets:Cash  2 EUR\n    Income\n2024-01-06 * c\n    Assets:Cash  4 EUR\n    Income\n' \
+  $'Assets 3 EUR\nAssets:Cash 3 EUR\nIncome -3 EUR' balance --end 2024-01-05
+
+# --value uses the latest price on or before the end, whatever the file order.
+expect latest-price $'P 2024-03-01 USD 0.5 EUR\nP 2024-01-01 USD 2 EUR\nP 2024-02-01 USD 3 EUR\n'"$opens"$'2024-01-01 * a\n    Assets:Cash  10 USD\n    Income\n' \
+  $'Assets 30.0 EUR\nAssets:Cash 30.0 EUR\nIncome -30.0 EUR' balance --value EUR --end 2024-02-15
+
+# register keeps file order within a date, and matches whole segments only.
+expect register-order "$opens"$'2024-01-02 * late\n    Assets:Cash  1 EUR\n    Income\n2024-01-02 * later\n    Assets  2 EUR\n    Income\n2024-01-01 * early\n    Assets-Old  4 EUR\n    Income\n' \
+  $'2024-01-02 Assets:Cash 1 EUR 1 EUR\n2024-01-02 Assets 2 EUR 3 EUR' register Assets
+
+# An assertion counts every posting of its own date, wherever it is in the file.
+expect assert-same-day "$opens"$'2024-01-02 * a\n    Assets:Cash  1 EUR = 3 EUR\n    Income\n2024-01-02 * b\n    Assets:Cash  2 EUR\n    Income\n' \
+  'OK' check
+
+echo "test: all passed"

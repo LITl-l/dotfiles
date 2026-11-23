@@ -1,0 +1,5 @@
+2024-01-01 open Assets:Wallet
+2024-01-01 open Income:Gift
+2024-01-05 ! pending gift
+    Assets:Wallet  15 EUR ; cash
+    Income:Gift
