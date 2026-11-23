@@ -1,0 +1,61 @@
+=== ok
+--- args
+check
+--- in
+; household journal
+2024-01-01 open Assets:Wallet
+2024-01-01 open Income:Salary
+
+2024-01-31 * Employer ; January
+    Assets:Wallet     2500.00 EUR
+    Income:Salary    -2500.00 EUR
+--- out
+OK
+=== flag-and-comments
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Income:Gift
+2024-01-05 ! pending gift
+    Assets:Wallet  15 EUR ; cash
+    Income:Gift
+--- out
+OK
+=== parse-errors
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Income:Salary
+2024-01-31 * Employer
+    Assets:Wallet     2,500.00 EUR
+    Income:Salary    -2500.00 EUR
+    Assets:Wallet
+hello
+--- out
+4: PARSE
+7: PARSE
+=== bad-date
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Income:Salary
+2024-02-30 * no such day
+    Assets:Wallet     1 EUR
+    Income:Salary    -1 EUR
+2024-02-29 * a leap day
+    Assets:Wallet     1 EUR
+    Income:Salary    -1 EUR
+--- out
+3: BAD_DATE
+=== orphan-posting
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+
+    Assets:Wallet     1 EUR
+--- out
+3: PARSE

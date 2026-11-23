@@ -1,0 +1,9 @@
+2024-01-01 open Assets
+2024-01-01 open Assets:Bank
+2024-01-01 open Assets-Old
+2024-01-01 open Equity
+2024-01-01 * opening
+    Assets-Old        1 EUR
+    Assets:Bank       2 EUR
+    Assets            3 EUR
+    Equity

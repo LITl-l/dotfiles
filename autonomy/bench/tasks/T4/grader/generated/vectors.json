@@ -1,0 +1,1265 @@
+{
+  "format": "trs-vectors/v1",
+  "spec": "T4",
+  "spec_sha256": "16cfc084d5adb9a798d5fb0b6280516ba71797bf9e869f55d050fff7b7795907",
+  "vectors": [
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#aa5d4c86",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#81b560f4",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#7c05a6a9",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#1c7c03c3",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "after_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#88b8a63d",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "ge2",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#d19767d1",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#219c3000",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#41d7a284",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "absent",
+        "close_dir": "on_or_after_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#5baf812f",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#9f904488",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "ge2",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#97cb5f47",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-001#d3088cf4",
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "class": "例外",
+      "inputs": {
+        "date": "bad",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "after_d",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "BAD_DATE"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#241535de",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#1a679f0c",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#92865918",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#47eff863",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#b6e03a51",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "after_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#025b3fb6",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#83e4d444",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#c00a635b",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "absent",
+        "close_dir": "on_or_after_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#a917a34e",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "after_d",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#5fa731bf",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "absent",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#277fe9d4",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "after_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-002#de0819b2",
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "ge2",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "MULTI_ELIDED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#dd3ff7f3",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#f14dbd44",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#999f4801",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#dbe8e2bc",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "absent",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#d4260d50",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#5b8decc7",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#cda96b1e",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#04c665a7",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "after_d",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#ac14479e",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#59edf035",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "on_or_after_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-003#22fd3c39",
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "UNBALANCED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#f2694d96",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#12da85f7",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#13f96871",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#55769907",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#52d64f3c",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#a05b5895",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "after_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#0fffb579",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "after_d",
+        "close_dir": "absent",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#ea23bb86",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "absent",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#2159a192",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#fe3cb5c9",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "before_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#caf358f1",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "on_or_after_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-004#a4a22bb5",
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "absent",
+        "close_dir": "on_or_after_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "NOT_OPEN"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-005#0bbcf23b",
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "CLOSED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-005#2d2875b9",
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "CLOSED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-005#68214524",
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "CLOSED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-005#21dd4a51",
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "CLOSED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-005#9e045895",
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "CLOSED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-005#52b2f300",
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "CLOSED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-005#b7849d8d",
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "before_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "CLOSED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-006#7130236e",
+      "ac": "US-01_UC-01_AC-例外例外-006",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "ASSERT_FAILED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-006#d13f54d9",
+      "ac": "US-01_UC-01_AC-例外例外-006",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "ASSERT_FAILED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-006#12f032d9",
+      "ac": "US-01_UC-01_AC-例外例外-006",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "ASSERT_FAILED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-006#8825999a",
+      "ac": "US-01_UC-01_AC-例外例外-006",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "ASSERT_FAILED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-006#be66ac05",
+      "ac": "US-01_UC-01_AC-例外例外-006",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "ASSERT_FAILED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-例外例外-006#d9bc3a6c",
+      "ac": "US-01_UC-01_AC-例外例外-006",
+      "class": "例外",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "fails"
+      },
+      "expect": {
+        "result": "ASSERT_FAILED"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#d1392f95",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#714470d8",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#72f40bed",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#31ff14ee",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-基本正常-001#4510ddfe",
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "0",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#42d27cac",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#20346605",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#5172f5c2",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#703ee8fb",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#bc884406",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "zero",
+        "has_cost": "yes",
+        "open_dir": "on_or_before_d",
+        "close_dir": "absent",
+        "assertion": "holds"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    },
+    {
+      "id": "US-01_UC-01_AC-代替正常-001#e565c56f",
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "class": "正常",
+      "inputs": {
+        "date": "valid",
+        "elided": "1",
+        "residual": "nonzero",
+        "has_cost": "no",
+        "open_dir": "on_or_before_d",
+        "close_dir": "on_or_after_d",
+        "assertion": "none"
+      },
+      "expect": {
+        "result": "OK"
+      }
+    }
+  ],
+  "blocked": [],
+  "stats": [
+    {
+      "ac": "US-01_UC-01_AC-例外例外-001",
+      "coverage": "pairwise",
+      "region": 324,
+      "vectors": 12
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-002",
+      "coverage": "pairwise",
+      "region": 108,
+      "vectors": 12
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-003",
+      "coverage": "pairwise",
+      "region": 54,
+      "vectors": 11
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-004",
+      "coverage": "pairwise",
+      "region": 108,
+      "vectors": 12
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-005",
+      "coverage": "pairwise",
+      "region": 18,
+      "vectors": 7
+    },
+    {
+      "ac": "US-01_UC-01_AC-例外例外-006",
+      "coverage": "pairwise",
+      "region": 12,
+      "vectors": 6
+    },
+    {
+      "ac": "US-01_UC-01_AC-基本正常-001",
+      "coverage": "pairwise",
+      "region": 8,
+      "vectors": 5
+    },
+    {
+      "ac": "US-01_UC-01_AC-代替正常-001",
+      "coverage": "pairwise",
+      "region": 16,
+      "vectors": 6
+    }
+  ]
+}

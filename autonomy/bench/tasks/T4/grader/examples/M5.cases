@@ -1,0 +1,81 @@
+=== cost
+--- args
+balance
+--- in
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-10 * buy
+    Assets:Broker     5 ACME @ 20.10 USD
+    Assets:Bank
+--- out
+Assets 5 ACME
+Assets -100.50 USD
+Assets:Bank -100.50 USD
+Assets:Broker 5 ACME
+=== value
+--- args
+balance
+--value
+USD
+--- in
+P 2024-01-10 ACME 20.10 USD
+P 2024-02-10 ACME 25 USD
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-10 * buy
+    Assets:Broker     5 ACME @ 20.10 USD
+    Assets:Bank
+--- out
+Assets 24.50 USD
+Assets:Bank -100.50 USD
+Assets:Broker 125.00 USD
+=== value-end
+--- args
+balance
+--value
+USD
+--end
+2024-01-31
+--- in
+P 2024-01-10 ACME 20.10 USD
+P 2024-02-10 ACME 25 USD
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-10 * buy
+    Assets:Broker     5 ACME @ 20.10 USD
+    Assets:Bank
+--- out
+Assets:Bank -100.50 USD
+Assets:Broker 100.50 USD
+=== no-price
+--- args
+balance
+--value
+EUR
+--- in
+P 2024-01-10 ACME 20.10 USD
+2024-01-01 open Assets:Broker
+2024-01-01 open Assets:Bank
+2024-01-10 * buy
+    Assets:Broker     5 ACME @ 20.10 USD
+    Assets:Bank
+--- out
+NO_PRICE ACME
+NO_PRICE USD
+=== assertions
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Expenses:Coffee
+2024-01-02 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet    -3.20 EUR = -6.40 EUR
+2024-01-02 * cafe again, same day
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+2024-01-03 * wrong
+    Expenses:Coffee   1 EUR = 1 EUR
+    Assets:Wallet
+--- out
+10: ASSERT_FAILED

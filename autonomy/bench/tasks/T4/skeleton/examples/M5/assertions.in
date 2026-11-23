@@ -1,0 +1,11 @@
+2024-01-01 open Assets:Wallet
+2024-01-01 open Expenses:Coffee
+2024-01-02 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet    -3.20 EUR = -6.40 EUR
+2024-01-02 * cafe again, same day
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+2024-01-03 * wrong
+    Expenses:Coffee   1 EUR = 1 EUR
+    Assets:Wallet

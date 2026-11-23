@@ -1,0 +1,80 @@
+=== register
+--- args
+register
+Assets
+--- in
+2024-01-01 open Assets:Bank
+2024-01-01 open Assets:Wallet
+2024-01-01 open Equity:Opening
+2024-01-01 open Expenses:Coffee
+2024-01-01 * opening
+    Assets:Bank       1200 EUR
+    Assets:Wallet       40.5 EUR
+    Equity:Opening
+2024-01-02 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+--- out
+2024-01-01 Assets:Bank 1200.00 EUR 1200.00 EUR
+2024-01-01 Assets:Wallet 40.50 EUR 1240.50 EUR
+2024-01-02 Assets:Wallet -3.20 EUR 1237.30 EUR
+=== date-order
+--- args
+register
+Expenses
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Expenses:Coffee
+2024-01-01 open Expenses:Tea
+2024-01-03 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+2024-01-02 * tea
+    Expenses:Tea      2.10 EUR
+    Assets:Wallet
+2024-01-03 * more tea
+    Expenses:Tea      2.10 EUR
+    Assets:Wallet
+--- out
+2024-01-02 Expenses:Tea 2.10 EUR 2.10 EUR
+2024-01-03 Expenses:Coffee 3.20 EUR 5.30 EUR
+2024-01-03 Expenses:Tea 2.10 EUR 7.40 EUR
+=== prefix
+--- args
+register
+Assets:Bank
+--- in
+2024-01-01 open Assets:Bank
+2024-01-01 open Assets:BankOld
+2024-01-01 open Equity
+2024-01-01 * opening
+    Assets:Bank       1 EUR
+    Assets:BankOld    2 EUR
+    Equity
+--- out
+2024-01-01 Assets:Bank 1 EUR 1 EUR
+=== multi-commodity
+--- args
+register
+Assets:Wallet
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Equity
+2024-01-01 * opening
+    Assets:Wallet     10 EUR
+    Assets:Wallet     5 USD
+    Equity
+2024-01-02 * spend
+    Assets:Wallet    -2.5 EUR
+    Equity
+--- out
+2024-01-01 Assets:Wallet 10.0 EUR 10.0 EUR
+2024-01-01 Assets:Wallet 5 USD 5 USD
+2024-01-02 Assets:Wallet -2.5 EUR 7.5 EUR
+=== usage
+--- args
+register
+--- in
+2024-01-01 open Assets:Wallet
+--- out
+USAGE

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# run — the T4 reference. Compiles ledger.c on first use into .build/ beside this script
+# and runs it. The binary is never committed; a stale one is rebuilt. The build goes to a
+# temporary name first, so two concurrent first runs cannot exec a half-written binary.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bin="$here/.build/ledger"
+if [ ! -x "$bin" ] || [ "$here/ledger.c" -nt "$bin" ]; then
+  mkdir -p "$here/.build"
+  tmp="$bin.$$"
+  cc -std=gnu11 -O2 -Wall -Wextra -o "$tmp" "$here/ledger.c" >&2
+  mv -f "$tmp" "$bin"
+fi
+exec "$bin" "$@"

@@ -1,0 +1,12 @@
+2024-01-01 open Assets:Wallet
+2024-01-01 open Expenses:Coffee
+2024-01-01 open Expenses:Tea
+2024-01-03 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+2024-01-02 * tea
+    Expenses:Tea      2.10 EUR
+    Assets:Wallet
+2024-01-03 * more tea
+    Expenses:Tea      2.10 EUR
+    Assets:Wallet

@@ -1,0 +1,283 @@
+#!/usr/bin/env bash
+# T4 hidden grader. Usage: grade <solution_dir>. Contract: ../../../lib/grader.sh, plus
+# one "extra" object (below) that bench `run` turns into the row's t4_* fields.
+#
+# 1. Acceptance: every cases/M<k>*.cases block, byte-exact stdout and exit 0 within 10 s,
+#    tagged M1..M5 by file name.
+# 2. Property: 100 seeded gen.awk journals, each one case, passing only if all of
+#    (a) check prints OK; the balance equals the generator's own truth; (b) top-level
+#    balances sum to zero per commodity, apart from what cost postings converted (the
+#    generator's net_*); (c) --depth k is --depth k+1 cut at depth k, for
+#    k = 1..3; (d) register's last running totals equal the balance of that account;
+#    (e) eight reports are byte-identical to the reference's. Then 30 mutated journals:
+#    check must name the mutated transaction's header line UNBALANCED.
+# 3. Perf, only with 1 and 2 clean: a T4_PERF_POSTINGS-posting journal (default 500000),
+#    `balance --value EUR`, reference and candidate alternately, 3 runs each; medians.
+#    perf_speedup = ref / candidate; extra.perf_ok = candidate <= 2 x ref.
+# 4. Kill rate of the solution's ./test over every broken/<name>/mutate.sed build.
+# 5. Quality: loc and files of the solution's source, formatter and linter verdicts.
+#
+# extra: {milestones: {M1..M5: pass fraction}, prop_pass, perf_ok, loc, files,
+#         fmt_clean, lint_clean}. A verdict that cannot be had (no tool on PATH for the
+# language, or a language with no standard tool) is null, never a guess.
+#
+# T4_GRADE_MODE=milestones runs only 1 and 2 and prints {"M1".."M5", "prop"} instead:
+# the periodic snapshot grade (`milestones`), which must not cost a perf run.
+# The reference and broken builds live in a temp dir; nothing is written under grader/
+# or solution/. A `T4 timing:` line goes to stderr.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$here/../../../lib/grader.sh"
+# shellcheck source=/dev/null
+. "$here/../../../lib/lang.sh"
+# shellcheck source=/dev/null
+. "$here/lib.sh"
+
+sol="${1:?usage: grade <solution_dir>}"
+sol="$(cd "$sol" && pwd)" || exit 2
+mode="${T4_GRADE_MODE:-full}"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+errf="$tmp/errors"
+: > "$errf"
+
+PROPS=100 MUTANTS=30 CASE_TMO=10 PERF_TMO=60 WARMUP_TMO=600
+PERF_POSTINGS="${T4_PERF_POSTINGS:-500000}"
+
+install_ref "$tmp/ref" || { echo "grade: cannot build the reference" >&2; exit 2; }
+ref="$tmp/ref"
+has_run=false
+if [ -x "$sol/run" ]; then
+  has_run=true
+  # A first run may compile; that time is not what the 10 s per case measures.
+  (cd "$sol" && timeout "$WARMUP_TMO" ./run check < /dev/null > /dev/null 2>&1)
+else
+  echo "no executable ./run" >> "$errf"
+fi
+
+# ------------------------------------------------------------------ 1. acceptance
+declare -A mpass mtotal
+passed=0 total=0
+for m in M1 M2 M3 M4 M5; do
+  : > "$tmp/$m.json.parts"
+  for f in "$here"/cases/"$m"*.cases; do
+    cases_json "$(basename "$f" .cases)" "$f" >> "$tmp/$m.json.parts" || exit 2
+  done
+  jq -s 'add' "$tmp/$m.json.parts" > "$tmp/$m.json" || exit 2
+  mtotal[$m]="$(jq length "$tmp/$m.json")"
+  if [ "$has_run" = true ]; then
+    mpass[$m]="$(cd "$sol" && run_io_cases "$sol/run" "$tmp/$m.json" "$errf")"
+  else
+    mpass[$m]=0
+  fi
+  passed=$((passed + mpass[$m])) total=$((total + mtotal[$m]))
+done
+
+# ------------------------------------------------------------------ 2. property
+# out <dir> <tag> <args...> — <dir>/run's stdout on the journal in $tmp/p/j, into
+# $tmp/p/<tag>; fails on a non-zero exit or the timeout.
+out() {
+  local d="$1" tag="$2"; shift 2
+  (cd "$d" && timeout "$CASE_TMO" ./run "$@" < "$tmp/p/j" > "$tmp/p/$tag" 2> /dev/null)
+}
+# depth_cut <k> <file> — the lines of a balance report whose account has <= k segments.
+depth_cut() { awk -v k="$1" '{ n = split($1, s, ":"); if (n <= k) print }' "$2"; }
+prop_fail() { printf 'prop/%s: %s\n' "$1" "$2" >> "$errf"; return 1; }
+
+prop_case() { # prop_case <seed> — one generated journal through checks (a)-(e)
+  local s="$1" reg regtop end k i
+  awk -f "$here/gen.awk" -v seed="$s" -v ntx=$((20 + s % 40)) -v truth="$tmp/p/truth" \
+    -v meta="$tmp/p/meta" < /dev/null > "$tmp/p/j" || return 2
+  reg="$(sed -n 's/^reg=//p' "$tmp/p/meta")"
+  regtop="$(sed -n 's/^regtop=//p' "$tmp/p/meta")"
+  end="$(sed -n 's/^end=//p' "$tmp/p/meta")"
+  local -a cmds=("check" "balance" "balance --depth 2" "balance --end $end" "register $reg"
+    "register $regtop" "balance --value EUR" "balance --value EUR --end $end")
+  for ((i = 0; i < ${#cmds[@]}; i++)); do
+    # shellcheck disable=SC2086 # each command is words by design
+    out "$ref" "ref.$i" ${cmds[$i]} || { echo "reference failed on prop seed $s: ${cmds[$i]}" >&2; return 2; }
+    # shellcheck disable=SC2086
+    out "$sol" "sol.$i" ${cmds[$i]} || prop_fail "$s" "exit/timeout on: ${cmds[$i]}" || return 1
+  done
+  # (a)
+  [ "$(cat "$tmp/p/sol.0")" = OK ] || prop_fail "$s" "(a) check is not OK" || return 1
+  # the generator's truth
+  cmp -s <(LC_ALL=C sort "$tmp/p/sol.1") <(LC_ALL=C sort "$tmp/p/truth") \
+    || prop_fail "$s" "balance differs from the generated balances" || return 1
+  # (b) zero per commodity, except what cost postings converted (the generator's net_*)
+  awk 'FNR == NR { if (sub(/^net_/, "")) { split($0, kv, "="); net[kv[1]] = kv[2] } next }
+       index($1, ":") == 0 { v = $2; sub(/\./, "", v); sum[$3] += v }
+       END { for (c in sum) if (sum[c] != net[c] + 0) exit 1
+             for (c in net) if (net[c] + 0 != sum[c] + 0) exit 1 }' "$tmp/p/meta" "$tmp/p/sol.1" \
+    || prop_fail "$s" "(b) top-level balances do not sum to zero (cost conversions aside)" || return 1
+  # (c)
+  for k in 1 2 3; do
+    out "$sol" "d.$k" balance --depth "$k" || prop_fail "$s" "exit/timeout on: balance --depth $k" || return 1
+    out "$sol" "d.$((k + 1))" balance --depth "$((k + 1))" \
+      || prop_fail "$s" "exit/timeout on: balance --depth $((k + 1))" || return 1
+    cmp -s "$tmp/p/d.$k" <(depth_cut "$k" "$tmp/p/d.$((k + 1))") \
+      || prop_fail "$s" "(c) --depth $k is not --depth $((k + 1)) cut at $k" || return 1
+  done
+  # (d) the last TOTAL per commodity, zero dropped, against the account's balance lines
+  for k in 4 5; do
+    local acct
+    acct="$(if [ "$k" = 4 ]; then echo "$reg"; else echo "$regtop"; fi)"
+    cmp -s <(awk '{ last[$6] = $5 } END { for (c in last) { v = last[c]; z = v; gsub(/[-0.]/, "", z)
+                    if (z != "") print v " " c } }' "$tmp/p/sol.$k" | LC_ALL=C sort) \
+           <(awk -v a="$acct" '$1 == a { print $2 " " $3 }' "$tmp/p/sol.1" | LC_ALL=C sort) \
+      || prop_fail "$s" "(d) register $acct does not end at its balance" || return 1
+  done
+  # (e)
+  for ((i = 0; i < ${#cmds[@]}; i++)); do
+    cmp -s "$tmp/p/ref.$i" "$tmp/p/sol.$i" \
+      || prop_fail "$s" "(e) differs from the reference on: ${cmds[$i]}" || return 1
+  done
+  return 0
+}
+
+mutant_case() { # mutant_case <seed> — check must report the mutated header UNBALANCED
+  local s="$1" line
+  awk -f "$here/gen.awk" -v seed="$s" -v ntx=$((20 + s % 40)) -v mutate=1 \
+    -v meta="$tmp/p/meta" < /dev/null > "$tmp/p/j" || return 2
+  line="$(sed -n 's/^mutated_line=//p' "$tmp/p/meta")"
+  [ -n "$line" ] || { echo "gen.awk made no mutation for seed $s" >&2; return 2; }
+  out "$sol" mut check || prop_fail "mut$s" "exit/timeout on: check" || return 1
+  grep -qxF "$line: UNBALANCED" "$tmp/p/mut" \
+    || prop_fail "mut$s" "check does not report $line: UNBALANCED" || return 1
+}
+
+mkdir -p "$tmp/p"
+prop_passed=0 prop_total=$((PROPS + MUTANTS))
+if [ "$has_run" = true ]; then
+  for ((s = 1; s <= PROPS; s++)); do
+    prop_case "$s"
+    case $? in 0) prop_passed=$((prop_passed + 1)) ;; 2) exit 2 ;; esac
+  done
+  for ((s = 1001; s < 1001 + MUTANTS; s++)); do
+    mutant_case "$s"
+    case $? in 0) prop_passed=$((prop_passed + 1)) ;; 2) exit 2 ;; esac
+  done
+fi
+passed=$((passed + prop_passed)) total=$((total + prop_total))
+
+if [ "$mode" = milestones ]; then
+  jq -cn --argjson p1 "${mpass[M1]}" --argjson t1 "${mtotal[M1]}" \
+    --argjson p2 "${mpass[M2]}" --argjson t2 "${mtotal[M2]}" \
+    --argjson p3 "${mpass[M3]}" --argjson t3 "${mtotal[M3]}" \
+    --argjson p4 "${mpass[M4]}" --argjson t4 "${mtotal[M4]}" \
+    --argjson p5 "${mpass[M5]}" --argjson t5 "${mtotal[M5]}" \
+    --argjson pp "$prop_passed" --argjson pt "$prop_total" '
+    def f($p; $t): if $t > 0 then ($p / $t * 1000 | round) / 1000 else 0 end;
+    {M1: f($p1; $t1), M2: f($p2; $t2), M3: f($p3; $t3), M4: f($p4; $t4), M5: f($p5; $t5),
+     prop: f($pp; $pt)}'
+  exit 0
+fi
+mismatch=$((total - passed))
+
+# ------------------------------------------------------------------ 3. perf
+speedup=0 perf_ok=false
+if [ "$mismatch" -eq 0 ]; then
+  awk -f "$here/gen.awk" -v seed=424242 -v target="$PERF_POSTINGS" < /dev/null > "$tmp/perf.j" || exit 2
+  timed() { # timed <dir> <out> — wall seconds of one `balance --value EUR` run
+    local t0 t1
+    t0="$EPOCHREALTIME"
+    (cd "$1" && timeout "$PERF_TMO" ./run balance --value EUR < "$tmp/perf.j" > "$2" 2> /dev/null) || return 1
+    t1="$EPOCHREALTIME"
+    awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.6f\n", b - a }'
+  }
+  rts=() cts=() perf_bad=""
+  for i in 1 2 3; do
+    r="$(timed "$ref" "$tmp/perf.ref")" || { echo "reference failed on the perf journal" >&2; exit 2; }
+    rts+=("$r")
+    if c="$(timed "$sol" "$tmp/perf.sol")"; then
+      cts+=("$c")
+      cmp -s "$tmp/perf.ref" "$tmp/perf.sol" || perf_bad="output mismatch"
+    else
+      perf_bad="exit/timeout (${PERF_TMO}s)"
+    fi
+  done
+  med() { printf '%s\n' "$@" | LC_ALL=C sort -g | sed -n 2p; }
+  r="$(med "${rts[@]}")"
+  if [ -n "$perf_bad" ]; then
+    mismatch=$((mismatch + 1))
+    echo "perf: $perf_bad" >> "$errf"
+    printf 'T4 timing: postings=%s reference_median_s=%s candidate=%s\n' "$PERF_POSTINGS" "$r" "$perf_bad" >&2
+  else
+    c="$(med "${cts[@]}")"
+    printf 'T4 timing: postings=%s reference_median_s=%s candidate_median_s=%s\n' "$PERF_POSTINGS" "$r" "$c" >&2
+    speedup="$(jq -n --argjson r "$r" --argjson c "$c" 'if $c > 0 then ($r / $c * 1000 | round) / 1000 else 0 end')"
+    perf_ok="$(jq -n --argjson r "$r" --argjson c "$c" '$c <= 2 * $r')"
+  fi
+fi
+
+# ------------------------------------------------------------------ 4. kill rate
+bdirs=()
+while IFS= read -r b; do
+  install_broken "$b" "$tmp/broken/$b" || { echo "grade: cannot build broken/$b" >&2; exit 2; }
+  bdirs+=("$tmp/broken/$b")
+done < <(broken_names)
+ktr="$(kill_rate "$sol" "$ref/run" "${bdirs[@]}")"
+
+# ------------------------------------------------------------------ 5. quality
+# Source files: SOURCE_EXTS outside dot-directories, build trees and tests.
+src_files() {
+  local e
+  local -a names=()
+  for e in "${SOURCE_EXTS[@]}"; do names+=(-o -name "*.$e"); done
+  # '.?*', not '.*': the start directory itself is named '.'.
+  (cd "$sol" && find . \( -name '.?*' -o -name target -o -name node_modules -o -name vendor \
+      -o -name test -o -name tests \) -prune -o -type f \( "${names[@]:1}" \) -print) \
+    | grep -Ev '(^|/)(test_[^/]*|[^/]*_test\.[^/]*|[^/]*\.test\.[^/]*|[^/]*_spec\.[^/]*)$' | LC_ALL=C sort
+}
+src_files > "$tmp/src.list"
+files="$(grep -c . "$tmp/src.list")"
+loc=0
+if [ "$files" -gt 0 ]; then
+  loc="$(cd "$sol" && tr '\n' '\0' < "$tmp/src.list" | xargs -0 cat | grep -c '[^[:space:]]')"
+fi
+lang="$(detect_lang "$sol")"
+# verdict <tool> <command...> — true/false from the command's success, null without the tool.
+verdict() {
+  command -v "$1" > /dev/null 2>&1 || { echo null; return; }
+  shift
+  if (cd "$tmp/q" && "$@") > /dev/null 2>&1; then echo true; else echo false; fi
+}
+fmt_clean=null lint_clean=null
+mkdir -p "$tmp/q"
+# On a copy: some tools write caches or build trees next to the code.
+(cd "$sol" && tar --exclude=./.claude -cf - .) | (cd "$tmp/q" && tar -xf -) 2> /dev/null
+case "$lang" in
+  go)
+    export GOCACHE="$tmp/gocache" GOFLAGS=-mod=mod GOPROXY=off
+    # shellcheck disable=SC2016 # expanded by the inner bash, inside the copy
+    fmt_clean="$(verdict gofmt bash -c '[ -z "$(gofmt -l .)" ]')"
+    lint_clean="$(verdict go go vet ./...)" ;;
+  rust)
+    fmt_clean="$(verdict rustfmt cargo fmt --check)"
+    lint_clean="$(verdict cargo-clippy cargo clippy --offline --quiet -- -D warnings)" ;;
+  python)
+    fmt_clean="$(verdict ruff ruff format --check .)"
+    lint_clean="$(verdict ruff ruff check .)" ;;
+  bash|sh)
+    fmt_clean="$(verdict shfmt shfmt -d .)"
+    lint_clean="$(verdict shellcheck bash -c 'find . -name "*.sh" -o -name run -o -name test | xargs shellcheck')" ;;
+esac
+
+# ------------------------------------------------------------------ emit
+extra="$(jq -cn \
+  --argjson p1 "${mpass[M1]}" --argjson t1 "${mtotal[M1]}" \
+  --argjson p2 "${mpass[M2]}" --argjson t2 "${mtotal[M2]}" \
+  --argjson p3 "${mpass[M3]}" --argjson t3 "${mtotal[M3]}" \
+  --argjson p4 "${mpass[M4]}" --argjson t4 "${mtotal[M4]}" \
+  --argjson p5 "${mpass[M5]}" --argjson t5 "${mtotal[M5]}" \
+  --argjson pp "$prop_passed" --argjson pt "$prop_total" --argjson perf_ok "$perf_ok" \
+  --argjson loc "$loc" --argjson files "$files" \
+  --argjson fmt "$fmt_clean" --argjson lint "$lint_clean" '
+  def f($p; $t): if $t > 0 then ($p / $t * 1000 | round) / 1000 else 0 end;
+  {milestones: {M1: f($p1; $t1), M2: f($p2; $t2), M3: f($p3; $t3), M4: f($p4; $t4), M5: f($p5; $t5)},
+   prop_pass: f($pp; $pt), perf_ok: $perf_ok, loc: $loc, files: $files,
+   fmt_clean: $fmt, lint_clean: $lint}')" || exit 2
+emit "$passed" "$total" "$ktr" "$speedup" "$mismatch" "$errf" \
+  | jq -c --argjson x "$extra" '. + {extra: $x}'

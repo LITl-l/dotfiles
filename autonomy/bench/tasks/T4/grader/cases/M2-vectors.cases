@@ -1,0 +1,230 @@
+=== v0-aa5d4c86
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+
+2024-06-31 * aa5d4c86
+    Expenses:Item  12.50 EUR
+    Assets:B  -12.50 EUR
+--- out
+4: BAD_DATE
+=== v9-9f904488
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 close Expenses:Item
+
+0000-01-01 * 9f904488
+    Expenses:Item  -40.05 EUR
+    Assets:B
+    Assets:E
+--- out
+5: BAD_DATE
+=== v10-97cb5f47
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-29 open Expenses:Item
+2024-02-29 close Expenses:Item
+
+2024-06-31 * 97cb5f47
+    Expenses:Item  12.50 EUR
+    Assets:B  -12.50 EUR
+    Assets:E
+--- out
+6: BAD_DATE
+=== v12-241535de
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+
+2024-06-15 * 241535de
+    Expenses:Item  7.00 EUR
+    Assets:B
+    Assets:E
+--- out
+4: MULTI_ELIDED
+=== v18-83e4d444
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-15 open Expenses:Item
+2024-06-14 close Expenses:Item
+
+2024-06-15 * 83e4d444
+    Expenses:Item  1999.99 EUR
+    Assets:B
+    Assets:E
+--- out
+6: MULTI_ELIDED
+=== v22-277fe9d4
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-03-01 open Expenses:Item
+
+2024-02-29 * 277fe9d4
+    Expenses:Item  7.00 EUR
+    Assets:B
+    Assets:E
+--- out
+5: MULTI_ELIDED
+=== v24-dd3ff7f3
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+
+2024-06-15 * dd3ff7f3
+    Expenses:Item  -40.05 EUR
+    Assets:B  41.05 EUR
+--- out
+4: UNBALANCED
+=== v32-ac14479e
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-12-31 open Expenses:Item
+2023-12-30 close Expenses:Item
+
+2023-12-31 * ac14479e
+    Expenses:Item  7.00 EUR
+    Assets:B  -6.00 EUR
+--- out
+6: UNBALANCED
+=== v35-f2694d96
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+
+2023-12-31 * f2694d96
+    Expenses:Item  12.50 EUR
+    Assets:B  -12.50 EUR
+--- out
+5: NOT_OPEN
+=== v43-2159a192
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-28 close Expenses:Item
+
+2024-02-29 * 2159a192
+    Expenses:Item  1999.99 EUR
+    Assets:B  -1999.99 EUR
+--- out
+6: NOT_OPEN
+=== v45-caf358f1
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-12-31 close Expenses:Item
+
+2024-06-15 * caf358f1
+    Expenses:Item  12.50 EUR
+    Assets:B  -12.50 EUR
+--- out
+6: NOT_OPEN
+=== v47-0bbcf23b
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-01-01 open Expenses:Item
+2023-12-30 close Expenses:Item
+
+2023-12-31 * 0bbcf23b
+    Expenses:Item  7.00 EUR
+    Assets:B  -7.00 EUR
+--- out
+7: CLOSED
+=== v53-b7849d8d
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-01-01 open Expenses:Item
+2023-12-30 close Expenses:Item
+
+2023-12-31 * b7849d8d
+    Expenses:Item  1999.99 EUR
+    Assets:B
+--- out
+7: CLOSED
+=== v60-d1392f95
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-06-15 open Expenses:Item
+
+2024-06-15 * d1392f95
+    Expenses:Item  12.50 EUR
+    Assets:B  -12.50 EUR
+--- out
+OK
+=== v63-31ff14ee
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-01-01 open Expenses:Item
+2024-12-31 close Expenses:Item
+
+2024-06-15 * 31ff14ee
+    Expenses:Item  1999.99 EUR
+    Assets:B  -1999.99 EUR
+--- out
+OK
+=== v65-42d27cac
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2023-01-01 open Expenses:Item
+
+2023-12-31 * 42d27cac
+    Expenses:Item  12.50 EUR
+    Assets:B  -12.50 EUR
+    Assets:E
+--- out
+OK
+=== v70-e565c56f
+--- args
+check
+--- in
+2020-01-01 open Assets:B
+2020-01-01 open Assets:E
+2024-02-29 open Expenses:Item
+2024-02-29 close Expenses:Item
+
+2024-02-29 * e565c56f
+    Expenses:Item  12.50 EUR
+    Assets:B
+--- out
+OK

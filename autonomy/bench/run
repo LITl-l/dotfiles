@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run — one bench run: workspace -> agent -> wait -> grade -> append one runs.jsonl row.
 #
-#   run --agent claude|pi|fixture:<dir> --task T0..T3 --rep N --parts <list|none>
+#   run --agent claude|pi|fixture:<dir> --task T0..T4 --rep N --parts <list|none>
 #       [--model ID] [--timeout S] [--results FILE]
 #
 # fixture:<dir> installs <dir> (relative to this bench, or absolute) over the workspace
@@ -16,9 +16,14 @@
 # (parts/P1.stop-hook.sh) or a pi extension (parts/R3.pi-ext.ts) that deletes DONE unless
 # the agent's ./test passes on ./run and fails on gate-built broken copies. Each is
 # refused for the other agent. Their verdicts land in <ws>.gate.jsonl.
+# A task whose grader ships an executable `milestones` (T4) gets a periodic check while an
+# agent works: run starts it beside the session and stops it when the session ends. Its
+# points land in <ws>.milestones.jsonl. The grader's "extra" then becomes the row's t4_*
+# fields (t4_row below); other tasks' rows never carry them.
 # Exit codes: 0 row appended, 2 usage error, 1 the run could not complete.
 #
 # Env: BENCH_WS_ROOT overrides the run workspace root (default ~/wkspace/worktree/bench).
+#      BENCH_SNAPSHOT_INTERVAL overrides the milestone check's period (default 1200 s).
 set -uo pipefail
 
 BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,7 +64,7 @@ case "$agent" in
   fixture:?*) kind=fixture ;;
   *) usage "--agent must be claude, pi or fixture:<dir> (got '$agent')" ;;
 esac
-[[ "$task" =~ ^T[0-3]$ ]] || usage "--task must be T0..T3 (got '$task')"
+[[ "$task" =~ ^T[0-4]$ ]] || usage "--task must be T0..T4 (got '$task')"
 [ -d "$BENCH/tasks/$task/skeleton" ] || usage "task $task has no skeleton/ yet"
 [[ "$rep" =~ ^[1-9][0-9]*$ ]] || usage "--rep must be a positive integer (got '$rep')"
 [ -n "$parts" ] || usage "--parts is required (a comma list, or none)"
@@ -70,7 +75,9 @@ esac
   && usage "part P0d needs P0 in the same --parts list (its hook approves Bash only because P0 sandboxes it)"
 [ -z "$tmo" ] || [[ "$tmo" =~ ^[1-9][0-9]*$ ]] || usage "--timeout must be whole seconds"
 case "$kind" in
-  claude) tmo="${tmo:-3600}" ;;   # spec §1 0c initial value; revised only from 0c data
+  # spec §1 0c initial value; revised only from 0c data. T4 is staged over five
+  # milestones and gets four times as long (phase2a design).
+  claude) if [ "$task" = T4 ]; then tmo="${tmo:-14400}"; else tmo="${tmo:-3600}"; fi ;;
   pi) [ -n "$model" ] || usage "--agent pi needs --model"
       [ -n "$tmo" ] || usage "--agent pi needs --timeout (set from Phase 0b)" ;;
   fixture)
@@ -190,6 +197,16 @@ claude_session() { # prints the newest inventory row named $1, or nothing
     | jq -c --arg n "$1" '[.[] | select(.name == $n)] | last // empty' 2>/dev/null
 }
 
+# The periodic milestone check (T4). Fixture runs have no time to sample, so none starts.
+snap_pid=""
+snapper="$BENCH/tasks/$task/grader/milestones"
+if [ "$kind" != fixture ] && [ -f "$snapper" ]; then
+  setsid bash "$snapper" "$ws" "$ws.milestones.jsonl" "${BENCH_SNAPSHOT_INTERVAL:-1200}" \
+    > /dev/null 2>&1 < /dev/null &
+  snap_pid=$!
+fi
+
+compactions=null
 case "$kind" in
   fixture)
     install_tree "$fx" "$ws" || fail "cannot install fixture $fx"
@@ -201,7 +218,7 @@ case "$kind" in
     "${spawn[@]}" >&2 || fail "fleet spawn failed"
     # Ends on the first of: done, blocked >= 60 s continuously, timeout. Nothing is ever
     # sent to the session (D9), so a blocked state can only be a tool prompt.
-    t0=$SECONDS blocked_since="" missing_since="" sid=""
+    t0=$SECONDS blocked_since="" missing_since="" sid="" sess=""
     while :; do
       row="$(claude_session "$name")"
       if [ -z "$row" ]; then
@@ -210,6 +227,7 @@ case "$kind" in
       else
         missing_since=""
         sid="$(jq -r '.id // .sessionId[0:8] // ""' <<< "$row")"
+        sess="$(jq -r '.sessionId // ""' <<< "$row")"
         st="$(jq -r '.state // .status // ""' <<< "$row")"
         wf="$(jq -r '.waitingFor // ""' <<< "$row")"
         case "$st" in done|completed|finished|stopped|idle) break ;; esac
@@ -223,6 +241,12 @@ case "$kind" in
       (( SECONDS - t0 >= tmo )) && { timed_out=true; break; }
       sleep 10
     done
+    # Context compactions, from the session transcript's compact_boundary entries; read
+    # before the reap, and null when no transcript is found.
+    if [ -n "$sess" ]; then
+      tr_file="$(find "$HOME/.claude/projects" -name "$sess.jsonl" -print -quit 2> /dev/null)"
+      [ -n "$tr_file" ] && compactions="$(grep -c '"subtype":"compact_boundary"' "$tr_file")"
+    fi
     if [ -n "$sid" ]; then
       claude stop "$sid" >&2 2>/dev/null || true
       claude rm "$sid" >&2 2>/dev/null || echo "run: claude rm $sid failed; try fleet gc" >&2
@@ -267,6 +291,12 @@ case "$kind" in
     ;;
 esac
 end="$(clock_now)" || fail "cannot read the clock"
+# Stop the milestone check before grading: its own grade must not compete for the CPU
+# with the final one, and nothing may keep running after the row is written.
+if [ -n "$snap_pid" ]; then
+  reap_tree "$snap_pid" "$KILL_GRACE"
+  wait "$snap_pid" 2> /dev/null
+fi
 # An adapter's own timeout verdict under-reports: under bwrap --unshare-pid a pi run
 # overran 3540 s by 10.9 s and still said timeout:false (G5). Reaching the limit is a
 # timeout whatever the agent reports. Only fixture runs, which have no limit, skip this.
@@ -321,6 +351,37 @@ elif [ "${#gate_parts[@]}" -gt 0 ] && [ "$kind" != fixture ]; then
   gate_refusals=0 gate_exhausted=false
 fi
 
+# T4: the grader's extra and the milestone series become t4_* fields. The series is every
+# periodic point plus the final grade at t = wall_s. Mk is reached when the final grade
+# has it at 1.0; t4_milestone_t[Mk] is then the first point at 1.0 (the final one when no
+# periodic point got there, as in a fixture run), else null. A regression is a point
+# below 1.0 right after a point at 1.0, counted per milestone.
+t4_row=null
+if [ "$task" = T4 ]; then
+  t4_points='[]'
+  if [ -s "$ws.milestones.jsonl" ]; then
+    t4_points="$(jq -cs '[.[] | select(type == "object" and (.t | type) == "number")]' "$ws.milestones.jsonl")" \
+      || fail "bad milestone series $ws.milestones.jsonl"
+  fi
+  # shellcheck disable=SC2016 # a jq program; $g, $pts, $wall and $comp are jq variables
+  t4_row="$(jq -cn --argjson g "$g" --argjson pts "$t4_points" --argjson comp "$compactions" \
+    --argjson wall "$(jq -n --argjson s "$start" --argjson e "$end" '(($e - $s) * 1000 | round) / 1000')" '
+    ($g.extra // error("the T4 grader printed no extra")) as $x
+    | ($pts + [{t: $wall} + $x.milestones]) as $series
+    | ["M1", "M2", "M3", "M4", "M5"] as $ms
+    | ($ms | map(. as $m | {key: $m, value:
+        (if $x.milestones[$m] == 1 then [$series[] | select(.[$m] == 1) | .t][0] else null end)})
+        | from_entries) as $mt
+    | {t4_milestones_reached: ($mt | map(select(. != null)) | length),
+       t4_milestone_t: $mt,
+       t4_regressions: ([$ms[] as $m | range(1; $series | length) as $i
+         | select($series[$i - 1][$m] == 1 and $series[$i][$m] < 1)] | length),
+       t4_prop_pass: $x.prop_pass, t4_perf_ok: $x.perf_ok,
+       t4_loc: $x.loc, t4_files: $x.files,
+       t4_fmt_clean: $x.fmt_clean, t4_lint_clean: $x.lint_clean,
+       t4_compactions: $comp}')" || fail "cannot build the T4 fields"
+fi
+
 row="$(jq -cn \
   --arg run_id "$run_id" --arg ts "$ts" --arg agent "$agent" --arg model "$model" \
   --argjson parts "$parts_json" --argjson plugin_rev "$plugin_rev" \
@@ -329,7 +390,8 @@ row="$(jq -cn \
   --argjson start "$start" --argjson end "$end" \
   --argjson tokens "$tokens" --argjson tool_cpu "$tool_cpu" --arg lang "$(detect_lang "$ws")" \
   --argjson source_present "$(source_present "$ws")" --arg silent_stop "$silent_stop" \
-  --argjson gate_refusals "$gate_refusals" --argjson gate_exhausted "$gate_exhausted" '
+  --argjson gate_refusals "$gate_refusals" --argjson gate_exhausted "$gate_exhausted" \
+  --argjson t4 "$t4_row" '
   {run_id: $run_id, ts: $ts, agent: $agent,
    model: (if $model == "" then null else $model end),
    harness_rev: {parts: $parts, plugin_rev: $plugin_rev},
@@ -344,7 +406,8 @@ row="$(jq -cn \
    lang: (if $lang == "unknown" then null else $lang end),
    source_present: $source_present,
    gate_refusals: $gate_refusals, gate_exhausted: $gate_exhausted}
-  + (if $silent_stop == "absent" then {} else {silent_stop: ($silent_stop | fromjson)} end)')" \
+  + (if $silent_stop == "absent" then {} else {silent_stop: ($silent_stop | fromjson)} end)
+  + ($t4 // {})')" \
   || fail "cannot build row"
 
 printf '%s\n' "$row" | bash "$BENCH/record" --results "$results" || fail "record rejected the row"

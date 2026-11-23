@@ -1,0 +1,270 @@
+=== register-basic
+--- args
+register
+Assets
+--- in
+2024-01-01 open Assets:Bank
+2024-01-01 open Assets:Cash
+2024-01-01 open Equity
+2024-01-01 open Expenses:Food
+2024-01-01 * opening
+    Assets:Bank   1000.00 EUR
+    Assets:Cash     50 EUR
+    Equity
+2024-01-05 * food
+    Expenses:Food   12.5 EUR
+    Assets:Cash
+2024-01-06 * withdraw
+    Assets:Cash    100 EUR
+    Assets:Bank
+--- out
+2024-01-01 Assets:Bank 1000.00 EUR 1000.00 EUR
+2024-01-01 Assets:Cash 50.00 EUR 1050.00 EUR
+2024-01-05 Assets:Cash -12.50 EUR 1037.50 EUR
+2024-01-06 Assets:Cash 100.00 EUR 1137.50 EUR
+2024-01-06 Assets:Bank -100.00 EUR 1037.50 EUR
+=== register-date-order
+--- args
+register
+A
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-03-01 third
+    A  3 EUR
+    B
+2024-01-01 first
+    A  1 EUR
+    B
+2024-02-01 second
+    A  2 EUR
+    B
+--- out
+2024-01-01 A 1 EUR 1 EUR
+2024-02-01 A 2 EUR 3 EUR
+2024-03-01 A 3 EUR 6 EUR
+=== register-same-day-file-order
+--- args
+register
+A
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-05 day five, first in file
+    A  1 EUR
+    B
+2024-01-04 day four
+    A  10 EUR
+    B
+2024-01-05 day five, second in file
+    A  2 EUR
+    B
+2024-01-05 day five, third in file
+    A  3 EUR
+    B
+2024-01-04 day four again
+    A  20 EUR
+    B
+2024-01-05 day five, fourth
+    A  4 EUR
+    B
+--- out
+2024-01-04 A 10 EUR 10 EUR
+2024-01-04 A 20 EUR 30 EUR
+2024-01-05 A 1 EUR 31 EUR
+2024-01-05 A 2 EUR 33 EUR
+2024-01-05 A 3 EUR 36 EUR
+2024-01-05 A 4 EUR 40 EUR
+=== register-same-txn-order
+--- args
+register
+Assets
+--- in
+2024-01-01 open Assets:Z
+2024-01-01 open Assets:A
+2024-01-01 open B
+2024-01-02 two matches in one transaction keep file order
+    Assets:Z  1 EUR
+    B        -3 EUR
+    Assets:A  2 EUR
+--- out
+2024-01-02 Assets:Z 1 EUR 1 EUR
+2024-01-02 Assets:A 2 EUR 3 EUR
+=== register-segment-prefix
+--- args
+register
+Assets
+--- in
+2024-01-01 open Assets
+2024-01-01 open Assets:Cash
+2024-01-01 open Assets-Old
+2024-01-01 open AssetsX
+2024-01-01 open B
+2024-01-02 only Assets and Assets:Cash match
+    Assets       1 EUR
+    Assets:Cash  2 EUR
+    Assets-Old   4 EUR
+    AssetsX      8 EUR
+    B
+--- out
+2024-01-02 Assets 1 EUR 1 EUR
+2024-01-02 Assets:Cash 2 EUR 3 EUR
+=== register-leaf
+--- args
+register
+Assets:Cash
+--- in
+2024-01-01 open Assets:Cash
+2024-01-01 open Assets:Cash:Coins
+2024-01-01 open Assets:CashBox
+2024-01-01 open B
+2024-01-02 leaf and below
+    Assets:Cash        1 EUR
+    Assets:Cash:Coins  2 EUR
+    Assets:CashBox     4 EUR
+    B
+--- out
+2024-01-02 Assets:Cash 1 EUR 1 EUR
+2024-01-02 Assets:Cash:Coins 2 EUR 3 EUR
+=== register-multi-commodity-totals
+--- args
+register
+A
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 eur
+    A  1.5 EUR
+    B
+2024-01-03 usd
+    A  2 USD
+    B
+2024-01-04 eur again
+    A  -0.5 EUR
+    B
+2024-01-05 usd again
+    A  -2 USD
+    B
+--- out
+2024-01-02 A 1.5 EUR 1.5 EUR
+2024-01-03 A 2 USD 2 USD
+2024-01-04 A -0.5 EUR 1.0 EUR
+2024-01-05 A -2 USD 0 USD
+=== register-elided-multi
+--- args
+register
+B
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 elided gets two amounts, in commodity order
+    A  1 USD
+    A  2 EUR
+    A  3 CHF
+    B
+--- out
+2024-01-02 B -3 CHF -3 CHF
+2024-01-02 B -2 EUR -2 EUR
+2024-01-02 B -1 USD -1 USD
+=== register-elided-nothing
+--- args
+register
+C
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-01 open C
+2024-01-02 C receives nothing
+    A  1 EUR
+    B  -1 EUR
+    C
+2024-01-03 C receives something
+    A  1 EUR
+    C
+--- out
+2024-01-03 C -1 EUR -1 EUR
+=== register-no-match
+--- args
+register
+Nothing
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 t
+    A  1 EUR
+    B
+--- out
+=== register-total-crosses-zero
+--- args
+register
+A
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 up
+    A  0.25 EUR
+    B
+2024-01-03 down to zero
+    A  -0.25 EUR
+    B
+2024-01-04 below zero
+    A  -1 EUR
+    B
+--- out
+2024-01-02 A 0.25 EUR 0.25 EUR
+2024-01-03 A -0.25 EUR 0.00 EUR
+2024-01-04 A -1.00 EUR -1.00 EUR
+=== register-errors
+--- args
+register
+A
+--- in
+2024-01-01 open A
+2024-01-02 bad
+    A  1 EUR
+    B
+    C
+--- out
+2: MULTI_ELIDED
+=== register-scale-from-other-postings
+--- args
+register
+A
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 B writes three decimals
+    A  1 EUR
+    B  -1.000 EUR
+--- out
+2024-01-02 A 1.000 EUR 1.000 EUR
+=== usage-register-no-prefix
+--- args
+register
+--- in
+--- out
+USAGE
+=== usage-register-two-prefixes
+--- args
+register
+A
+B
+--- in
+--- out
+USAGE
+=== usage-register-bad-prefix
+--- args
+register
+Assets:
+--- in
+--- out
+USAGE
+=== usage-register-flag
+--- args
+register
+A
+--end
+2024-01-01
+--- in
+--- out
+USAGE

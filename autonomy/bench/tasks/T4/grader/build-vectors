@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# build-vectors — turn trs.yaml's vectors into hidden `check` cases.
+#
+#   build-vectors      reads generated/vectors.json (from `trs gen trs.yaml`), writes
+#                      cases/M2-vectors.cases and cases/M5-vectors.cases
+#
+# Each vector (one transaction's factor levels -> the one error it reports) becomes a
+# journal whose only possible error is that one. The expected output is derived from
+# the vector's expect.result and the line it is reported at, never from the reference:
+# this is the M2 oracle that does not trust solution/. A vector with a cost or an
+# assertion exercises M5 features, so it is tagged M5. Deterministic.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+vec="$here/generated/vectors.json"
+[ -f "$vec" ] || { echo "build-vectors: no $vec; run trs gen first" >&2; exit 2; }
+
+# shellcheck disable=SC2016 # a jq program; every $name is a jq variable
+build='
+def cents: (if . < 0 then "-" else "" end) as $s | (if . < 0 then -. else . end) as $a
+  | "\($s)\(($a / 100) | floor).\(($a % 100) | tostring | if length < 2 then "0" + . else . end)";
+def pick($xs; $k): $xs[$k % ($xs | length)];
+
+[.vectors | to_entries[] | .key as $k | .value as $v | $v.inputs as $in
+ | ($in.has_cost != "yes" and $in.assertion == "none") as $m2
+ | select(if $want == "M2" then $m2 else ($m2 | not) end)
+ | pick(["2024-06-15", "2024-02-29", "2023-12-31"]; $k) as $d
+ | (if $d == "2024-06-15" then {after: pick(["2024-06-16", "2024-07-01"]; $k), on: pick(["2024-06-15", "2024-01-01"]; $k),
+      before: pick(["2024-06-14", "2024-03-01"]; $k), later: pick(["2024-06-15", "2024-12-31"]; $k)}
+    elif $d == "2024-02-29" then {after: "2024-03-01", on: pick(["2024-02-29", "2024-02-01"]; $k),
+      before: "2024-02-28", later: pick(["2024-02-29", "2025-02-28"]; $k)}
+    else {after: "2024-01-01", on: pick(["2023-12-31", "2023-01-01"]; $k),
+      before: "2023-12-30", later: pick(["2023-12-31", "2024-12-31"]; $k)} end) as $dd
+ | pick(["2024-06-31", "2023-02-29", "2024-13-01", "2024-00-10", "0000-01-01"]; $k) as $bad
+ | pick([1250, 10, 700, 199999, -4005]; $k) as $x
+ | pick([2, 3, 7]; $k) as $q | pick([150, 1999, 25]; $k) as $pc
+ | (if $in.has_cost == "yes" then $q * $pc else $x end) as $w
+ | (if $in.has_cost == "yes"
+    then {amt: "\($q) AAPL @ \($pc | cents) EUR", bal: "\($q) AAPL", off: "\($q + 1) AAPL"}
+    else {amt: "\($x | cents) EUR", bal: "\($x | cents) EUR", off: "\($x + 1 | cents) EUR"} end) as $xp
+ | (if $in.assertion == "holds" then " = " + $xp.bal
+    elif $in.assertion == "fails" then " = " + $xp.off else "" end) as $as
+ | ["2020-01-01 open Assets:B", "2020-01-01 open Assets:E"]
+   + (if $in.open_dir == "after_d" then ["\($dd.after) open Expenses:Item"]
+      elif $in.open_dir == "on_or_before_d" then ["\($dd.on) open Expenses:Item"] else [] end)
+   + (if $in.close_dir == "before_d" then ["\($dd.before) close Expenses:Item"]
+      elif $in.close_dir == "on_or_after_d" then ["\($dd.later) close Expenses:Item"] else [] end)
+   + [""] as $pre
+ | ($pre | length + 1) as $hdr
+ | ["\(if $in.date == "bad" then $bad else $d end) * \($v.id | split("#")[1])",
+    "    Expenses:Item  \($xp.amt)\($as)"]
+   + (if $in.elided == "0" then
+        ["    Assets:B  \((if $in.residual == "zero" then -$w else -$w + 100 end) | cents) EUR"]
+      elif $in.elided == "1" then
+        (if $in.residual == "zero" then ["    Assets:B  \(-$w | cents) EUR", "    Assets:E"]
+         else ["    Assets:B"] end)
+      else ["    Assets:B", "    Assets:E"] end) as $txn
+ | $v.expect.result as $r
+ | (if $r == "OK" then "OK"
+    elif ($r | IN("BAD_DATE", "MULTI_ELIDED", "UNBALANCED")) then "\($hdr): \($r)"
+    else "\($hdr + 1): \($r)" end) as $out
+ | "=== v\($k)-\($v.id | split("#")[1])\n--- args\ncheck\n--- in\n"
+   + ($pre + $txn | map(. + "\n") | add) + "--- out\n" + $out + "\n"]
+| add // ""'
+
+mkdir -p "$here/cases"
+for m in M2 M5; do
+  jq -j --arg want "$m" "$build" "$vec" > "$here/cases/$m-vectors.cases"
+  printf 'build-vectors: %s cases -> cases/%s-vectors.cases\n' \
+    "$(grep -c '^=== ' "$here/cases/$m-vectors.cases")" "$m"
+done

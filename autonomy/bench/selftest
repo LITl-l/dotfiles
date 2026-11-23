@@ -940,6 +940,188 @@ check "report: ref_fail is 0 for a group whose ref_pass rows all passed" \
 check "report: ref_fail is – for a group whose rows predate the field" \
   test "$(rf_cell '| pi | T2 | none | 2 |')" = –
 
+# ---------------------------------------------------------------- T4 ledger
+# In the fixed layout (HOME and the repo root under $FIX), so the rendered deny rules can
+# be checked against known roots. The perf journal is shrunk: the 500k-posting case
+# needs minutes of generation the flake check need not spend.
+# The reference is C. The flake check's runCommand has no compiler, so there the whole
+# block is skipped, loudly; `nix develop .#bench -c bash autonomy/bench/selftest` runs it.
+if ! command -v cc > /dev/null 2>&1; then
+  printf 'SKIP T4: no C compiler on PATH, so the T4 reference cannot be built\n'
+else
+mkdir -p "$FIX/repo/autonomy/bench/tasks"
+cp -R "$BENCH/tasks/T4" "$FIX/repo/autonomy/bench/tasks/T4"
+rm -rf "$FIX/repo/autonomy/bench/tasks/T4/solution/.build"
+T4B="$FIX/repo/autonomy/bench"
+T4R="$FIX/t4.jsonl"
+t4_run() { # t4_run <fixture> [VAR=value...] -- one T4 run in the fixed layout; prints its workspace
+  local fx="$1"; shift
+  env "$@" HOME="$FIX/home" BENCH_WS_ROOT="$FIX/ws" T4_PERF_POSTINGS=20000 bash "$T4B/run" \
+    --agent "fixture:$fx" --task T4 --rep 1 --parts none --results "$T4R" \
+    > "$FIX/t4.out" 2> "$FIX/t4.err" || return 1
+  printf '%s/%s\n' "$FIX/ws" "$(tail -n 1 "$T4R" | jq -r .run_id)"
+}
+t4last() { tail -n 1 "$T4R" | jq -c "$1"; }
+
+t4_ws="$(t4_run tasks/T4/solution)"
+check "T4: the reference fixture run exits 0" test -n "$t4_ws"
+check "T4: reference hidden_pass is 1 (every hidden, property and perf case)" test "$(t4last .hidden_pass)" = 1
+check "T4: reference reaches all five milestones" test "$(t4last .t4_milestones_reached)" = 5
+check "T4: reference ./test passes the reference and kills every broken variant" \
+  test "$(t4last '[.ref_pass, .test_kill_rate] | @csv')" = '"true,1"'
+check "T4: a fixture run's milestone times are its wall time (no periodic point)" \
+  test "$(t4last '[.t4_milestone_t[]] | unique == [.[0]] and .[0] != null')" = true
+check "T4: fixture rows carry t4_compactions null, perf_ok true, prop_pass 1" \
+  test "$(t4last '[.t4_compactions, .t4_perf_ok, .t4_prop_pass] | @csv')" = '",true,1"'
+check "T4: the T4 row passes record validation" bash "$T4B/record" --check "$T4R"
+t4good="$(tail -n 1 "$T4R")"
+t4reject() { # t4reject <description> <jq transform of the good T4 row>
+  if jq -c "$2" <<< "$t4good" | bash "$T4B/record" --check /dev/stdin > /dev/null 2>&1; then
+    bad "record rejects $1 (it was accepted)"
+  else ok "record rejects $1"; fi
+}
+t4reject "a T4 row without t4_milestones_reached" 'del(.t4_milestones_reached)'
+t4reject "t4_milestones_reached 6" '.t4_milestones_reached = 6'
+t4reject "a t4_milestone_t without M5" 'del(.t4_milestone_t.M5)'
+t4reject "a string t4_lint_clean" '.t4_lint_clean = "yes"'
+t4reject "a T0 row carrying a t4_* field" '.task = "T0"'
+check "record: a T4 row with null fmt/lint verdicts and compactions validates" \
+  exits 0 bash "$T4B/record" --check <(jq -c '.t4_fmt_clean = null | .t4_lint_clean = null | .t4_compactions = 3' <<< "$t4good")
+
+# T0..T3 rows keep exactly the keys, in the order, they had before T4.
+T0_KEYS='["run_id","ts","agent","model","harness_rev","task","rep","hidden_pass","test_kill_rate","ref_pass","perf_speedup","false_done","done_ok","blocked","timeout","wall_s","tokens","tool_cpu_s","lang","source_present","gate_refusals","gate_exhausted"]'
+check "T0 rows: the solution row's keys and their order are unchanged (no t4_*, no extra)" \
+  test "$(jq -sc --argjson k "$T0_KEYS" '[.[] | select(.agent == "fixture:tasks/T0/solution") | keys_unsorted == $k] | (length > 0) and all' "$RESULTS")" = true
+check "grade: T0 output carries no extra key" bash -c '
+  bash "$1/grade" T0 "$1/tasks/T0/solution" | jq -e "has(\"extra\") | not" > /dev/null' _ "$BENCH"
+
+# Every broken variant must fail at least one hidden acceptance case.
+# shellcheck source=/dev/null
+. "$T4B/tasks/T4/grader/lib.sh"
+# shellcheck source=/dev/null
+. "$T4B/lib/grader.sh"
+t4cases="$tmp/t4cases.json"
+for f in "$T4B"/tasks/T4/grader/cases/*.cases; do cases_json "$(basename "$f" .cases)" "$f"; done \
+  | jq -s add > "$t4cases"
+check "T4: the grader ships at least 150 hidden cases" test "$(jq length "$t4cases")" -ge 150
+nb4=0
+for b in $(broken_names); do
+  nb4=$((nb4 + 1))
+  if install_broken "$b" "$tmp/t4b/$b" 2> /dev/null; then
+    p="$(cd "$tmp/t4b/$b" && run_io_cases "$tmp/t4b/$b/run" "$t4cases" /dev/null)"
+    check "T4 broken/$b: fails at least one hidden case ($p / $(jq length "$t4cases"))" \
+      test "$p" -lt "$(jq length "$t4cases")"
+  else
+    bad "T4 broken/$b: builds"
+  fi
+done
+check "T4 ships at least 8 broken variants" test "$nb4" -ge 8
+check "T4: a mutation that changes nothing is refused, not passed off as broken" bash -c '
+  . "$1"; mkdir -p "$2/broken/noop"; : > "$2/broken/noop/mutate.sed"
+  T4_GRADER="$2" install_broken noop "$3" 2> /dev/null; [ $? -ne 0 ]' _ \
+  "$T4B/tasks/T4/grader/lib.sh" "$tmp/t4noop" "$tmp/t4noop-out"
+
+# What the agent sees: the skeleton and the rendered prompt name no grader path or content.
+check "T4 skeleton: SPEC.md, examples and run name nothing outside the workspace" \
+  exits 1 grep -rnE '/home|~/|\.\./|autonomy|grader|wkspace|\.cases' "$BENCH/tasks/T4/skeleton" "$t4_ws.prompt.md"
+check "T4 skeleton: no example input is a hidden case input" bash -c '
+  for f in "$1"/examples/*/*.in; do
+    jq -e --rawfile x "$f" "any(.[]; .in == \$x)" "$2" > /dev/null && { echo "leak: $f"; exit 1; }
+  done; exit 0' _ "$BENCH/tasks/T4/skeleton" "$t4cases"
+check "T4 skeleton: the stub ./run exits 1" exits 1 "$BENCH/tasks/T4/skeleton/run"
+install_ref "$tmp/t4ref" > /dev/null 2>&1
+check "T4 skeleton: every example has .args and .out, and the reference reproduces each .out" bash -c '
+  n=0
+  for f in "$1"/examples/*/*.in; do
+    b="${f%.in}"; n=$((n + 1))
+    [ -f "$b.args" ] && [ -f "$b.out" ] || { echo "incomplete: $b"; exit 1; }
+    mapfile -t a < "$b.args"
+    "$2/run" "${a[@]}" < "$f" | cmp -s - "$b.out" || { echo "differs: $b"; exit 1; }
+  done
+  [ "$n" -ge 25 ]' _ "$BENCH/tasks/T4/skeleton" "$tmp/t4ref"
+check "T4: the run copied no grader file into the workspace" \
+  test -z "$(find "$t4_ws" -path '*grader*' -print -quit)"
+t4_roots="$(jq -cn --arg f "$FIX" '[$f + "/repo", $f + "/home/.config/dotfiles", $f + "/home/wkspace/worktree"]')"
+# glob -> regex as the rules are meant: ** any depth, * within one segment.
+G2R='def g2r: gsub("(?<c>[.+?^${}()|\\[\\]\\\\])"; "\\\(.c)") | gsub("\\*\\*"; "\u0001")
+  | gsub("\\*"; "[^/]*") | gsub("\u0001"; ".*") | "^" + . + "$";'
+check "T4: rendered Read denies cover tasks/T4/grader under every root" \
+  exits 0 jq -e --argjson roots "$t4_roots" "$G2R"'
+  [.permissions.deny[] | select(startswith("Read(")) | ltrimstr("Read(") | rtrimstr(")") | sub("^//"; "/")] as $g
+  | all($roots[] + "/autonomy/bench/tasks/T4/grader/cases/M1.cases"; . as $p | any($g[]; . as $x | $p | test($x | g2r)))' \
+  "$t4_ws/.claude/settings.json"
+check "T4: P0 sandbox denyRead covers tasks/T4/grader under every root" \
+  exits 0 jq -e --argjson roots "$t4_roots" "$G2R"'
+  .sandbox.filesystem.denyRead as $g
+  | all($roots[] + "/autonomy/bench/tasks/T4/grader/cases/M1.cases"; . as $p | any($g[]; . as $x | $p | test($x | g2r)))' \
+  "$p0_s"
+check "T4: the glob check itself rejects a path outside any grader tree" \
+  exits 1 jq -e --argjson roots "$t4_roots" "$G2R"'
+  .sandbox.filesystem.denyRead as $g
+  | all($roots[] + "/autonomy/bench/tasks/T4/skeleton/SPEC.md"; . as $p | any($g[]; . as $x | $p | test($x | g2r)))' \
+  "$p0_s"
+
+# The periodic milestone check writes nothing into the workspace it samples.
+snapws="$tmp/snapws"
+mkdir -p "$snapws"
+cp -R "$BENCH/tasks/T4/skeleton/." "$snapws/"
+tree_sum() { (cd "$1" && find . -print0 | LC_ALL=C sort -z | xargs -0 ls -ld --time-style=+%s.%N | sha256sum) ; }
+snap_before="$(tree_sum "$snapws")"
+bash "$T4B/tasks/T4/grader/milestones" "$snapws" "$tmp/snap.jsonl" 1 > /dev/null 2>&1 &
+snap_pid=$!
+for _ in $(seq 1 240); do [ -s "$tmp/snap.jsonl" ] && break; sleep 0.5; done
+kill -TERM "$snap_pid" 2> /dev/null; wait "$snap_pid" 2> /dev/null
+check "milestones: wrote a point {t, M1..M5, prop}, all 0 for the stub" \
+  test "$(head -n 1 "$tmp/snap.jsonl" | jq -c '(keys_unsorted == ["t","M1","M2","M3","M4","M5","prop"]) and ([.M1,.M2,.M3,.M4,.M5,.prop] | all(. == 0))')" = true
+check "milestones: the sampled workspace is unchanged, byte for byte and in mtimes" \
+  test "$(tree_sum "$snapws")" = "$snap_before"
+check "milestones: TERM removes its snapshot directory" test ! -e "$snapws.snap"
+
+# A stubbed pi run: it installs the reference, waits for a periodic point at M1 = 1, then
+# regresses to broken/elided-sign. The row must reach only the milestones the final grade
+# holds, date M1 from the periodic point, and count the regressions.
+cat > "$tmp/llm-stub-t4" <<'EOF'
+[ "$1" = pi-run ] || exit 1
+. "$STUB_T4_LIB"
+install_ref "$2" > /dev/null 2>&1 || exit 1
+for _ in $(seq 1 600); do
+  [ -s "$2.milestones.jsonl" ] && jq -se 'any(.[]; .M1 == 1)' "$2.milestones.jsonl" > /dev/null 2>&1 && break
+  sleep 0.5
+done
+rm -rf "$2/.build"
+install_broken elided-sign "$2" > /dev/null 2>&1 || exit 1
+printf '%s\n' '{"timeout":false,"tool_cpu_s":null,"tokens":null}'
+EOF
+pi4_ws=""
+if env HOME="$FIX/home" BENCH_WS_ROOT="$FIX/ws" BENCH_SNAPSHOT_INTERVAL=1 T4_PERF_POSTINGS=20000 \
+     STUB_T4_LIB="$T4B/tasks/T4/grader/lib.sh" BENCH_LLM="$tmp/llm-stub-t4" bash "$T4B/run" --agent pi \
+     --model "$QWEN" --timeout 900 --task T4 --rep 1 --parts none --results "$T4R" \
+     > /dev/null 2> "$FIX/pi4.err"; then
+  pi4_ws="$FIX/ws/$(tail -n 1 "$T4R" | jq -r .run_id)"
+fi
+check "T4 pi stub: the run exits 0" test -n "$pi4_ws"
+check "T4 pi stub: the series holds a periodic point at M1 = 1" \
+  exits 0 jq -se 'any(.[]; .M1 == 1)' "$pi4_ws.milestones.jsonl"
+check "T4 pi stub: reached = the final grade's milestones (M1, M2 of elided-sign)" \
+  test "$(t4last '[.t4_milestones_reached, (.t4_milestone_t | map_values(. != null))]')" \
+    = '[2,{"M1":true,"M2":true,"M3":false,"M4":false,"M5":false}]'
+check "T4 pi stub: M1 is dated by the periodic point, before the run ended" \
+  test "$(t4last '.t4_milestone_t.M1 < .wall_s')" = true
+check "T4 pi stub: M3..M5 fell from 1.0, so at least 3 regressions" test "$(t4last '.t4_regressions >= 3')" = true
+check "T4 pi stub: hidden_pass < 1 and perf_ok false (acceptance not clean)" \
+  test "$(t4last '.hidden_pass < 1 and .t4_perf_ok == false')" = true
+check "T4 pi stub: the snapshot directory is gone" test ! -e "$pi4_ws.snap"
+# Scoped to this layout's copy, or a selftest running alongside (the flake check) would
+# count; [m] keeps grep from matching its own argv.
+check "T4 pi stub: no milestone checker outlives the run" \
+  exits 1 grep -lsa "$T4B/tasks/T4/grader/[m]ilestones" /proc/[0-9]*/cmdline
+check "T4: every row of both T4 runs validates" bash "$T4B/record" --check "$T4R"
+check "report: renders a T4 table for T4 rows" bash -c '
+  bash "$1/report" --runs "$2" | grep -q "^## T4: median"' _ "$BENCH" "$T4R"
+check "report: no T4 table without T4 rows" bash -c '
+  ! bash "$1/report" --runs "$2" | grep -q "^## T4"' _ "$BENCH" "$RESULTS"
+fi
+
 # ---------------------------------------------------------------- prompt
 for s in Boundary Termination Output; do
   check "prompt.md: has a ## $s section" grep -qi "^## *$s" "$BENCH/prompt.md"

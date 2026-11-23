@@ -1,0 +1,317 @@
+=== exact-tenths
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 0.1 + 0.2 - 0.3 is zero
+    A  0.1 EUR
+    A  0.2 EUR
+    B  -0.3 EUR
+2024-01-03 ten tenths make one
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    A  0.1 EUR
+    B  -1 EUR
+--- out
+OK
+=== exact-large
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 large values do not lose cents
+    A  9999999999.99 EUR
+    A  9999999999.99 EUR
+    A  0.02 EUR
+    B  -9999999999 EUR
+    B  -9999999999 EUR
+    B  -2 EUR
+2024-01-03 off by a millionth
+    A  1234567890.123456 EUR
+    B  -1234567890.123455 EUR
+--- out
+10: UNBALANCED
+=== unbalanced-tiny
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 off by a millionth
+    A  0.000001 EUR
+    B  0 EUR
+--- out
+3: UNBALANCED
+=== unbalanced-two-commodities
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 two commodities, one error
+    A  1 EUR
+    A  1 USD
+    B  -2 EUR
+--- out
+3: UNBALANCED
+=== commodities-balance-separately
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 EUR and USD do not cancel
+    A  1 EUR
+    B  -1 USD
+--- out
+3: UNBALANCED
+=== multi-elided-three
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-01 open C
+2024-01-02 three
+    A  1 EUR
+    B
+    C
+    A
+--- out
+4: MULTI_ELIDED
+=== elided-two-commodities-ok
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 elided takes both
+    A  1 EUR
+    A  2 USD
+    B
+--- out
+OK
+=== elided-zero-residual-ok
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-01 open C
+2024-01-02 nothing left for C
+    A  1 EUR
+    B  -1 EUR
+    C
+--- out
+OK
+=== single-elided-alone
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-02 only an elided posting
+    A
+--- out
+OK
+=== open-after-posting
+--- args
+check
+--- in
+2024-03-01 open A
+2024-01-01 open B
+2024-02-01 before A opens
+    A  1 EUR
+    B
+2024-03-01 the day A opens
+    A  1 EUR
+    B
+--- out
+4: NOT_OPEN
+=== open-is-exact-account
+--- args
+check
+--- in
+2024-01-01 open Assets
+2024-01-01 open Expenses:Food:Fruit
+2024-01-01 open Equity
+2024-01-02 parent open, child not
+    Assets:Cash  5 EUR
+    Equity
+2024-01-03 child open, parent not
+    Expenses:Food  5 EUR
+    Expenses:Food:Fruit  5 EUR
+    Equity
+--- out
+5: NOT_OPEN
+8: NOT_OPEN
+=== closed-after-close
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-06-30 close A
+2024-06-30 on the close date
+    A  1 EUR
+    B
+2024-07-01 after the close date
+    A  1 EUR
+    B
+2024-07-02 the elided posting is checked too
+    B  1 EUR
+    A
+--- out
+8: CLOSED
+12: CLOSED
+=== close-before-open-is-not-open
+--- args
+check
+--- in
+2024-05-01 open A
+2024-03-01 close A
+2024-01-01 open B
+2024-04-01 between close and open
+    A  1 EUR
+    B
+2024-02-01 before both
+    A  1 EUR
+    B
+2024-06-01 after both
+    A  1 EUR
+    B
+--- out
+5: NOT_OPEN
+8: NOT_OPEN
+11: CLOSED
+=== close-without-open
+--- args
+check
+--- in
+2024-01-01 open B
+2024-01-01 close A
+2024-02-01 never opened
+    A  1 EUR
+    B
+--- out
+4: NOT_OPEN
+=== duplicate-directives
+--- args
+check
+--- in
+2024-02-01 open A
+2024-01-01 open B
+2024-01-01 open A
+2024-12-01 close A
+2024-06-01 close A
+2024-01-15 the first open (Feb) applies
+    A  1 EUR
+    B
+2024-07-01 the first close (Dec) applies
+    A  1 EUR
+    B
+--- out
+3: DUPLICATE
+5: DUPLICATE
+7: NOT_OPEN
+=== directive-bad-date-ignored
+--- args
+check
+--- in
+2024-02-30 open A
+2024-01-01 open B
+2024-03-01 A was never opened
+    A  1 EUR
+    B
+--- out
+1: BAD_DATE
+4: NOT_OPEN
+=== directives-by-date-not-file-order
+--- args
+check
+--- in
+2024-01-01 open B
+2024-02-01 posted before the open line
+    A  1 EUR
+    B
+2024-01-15 open A
+--- out
+OK
+=== precedence-unbalanced-over-not-open
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-02 unbalanced and Z not open
+    A  1 EUR
+    Z  -2 EUR
+--- out
+2: UNBALANCED
+=== precedence-multi-over-not-open
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-02 two elided and Z not open
+    A  1 EUR
+    Z
+    Y
+--- out
+2: MULTI_ELIDED
+=== precedence-parse-over-balance
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open B
+2024-01-02 a bad posting stops the transaction
+    A  1 EUR
+    B  oops EUR
+    Z  -5 EUR
+--- out
+5: PARSE
+=== every-account-error-reported
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-01 open C
+2024-01-31 close C
+2024-02-01 X and Y never opened, C closed
+    X  1 EUR
+    A  -1 EUR
+    Y  2 EUR
+    C  -2 EUR
+--- out
+5: NOT_OPEN
+7: NOT_OPEN
+8: CLOSED
+=== errors-in-file-order
+--- args
+check
+--- in
+2024-01-01 open A
+2024-01-02 t3
+    A  1 EUR
+    A  1 EUR
+2024-01-01 open A
+2024-01-02 t2
+    A
+    A
+2023-01-02 t1
+    A  1 EUR
+    A  -1 EUR
+--- out
+2: UNBALANCED
+5: DUPLICATE
+6: MULTI_ELIDED
+10: NOT_OPEN
+11: NOT_OPEN

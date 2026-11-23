@@ -38,18 +38,23 @@ kill_rate() {
 }
 
 # run_io_cases <run_path> <cases.json> <err_file>
-# cases.json is an array of {"name","in","out"}. Feeds each "in" to <run_path> on stdin
-# and requires byte-exact stdout and exit 0. Prints the number passed; appends one line
-# per failure to <err_file>.
+# cases.json is an array of {"name","in","out"} with an optional "args" array of strings.
+# Feeds each "in" to <run_path> on stdin, with the case's args (none when absent), and
+# requires byte-exact stdout and exit 0. Prints the number passed; appends one line per
+# failure to <err_file>.
 run_io_cases() {
   local run="$1" cases="$2" errf="$3" n i name passed=0 dir
+  local -a args
   dir="$(mktemp -d)"
   n="$(jq 'length' "$cases")"
   for ((i = 0; i < n; i++)); do
     name="$(jq -r ".[$i].name" "$cases")"
     jq -j ".[$i].in" "$cases" > "$dir/in"
     jq -j ".[$i].out" "$cases" > "$dir/want"
-    if timeout 10 "$run" < "$dir/in" > "$dir/got" 2> /dev/null; then
+    args=()
+    # NUL-separated, so an argument may hold any character but NUL.
+    mapfile -d '' -t args < <(jq -j ".[$i].args // [] | .[] | . + \"\\u0000\"" "$cases")
+    if timeout 10 "$run" "${args[@]}" < "$dir/in" > "$dir/got" 2> /dev/null; then
       if cmp -s "$dir/got" "$dir/want"; then
         passed=$((passed + 1))
       else

@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# build-cases — authoring tool for T4 case files (format: lib.sh). Not run by the grader.
+#
+#   build-cases refresh <file.cases>...      rewrite every `--- out` with the reference's
+#                                            output, in place
+#   build-cases examples <file.cases> <dir>  write <dir>/<name>.in|.args|.out
+#
+# refresh makes the reference the oracle, so its output must be read against SPEC.md
+# before the file is committed; cases/M2.cases and cases/M5-vectors.cases are not
+# refreshed but built by build-vectors from the trs decision table.
+set -uo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$here/lib.sh"
+
+die() { printf 'build-cases: %s\n' "$*" >&2; exit 2; }
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+refresh() {
+  local f="$1" n i
+  cases_json x "$f" > "$tmp/cases.json" || die "cannot parse $f"
+  n="$(jq length "$tmp/cases.json")"
+  for ((i = 0; i < n; i++)); do
+    local -a args=()
+    mapfile -d '' -t args < <(jq -j ".[$i].args[] | . + \"\\u0000\"" "$tmp/cases.json")
+    jq -j ".[$i].in" "$tmp/cases.json" > "$tmp/in"
+    timeout 10 "$tmp/ref/run" "${args[@]}" < "$tmp/in" > "$tmp/out.$i" \
+      || die "$f: reference failed on case $i"
+  done
+  # Copy every line but the old out sections; after the k-th `--- out`, the k-th output.
+  awk -v dir="$tmp" '
+    /^=== / { skip = 0 }
+    skip { next }
+    { print }
+    /^--- out$/ {
+      f = dir "/out." k++
+      while ((getline l < f) > 0) print l
+      close(f)
+      skip = 1
+    }' "$f" > "$tmp/new" || die "cannot rewrite $f"
+  cat "$tmp/new" > "$f"
+  echo "refreshed $f ($n cases)"
+}
+
+examples() {
+  local f="$1" dst="$2" n i name
+  cases_json x "$f" > "$tmp/cases.json" || die "cannot parse $f"
+  mkdir -p "$dst"
+  # The case file is the whole truth for <dir>: a renamed case must not leave its old files.
+  rm -f "$dst"/*.in "$dst"/*.args "$dst"/*.out
+  n="$(jq length "$tmp/cases.json")"
+  for ((i = 0; i < n; i++)); do
+    name="$(jq -r ".[$i].name | ltrimstr(\"x/\")" "$tmp/cases.json")"
+    jq -j ".[$i].in" "$tmp/cases.json" > "$dst/$name.in"
+    jq -r ".[$i].args[]" "$tmp/cases.json" > "$dst/$name.args"
+    jq -j ".[$i].out" "$tmp/cases.json" > "$dst/$name.out"
+  done
+  echo "wrote $n examples to $dst"
+}
+
+[ $# -ge 2 ] || die "usage: build-cases refresh <file.cases>... | examples <file.cases> <dir>"
+cmd="$1"; shift
+case "$cmd" in
+  refresh)
+    install_ref "$tmp/ref" || die "cannot build the reference"
+    for f in "$@"; do refresh "$f"; done ;;
+  examples)
+    [ $# -eq 2 ] || die "usage: build-cases examples <file.cases> <dir>"
+    examples "$1" "$2" ;;
+  *) die "unknown command: $cmd" ;;
+esac

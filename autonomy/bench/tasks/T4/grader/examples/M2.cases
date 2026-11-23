@@ -1,0 +1,60 @@
+=== auto-balance
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Expenses:Coffee
+2024-01-02 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+--- out
+OK
+=== unbalanced
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Expenses:Coffee
+2024-01-02 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet    -3.00 EUR
+2024-01-03 * cafe
+    Expenses:Coffee
+    Assets:Wallet
+--- out
+3: UNBALANCED
+6: MULTI_ELIDED
+=== not-open-and-closed
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-01 open Expenses:Coffee
+2024-01-31 close Expenses:Coffee
+2024-02-01 * cafe
+    Expenses:Coffee   3.20 EUR
+    Assets:Wallet
+2024-02-02 * tea
+    Expenses:Tea      2.10 EUR
+    Assets:Wallet
+--- out
+5: CLOSED
+8: NOT_OPEN
+=== duplicate-open
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-03-01 open Assets:Wallet
+--- out
+2: DUPLICATE
+=== precedence
+--- args
+check
+--- in
+2024-01-01 open Assets:Wallet
+2024-01-02 * unbalanced, and Expenses:Tea is not open
+    Expenses:Tea      2.10 EUR
+    Assets:Wallet    -2.00 EUR
+--- out
+2: UNBALANCED
