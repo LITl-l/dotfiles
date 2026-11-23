@@ -78,9 +78,12 @@ then optionally an assertion (M5):
 - **Commodity**: 1 to 10 letters `A-Z`.
 
 A posting without an amount is **elided** (M2). These are `PARSE` errors at their line:
-a posting line that does not fit this grammar; a posting line with no transaction header
-directly above it (after a directive, a blank line or another error line that is not a
-header); a header with no posting lines.
+a posting line that does not fit this grammar; an **orphan** posting line, one where the
+nearest line above it that is not a posting line is not a transaction header (a
+directive, a blank line, a `PARSE` line of another kind, or the start of the file); a
+header with no posting lines. A posting line that does not fit the grammar is still a
+posting line, so the posting lines after it are not orphans. A header with a `BAD_DATE`
+and no posting lines is a `BAD_DATE` error, not a `PARSE` error.
 
 ### `check`
 
@@ -115,7 +118,8 @@ amount, per commodity.
 
 ### Accounts: `open` and `close`
 
-A dated directive (M1) with a `BAD_DATE` is ignored.
+A dated directive (M1) with a date that does not exist is a `BAD_DATE` error at its line
+and is otherwise ignored.
 
 An account must be opened before it is posted to. `open` and `close` apply to that exact
 account only, not to its parents or children. Directives take effect by their date,
@@ -166,7 +170,8 @@ nothing else. Otherwise:
   left out. With nothing to print, the output is empty.
 - Accounts are ordered by comparing their segments one at a time, bytewise; an account
   comes directly before its descendants. So `Assets`, `Assets:Cash`, `Assets-Old`. Lines
-  of one account are ordered by commodity.
+  of one account are ordered by commodity. Commodities are always ordered bytewise, so
+  `A`, `AB`, `B`.
 - `--depth N` (N ≥ 1) prints only accounts with at most N segments. Their balances still
   include every descendant.
 - `--end DATE` counts only postings dated on or before DATE.
@@ -211,8 +216,10 @@ PREFIX itself, or starts with PREFIX followed by `:`. `Assets:Cash` matches `Ass
     P 2024-03-01 AAPL 182.50 USD
 
 From that date on, one unit of the first commodity is worth the amount in the second.
-Exactly five tokens, and the two commodities must differ; anything else is a `PARSE`
-error. A price with a `BAD_DATE` is ignored. Two prices for the same pair on the same
+Exactly five tokens: `P`, a date, a commodity, an amount, a commodity. The amount and
+commodities follow the posting grammar (M1), and the two commodities must differ;
+anything else is a `PARSE` error. A price with a date that does not exist is a `BAD_DATE`
+error at its line and is otherwise ignored. Two prices for the same pair on the same
 date: the later one in the file wins.
 
 ### Cost
@@ -232,7 +239,9 @@ then prints one line in CUR, or none if that is zero.
 
 The price used is the latest `P` directive for that commodity in CUR dated on or before
 the `--end` date, or of any date without `--end`. Prices are never inverted or chained.
-If a commodity that has to be converted has no such price, the output is one line
+A commodity has to be converted only where it has a non-zero balance in an account that
+is printed (so after `--depth`); a commodity that sums to zero there needs no price. If a
+commodity that has to be converted has no such price, the output is one line
 `NO_PRICE COMMODITY` per such commodity, in commodity order, and nothing else.
 
 ### Assertions
@@ -252,7 +261,9 @@ The arguments are checked before the journal is read. An unknown command, a miss
 extra argument, an unknown flag, a flag given twice, a flag for another command, a
 `--depth` that is not a positive integer, an `--end` that is not a valid date, a
 `--value` that is not a valid commodity, or a `register` PREFIX that is not a valid
-account: print `USAGE` and nothing else.
+account: print `USAGE` and nothing else. `register` takes no flags: its one argument is
+always the PREFIX, and an account segment may start with `-`, so `register --depth` is
+the register of the account `--depth` while `register --depth 1` is an extra argument.
 
 ---
 
