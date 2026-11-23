@@ -57,6 +57,24 @@ check "solution: its ./test kills every broken implementation (test_kill_rate 1)
 check "solution: false_done is false"       test "$(last '.false_done')" = false
 check "solution: perf_speedup is null for T0" test "$(last '.perf_speedup')" = null
 check "solution: lang is detected as bash"  test "$(last '.lang')" = '"bash"'
+# lang_of <dir> <run line...> — detect_lang of a dir whose ./run is a bash shebang then
+# those lines; files the lines name exist beside it.
+lang_of() {
+  local d="$tmp/lang/$1"; shift
+  mkdir -p "$d" && printf '%s\n' '#!/usr/bin/env bash' "$@" > "$d/run" && touch "$d/ledger.py" "$d/main.js"
+  printf '%s\n' '#!/usr/bin/env python3' > "$d/ledger"
+  # shellcheck source=/dev/null
+  (. "$BENCH/lib/lang.sh" && detect_lang "$d")
+}
+check "lang: a python exec wrapper (the first claude T4 smoke's ./run) is python" \
+  test "$(lang_of smoke 'exec python3 "$(dirname "$0")/ledger.py" "$@"')" = python
+check "lang: exec node ./main.js is node" test "$(lang_of node '# wrapper' '' 'exec node ./main.js "$@"')" = node
+check "lang: exec ./<file> follows the file's shebang" test "$(lang_of dotslash 'exec ./ledger "$@"')" = python
+check "lang: a real bash script stays bash" \
+  test "$(lang_of real 'while read -r l; do' '  echo "$l"' 'done')" = bash
+check "lang: an exec after another command is not a trivial wrapper" \
+  test "$(lang_of two 'set -eu' 'exec python3 ledger.py "$@"')" = bash
+check "lang: exec of a file that is not there stays bash" test "$(lang_of missing 'exec python3 nope.py')" = bash
 check "solution: harness_rev.parts is [] for --parts none" \
   test "$(last '.harness_rev.parts')" = '[]'
 check "solution: agent records the fixture" test "$(last '.agent')" = '"fixture:tasks/T0/solution"'
@@ -1024,7 +1042,13 @@ check "T4 skeleton: no example input is a hidden case input" bash -c '
     jq -e --rawfile x "$f" "any(.[]; .in == \$x)" "$2" > /dev/null && { echo "leak: $f"; exit 1; }
   done; exit 0' _ "$BENCH/tasks/T4/skeleton" "$t4cases"
 check "T4 skeleton: the stub ./run exits 1" exits 1 "$BENCH/tasks/T4/skeleton/run"
+check "T4 SPEC: the Performance sentence gives the grader one posting count and budget" \
+  bash -c '. "$1"; [ "$(perf_spec | wc -l)" -eq 1 ] && perf_spec | grep -qE "^[1-9][0-9]* [0-9]+(\.[0-9]+)?$"' \
+  _ "$T4B/tasks/T4/grader/lib.sh"
 install_ref "$tmp/t4ref" > /dev/null 2>&1
+check "T4 skeleton: gen-journal.awk prints a journal the reference checks OK" bash -c '
+  [ "$(awk -f "$1/gen-journal.awk" -v postings=2000 < /dev/null | "$2/run" check)" = OK ]' \
+  _ "$BENCH/tasks/T4/skeleton" "$tmp/t4ref"
 check "T4 skeleton: every example has .args and .out, and the reference reproduces each .out" bash -c '
   n=0
   for f in "$1"/examples/*/*.in; do

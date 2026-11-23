@@ -11,9 +11,12 @@
 #    k = 1..3; (d) register's last running totals equal the balance of that account;
 #    (e) eight reports are byte-identical to the reference's. Then 30 mutated journals:
 #    check must name the mutated transaction's header line UNBALANCED.
-# 3. Perf, only with 1 and 2 clean: a T4_PERF_POSTINGS-posting journal (default 500000),
-#    `balance --value EUR`, reference and candidate alternately, 3 runs each; medians.
-#    perf_speedup = ref / candidate; extra.perf_ok = candidate <= 2 x ref.
+# 3. Perf, only with 1 and 2 clean: the skeleton's gen-journal.awk journal of the posting
+#    count and the budget that SPEC.md's Performance sentence states (T4_PERF_POSTINGS
+#    overrides the count), `balance --value EUR`, reference and candidate alternately,
+#    3 runs each; medians. perf_speedup = ref / candidate; extra.perf_ok = candidate <=
+#    the SPEC budget. SPEC is the only place the numbers live, so the agent is graded on
+#    exactly what it was told.
 # 4. Kill rate of the solution's ./test over every broken/<name>/mutate.sed build.
 # 5. Quality: loc and files of the solution's source, formatter and linter verdicts.
 #
@@ -44,7 +47,9 @@ errf="$tmp/errors"
 : > "$errf"
 
 PROPS=100 MUTANTS=30 CASE_TMO=10 PERF_TMO=60 WARMUP_TMO=600
-PERF_POSTINGS="${T4_PERF_POSTINGS:-500000}"
+read -r spec_postings PERF_BUDGET_S < <(perf_spec) \
+  || { echo "grade: no Performance sentence in skeleton/SPEC.md" >&2; exit 2; }
+PERF_POSTINGS="${T4_PERF_POSTINGS:-$spec_postings}"
 
 install_ref "$tmp/ref" || { echo "grade: cannot build the reference" >&2; exit 2; }
 ref="$tmp/ref"
@@ -179,7 +184,7 @@ mismatch=$((total - passed))
 # ------------------------------------------------------------------ 3. perf
 speedup=0 perf_ok=false
 if [ "$mismatch" -eq 0 ]; then
-  awk -f "$here/gen.awk" -v seed=424242 -v target="$PERF_POSTINGS" < /dev/null > "$tmp/perf.j" || exit 2
+  awk -f "$T4_DIR/skeleton/gen-journal.awk" -v postings="$PERF_POSTINGS" < /dev/null > "$tmp/perf.j" || exit 2
   timed() { # timed <dir> <out> — wall seconds of one `balance --value EUR` run
     local t0 t1
     t0="$EPOCHREALTIME"
@@ -206,9 +211,10 @@ if [ "$mismatch" -eq 0 ]; then
     printf 'T4 timing: postings=%s reference_median_s=%s candidate=%s\n' "$PERF_POSTINGS" "$r" "$perf_bad" >&2
   else
     c="$(med "${cts[@]}")"
-    printf 'T4 timing: postings=%s reference_median_s=%s candidate_median_s=%s\n' "$PERF_POSTINGS" "$r" "$c" >&2
+    printf 'T4 timing: postings=%s budget_s=%s reference_median_s=%s candidate_median_s=%s\n' \
+      "$PERF_POSTINGS" "$PERF_BUDGET_S" "$r" "$c" >&2
     speedup="$(jq -n --argjson r "$r" --argjson c "$c" 'if $c > 0 then ($r / $c * 1000 | round) / 1000 else 0 end')"
-    perf_ok="$(jq -n --argjson r "$r" --argjson c "$c" '$c <= 2 * $r')"
+    perf_ok="$(jq -n --argjson b "$PERF_BUDGET_S" --argjson c "$c" '$c <= $b')"
   fi
 fi
 

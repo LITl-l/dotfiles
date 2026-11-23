@@ -274,4 +274,21 @@ Besides behaviour, the result is graded on:
 - The code is clean under the language's standard formatter and linter at their default
   settings.
 - All source stays in the current directory.
-- Large journals, with hundreds of thousands of postings, must be fast.
+- Large journals must be fast: see Performance.
+
+---
+
+## Performance
+
+`./run balance --value EUR` on the journal that `awk -f gen-journal.awk -v postings=500000` prints must finish within 0.5 seconds of wall time on the grading machine.
+
+That journal is about 20 MB: 500,000 postings in valid transactions of every kind above,
+with prices, costs, elided postings and assertions. The generator `gen-journal.awk` is
+in this directory, and the same arguments always print the same journal. To measure:
+
+    awk -f gen-journal.awk -v postings=500000 > big.journal
+    time ./run balance --value EUR < big.journal
+
+The time counted is the median of three runs, each of which must also print the correct
+report. A first run that compiles is not counted: `./run check` runs once before.
+Performance is measured only when every other case passes.

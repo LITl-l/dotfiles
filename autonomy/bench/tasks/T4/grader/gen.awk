@@ -1,4 +1,5 @@
-# gen.awk — seeded random journals for the T4 grader's property checks and perf case.
+# gen.awk — seeded random journals for the T4 grader's property checks. (The perf journal
+# is skeleton/gen-journal.awk, which prints what this prints with seed=424242 target=N.)
 #
 #   awk -f gen.awk -v seed=N -v ntx=N [-v target=POSTINGS] [-v mutate=1]
 #       [-v truth=FILE] [-v meta=FILE] < /dev/null > journal
