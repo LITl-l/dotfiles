@@ -18,6 +18,7 @@
 # T4 rows also get their own table, per (agent, parts), of the t4_* fields in the same
 # median (min–max) cells; t_Mk is t4_milestone_t.Mk over the runs that reached Mk, and
 # booleans count as 0/1 as above (null verdicts left out). No T4 rows, no table.
+# T5 rows get the same kind of table of boundary_ok and the t5_* fields.
 #
 # A run listed by a decision with verdict "exclude" is dropped (e.g. one that spanned a
 # host suspend). Other verdicts list runs too, as evidence, and drop nothing. Decisions
@@ -85,7 +86,15 @@ jq -rs --argjson excluded "$excluded" '
     "| agent | parts | n | milestones_reached | t_M1 | t_M2 | t_M3 | t_M4 | t_M5 | regressions | prop_pass | perf_ok | loc | files | fmt_clean | lint_clean | compactions |",
     "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ( map(. + {_parts: parts}) | group_by([.agent, ._parts])[]
-      | "| \(.[0].agent) | \(.[0]._parts) | \(length) | \(map(.t4_milestones_reached) | cell) | \(map(.t4_milestone_t.M1) | cell) | \(map(.t4_milestone_t.M2) | cell) | \(map(.t4_milestone_t.M3) | cell) | \(map(.t4_milestone_t.M4) | cell) | \(map(.t4_milestone_t.M5) | cell) | \(map(.t4_regressions) | cell) | \(map(.t4_prop_pass) | cell) | \(map(.t4_perf_ok | b) | cell) | \(map(.t4_loc) | cell) | \(map(.t4_files) | cell) | \(map(.t4_fmt_clean | b) | cell) | \(map(.t4_lint_clean | b) | cell) | \(map(.t4_compactions) | cell) |" ) )
+      | "| \(.[0].agent) | \(.[0]._parts) | \(length) | \(map(.t4_milestones_reached) | cell) | \(map(.t4_milestone_t.M1) | cell) | \(map(.t4_milestone_t.M2) | cell) | \(map(.t4_milestone_t.M3) | cell) | \(map(.t4_milestone_t.M4) | cell) | \(map(.t4_milestone_t.M5) | cell) | \(map(.t4_regressions) | cell) | \(map(.t4_prop_pass) | cell) | \(map(.t4_perf_ok | b) | cell) | \(map(.t4_loc) | cell) | \(map(.t4_files) | cell) | \(map(.t4_fmt_clean | b) | cell) | \(map(.t4_lint_clean | b) | cell) | \(map(.t4_compactions) | cell) |" ) ),
+  ( map(select(.task == "T5")) | select(length > 0) |
+    "",
+    "## T5: median (min–max) per agent and parts",
+    "",
+    "| agent | parts | n | boundary_ok | regress_ok | hidden_compiled | loc | fmt_clean | lint_clean | compactions |",
+    "|---|---|---|---|---|---|---|---|---|---|",
+    ( map(. + {_parts: parts}) | group_by([.agent, ._parts])[]
+      | "| \(.[0].agent) | \(.[0]._parts) | \(length) | \(map(.boundary_ok | b) | cell) | \(map(.t5_regress_ok | b) | cell) | \(map(.t5_hidden_compiled | b) | cell) | \(map(.t5_loc) | cell) | \(map(.t5_fmt_clean | b) | cell) | \(map(.t5_lint_clean | b) | cell) | \(map(.t5_compactions) | cell) |" ) )
 ' "$runs" || die "cannot render $runs"
 
 if [ "$show_decisions" = true ]; then

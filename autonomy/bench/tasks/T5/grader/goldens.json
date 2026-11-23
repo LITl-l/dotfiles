@@ -1,0 +1,2491 @@
+[
+  {
+    "name": "s01",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "is",
+      "{^n't}"
+    ],
+    "text": "isn't",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s02",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "{re^}",
+      "port"
+    ],
+    "text": "report",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s03",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "day",
+      "{^-^}",
+      "to",
+      "{^-^}",
+      "day"
+    ],
+    "text": "day-to-day",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s04",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "good",
+      "morning",
+      "everyone"
+    ],
+    "text": "good morning everyone",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c01",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{-|}",
+      "monday"
+    ],
+    "text": "Monday",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p02",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "really",
+      "{?}",
+      "yes"
+    ],
+    "text": "really? Yes",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g01",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "{&x}",
+      "{&y}"
+    ],
+    "text": "xy",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c07",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "london",
+      "{*-|}"
+    ],
+    "text": "London",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r01",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "sun",
+      "flower",
+      "{*!}"
+    ],
+    "text": "sunflower",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p04",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "red",
+      "{,}",
+      "green",
+      "{,}",
+      "blue"
+    ],
+    "text": "red, green, blue",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s05",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "the quick",
+      "brown fox"
+    ],
+    "text": "the quick brown fox",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s06",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "walk",
+      "{^ed}"
+    ],
+    "text": "walked",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s07",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "{un^}",
+      "do"
+    ],
+    "text": "undo",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s08",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "{pre^}",
+      "{^fix}"
+    ],
+    "text": "prefix",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s09",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "a",
+      "{^}",
+      "{^}",
+      "b"
+    ],
+    "text": "ab",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s10",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "north",
+      "{^}",
+      "east"
+    ],
+    "text": "northeast",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s11",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "x",
+      "{^^}",
+      "y"
+    ],
+    "text": "xy",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s12",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "one{^}",
+      "two"
+    ],
+    "text": "onetwo",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s13",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "one",
+      "{^}two"
+    ],
+    "text": "onetwo",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s14",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "left",
+      "{^ ^}",
+      "right"
+    ],
+    "text": "left right",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s15",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "hello",
+      "{^ ^}",
+      "{^ ^}",
+      "there"
+    ],
+    "text": "hello  there",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s16",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "co",
+      "{^-^}",
+      "op"
+    ],
+    "text": "co-op",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s17",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "{^}",
+      "start"
+    ],
+    "text": "start",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s18",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "word",
+      "{^s}",
+      "{^es}"
+    ],
+    "text": "wordses",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s19",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "tea",
+      "{^-^}",
+      "{^-^}",
+      "time"
+    ],
+    "text": "tea--time",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s20",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "{^ing}"
+    ],
+    "text": "ing",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s21",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "new",
+      "{^ly}",
+      "made"
+    ],
+    "text": "newly made",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s22",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "  padded  ",
+      "word"
+    ],
+    "text": "padded word",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s23",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "multi word phrase",
+      "{^s}"
+    ],
+    "text": "multi word phrases",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s24",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "{over^}",
+      "{^}",
+      "load"
+    ],
+    "text": "overload",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s25",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "self{^-^}",
+      "aware"
+    ],
+    "text": "self-aware",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s26",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "e"
+    ],
+    "text": "a b c d e",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s27",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "{^}",
+      "{^}"
+    ],
+    "text": "",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s28",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "back",
+      "{^}",
+      "{^ ^}",
+      "slash"
+    ],
+    "text": "back slash",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s29",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "déjà",
+      "vu",
+      "{^s}"
+    ],
+    "text": "déjà vus",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "s30",
+    "category": "spacing",
+    "kind": "format",
+    "input": [
+      "東京",
+      "タワー"
+    ],
+    "text": "東京 タワー",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g02",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "word",
+      "{&a}",
+      "{&b}"
+    ],
+    "text": "word ab",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g03",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "{&a}",
+      "{&b}",
+      "next"
+    ],
+    "text": "ab next",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g04",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "9",
+      "1",
+      "1"
+    ],
+    "text": "911",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g05",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "call",
+      "5",
+      "5",
+      "5"
+    ],
+    "text": "call 555",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g06",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "2",
+      "{&a}"
+    ],
+    "text": "2a",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g07",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "{&b}",
+      "4"
+    ],
+    "text": "b4",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g08",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "room",
+      "1",
+      "0",
+      "1",
+      "please"
+    ],
+    "text": "room 101 please",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g09",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "{&a}",
+      "{^}",
+      "word"
+    ],
+    "text": "aword",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g10",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "4",
+      "{^}",
+      "x"
+    ],
+    "text": "4x",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g11",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "{&h}",
+      "{&i}",
+      "{.}",
+      "ok"
+    ],
+    "text": "hi. Ok",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g12",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "7",
+      "{,}",
+      "8"
+    ],
+    "text": "7, 8",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g13",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "{&q}",
+      "word",
+      "{&r}",
+      "{&s}"
+    ],
+    "text": "q word rs",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g14",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "12",
+      "34"
+    ],
+    "text": "1234",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "g15",
+    "category": "glue",
+    "kind": "format",
+    "input": [
+      "year",
+      "2",
+      "0",
+      "2",
+      "6",
+      "{.}"
+    ],
+    "text": "year 2026.",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c02",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "see",
+      "{-|}",
+      "paris"
+    ],
+    "text": "see Paris",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c03",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{<}",
+      "html",
+      "page"
+    ],
+    "text": "HTML page",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c04",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "read",
+      "{<}",
+      "faq"
+    ],
+    "text": "read FAQ",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c05",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{>}",
+      "Apple"
+    ],
+    "text": "apple",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c06",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "eat",
+      "{>}",
+      "Pie"
+    ],
+    "text": "eat pie",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c08",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "visit",
+      "rome",
+      "{*-|}"
+    ],
+    "text": "visit Rome",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c09",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "the",
+      "bbc",
+      "{*<}"
+    ],
+    "text": "the BBC",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c10",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "say",
+      "Hello",
+      "{*>}"
+    ],
+    "text": "say hello",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c11",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "a",
+      "{-|}",
+      "{^}",
+      "b"
+    ],
+    "text": "ab",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c12",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "new",
+      "york",
+      "{*-|}",
+      "{*<}"
+    ],
+    "text": "new YORK",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c13",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{-|}",
+      "new york"
+    ],
+    "text": "New york",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c14",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{<}",
+      "new york"
+    ],
+    "text": "NEW york",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c15",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{*-|}",
+      "first"
+    ],
+    "text": "first",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c16",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "mc{^}",
+      "{-|}",
+      "donald"
+    ],
+    "text": "mcDonald",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c17",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{-|}",
+      "{-|}",
+      "twice"
+    ],
+    "text": "Twice",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c18",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{<}",
+      "{-|}",
+      "word"
+    ],
+    "text": "Word",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c19",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{-|}",
+      "élan"
+    ],
+    "text": "Élan",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c20",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "über",
+      "{*<}"
+    ],
+    "text": "ÜBER",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c21",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{-|}",
+      "{&a}"
+    ],
+    "text": "A",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c22",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "go",
+      "{-|}",
+      "1"
+    ],
+    "text": "go 1",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c23",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "half",
+      "{^-^}",
+      "time",
+      "{*-|}"
+    ],
+    "text": "Half-time",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c24",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "x",
+      "{<}",
+      "{.}",
+      "y"
+    ],
+    "text": "x. Y",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c25",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "big",
+      "{*-|}",
+      "deal",
+      "{*<}"
+    ],
+    "text": "Big DEAL",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "c26",
+    "category": "case",
+    "kind": "format",
+    "input": [
+      "{-|}",
+      "{^}",
+      "word"
+    ],
+    "text": "word",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p01",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "done",
+      "{.}"
+    ],
+    "text": "done.",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p03",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "stop",
+      "{!}",
+      "now"
+    ],
+    "text": "stop! Now",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p05",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "note",
+      "{:}",
+      "this"
+    ],
+    "text": "note: this",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p06",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "first",
+      "{;}",
+      "second"
+    ],
+    "text": "first; second",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p07",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "{.}",
+      "start"
+    ],
+    "text": ". Start",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p08",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "end",
+      "{.}",
+      "{.}",
+      "x"
+    ],
+    "text": "end.. X",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p09",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "wait",
+      "{,}",
+      "{-|}",
+      "what"
+    ],
+    "text": "wait, What",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p10",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "one",
+      "{.}",
+      "two",
+      "{.}",
+      "three"
+    ],
+    "text": "one. Two. Three",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p11",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "hi",
+      "{?}",
+      "{!}",
+      "ok"
+    ],
+    "text": "hi?! Ok",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p12",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "x",
+      "{,}",
+      "{^}",
+      "y"
+    ],
+    "text": "x,y",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p13",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "mr",
+      "{.}",
+      "{>}",
+      "smith"
+    ],
+    "text": "mr. smith",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p15",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "quote",
+      "{:}",
+      "{-|}",
+      "go"
+    ],
+    "text": "quote: Go",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p16",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "so",
+      "{,}",
+      "{.}"
+    ],
+    "text": "so,.",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p17",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "Hello",
+      "{!}",
+      "{<}",
+      "world"
+    ],
+    "text": "Hello! WORLD",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p18",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "yes",
+      "{.}",
+      "1"
+    ],
+    "text": "yes. 1",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "p19",
+    "category": "punctuation",
+    "kind": "format",
+    "input": [
+      "why",
+      "{?}",
+      "{,}",
+      "then"
+    ],
+    "text": "why?, then",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r02",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "foot",
+      "ball",
+      "{*!}",
+      "game"
+    ],
+    "text": "football game",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r03",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "any",
+      "{^how}",
+      "{*?}"
+    ],
+    "text": "any how",
+    "oracle": "reference",
+    "plover_agrees": null
+  },
+  {
+    "name": "r04",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "a",
+      "{*!}"
+    ],
+    "text": "a",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r05",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "x",
+      "y",
+      "{*!}",
+      "{*!}"
+    ],
+    "text": "xy",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r06",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "x",
+      "y",
+      "{*!}",
+      "{*?}"
+    ],
+    "text": "x y",
+    "oracle": "reference",
+    "plover_agrees": null
+  },
+  {
+    "name": "r07",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "base",
+      "{^ball}",
+      "{*?}",
+      "{*!}"
+    ],
+    "text": "baseball",
+    "oracle": "reference",
+    "plover_agrees": null
+  },
+  {
+    "name": "r08",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "new",
+      "york",
+      "{*!}",
+      "{*-|}"
+    ],
+    "text": "Newyork",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r09",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "one",
+      "two",
+      "three",
+      "{*!}"
+    ],
+    "text": "one twothree",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r10",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "up",
+      "{*?}",
+      "down"
+    ],
+    "text": " up down",
+    "oracle": "reference",
+    "plover_agrees": null
+  },
+  {
+    "name": "r11",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "hello world",
+      "{*!}"
+    ],
+    "text": "hello world",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r12",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "big",
+      "hello world",
+      "{*!}"
+    ],
+    "text": "bighello world",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r13",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "{*!}",
+      "x"
+    ],
+    "text": "x",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "r14",
+    "category": "retro_spacing",
+    "kind": "format",
+    "input": [
+      "rain",
+      "bow",
+      "{*!}",
+      "{-|}",
+      "trout"
+    ],
+    "text": "rainbow Trout",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u01",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "line",
+      "{#Return}",
+      "next"
+    ],
+    "text": "line next",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u02",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "x{^}",
+      "{#Tab}",
+      "y"
+    ],
+    "text": "xy",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u03",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "{PLOVER:TOGGLE}",
+      "word"
+    ],
+    "text": "word",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u04",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "go",
+      "{-|}",
+      "{PLOVER:LOOKUP}",
+      "home"
+    ],
+    "text": "go Home",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u05",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "\\{braces\\}"
+    ],
+    "text": "{braces}",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u06",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "open",
+      "\\{"
+    ],
+    "text": "open {",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u07",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "a",
+      "{^}",
+      "{}",
+      "b"
+    ],
+    "text": "a b",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u08",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "a",
+      "{<}",
+      "{}",
+      "b"
+    ],
+    "text": "a b",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u09",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "5",
+      "{}",
+      "6"
+    ],
+    "text": "5 6",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u10",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "{}",
+      "word"
+    ],
+    "text": " word",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u11",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "x",
+      "{.}",
+      "{}",
+      "y"
+    ],
+    "text": "x. y",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u12",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "func\\{\\}"
+    ],
+    "text": "func{}",
+    "oracle": "plover+reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u13",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "a",
+      "{frobnicate}",
+      "b"
+    ],
+    "text": "a b",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "u14",
+    "category": "cancel_escape_unknown",
+    "kind": "format",
+    "input": [
+      "a{^}",
+      "{xyz}",
+      "b"
+    ],
+    "text": "ab",
+    "oracle": "reference",
+    "plover_agrees": false
+  },
+  {
+    "name": "o01",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "hello"
+      },
+      {
+        "apply": "world"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "hello"
+      ],
+      [
+        0,
+        " world"
+      ]
+    ],
+    "text": "hello world",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o02",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "cat"
+      },
+      {
+        "apply": "{*-|}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "cat"
+      ],
+      [
+        3,
+        "Cat"
+      ]
+    ],
+    "text": "Cat",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o03",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "end"
+      },
+      {
+        "apply": "{.}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "end"
+      ],
+      [
+        0,
+        "."
+      ]
+    ],
+    "text": "end.",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o04",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "a"
+      },
+      {
+        "apply": "{-|}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "a"
+      ],
+      [
+        0,
+        ""
+      ]
+    ],
+    "text": "a",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o05",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "sun"
+      },
+      {
+        "apply": "flower"
+      },
+      {
+        "apply": "{*!}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "sun"
+      ],
+      [
+        0,
+        " flower"
+      ],
+      [
+        7,
+        "flower"
+      ]
+    ],
+    "text": "sunflower",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o06",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "in"
+      },
+      {
+        "apply": "{^side}"
+      },
+      {
+        "apply": "{*?}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "in"
+      ],
+      [
+        0,
+        "side"
+      ],
+      [
+        4,
+        " side"
+      ]
+    ],
+    "text": "in side",
+    "oracle": "reference",
+    "plover_agrees": null
+  },
+  {
+    "name": "o07",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        ""
+      ]
+    ],
+    "text": "",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o08",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "x"
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "x"
+      ],
+      [
+        1,
+        ""
+      ]
+    ],
+    "text": "",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o09",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "hello"
+      },
+      {
+        "apply": "world"
+      },
+      {
+        "undo": true
+      },
+      {
+        "undo": true
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "hello"
+      ],
+      [
+        0,
+        " world"
+      ],
+      [
+        6,
+        ""
+      ],
+      [
+        5,
+        ""
+      ],
+      [
+        0,
+        ""
+      ]
+    ],
+    "text": "",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o10",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "a"
+      },
+      {
+        "apply": "{.}"
+      },
+      {
+        "undo": true
+      },
+      {
+        "apply": "b"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "a"
+      ],
+      [
+        0,
+        "."
+      ],
+      [
+        1,
+        ""
+      ],
+      [
+        0,
+        " b"
+      ]
+    ],
+    "text": "a b",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o11",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "a"
+      },
+      {
+        "apply": "{-|}"
+      },
+      {
+        "undo": true
+      },
+      {
+        "apply": "b"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "a"
+      ],
+      [
+        0,
+        ""
+      ],
+      [
+        0,
+        ""
+      ],
+      [
+        0,
+        " b"
+      ]
+    ],
+    "text": "a b",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o12",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "a{^}"
+      },
+      {
+        "undo": true
+      },
+      {
+        "apply": "b"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "a"
+      ],
+      [
+        1,
+        ""
+      ],
+      [
+        0,
+        "b"
+      ]
+    ],
+    "text": "b",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o13",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "one"
+      },
+      {
+        "apply": "two"
+      },
+      {
+        "apply": "{*<}"
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "one"
+      ],
+      [
+        0,
+        " two"
+      ],
+      [
+        3,
+        "TWO"
+      ],
+      [
+        3,
+        "two"
+      ]
+    ],
+    "text": "one two",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o14",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "a"
+      },
+      {
+        "apply": "b"
+      },
+      {
+        "apply": "{*!}"
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "a"
+      ],
+      [
+        0,
+        " b"
+      ],
+      [
+        2,
+        "b"
+      ],
+      [
+        1,
+        " b"
+      ]
+    ],
+    "text": "a b",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o15",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "1"
+      },
+      {
+        "apply": "2"
+      },
+      {
+        "undo": true
+      },
+      {
+        "apply": "x"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "1"
+      ],
+      [
+        0,
+        "2"
+      ],
+      [
+        1,
+        ""
+      ],
+      [
+        0,
+        " x"
+      ]
+    ],
+    "text": "1 x",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o16",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "x"
+      },
+      {
+        "apply": "{^ ^}"
+      },
+      {
+        "apply": "y"
+      },
+      {
+        "undo": true
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "x"
+      ],
+      [
+        0,
+        " "
+      ],
+      [
+        0,
+        "y"
+      ],
+      [
+        1,
+        ""
+      ],
+      [
+        1,
+        ""
+      ]
+    ],
+    "text": "x",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o17",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "word"
+      },
+      {
+        "apply": "{*-|}"
+      },
+      {
+        "apply": "{*-|}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "word"
+      ],
+      [
+        4,
+        "Word"
+      ],
+      [
+        0,
+        ""
+      ]
+    ],
+    "text": "Word",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o18",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "{#Return}"
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        ""
+      ],
+      [
+        0,
+        ""
+      ]
+    ],
+    "text": "",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o19",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "the end"
+      },
+      {
+        "apply": "{*<}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "the end"
+      ],
+      [
+        3,
+        "END"
+      ]
+    ],
+    "text": "the END",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o20",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "a"
+      },
+      {
+        "apply": "b"
+      },
+      {
+        "apply": "c"
+      },
+      {
+        "undo": true
+      },
+      {
+        "apply": "{.}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "a"
+      ],
+      [
+        0,
+        " b"
+      ],
+      [
+        0,
+        " c"
+      ],
+      [
+        2,
+        ""
+      ],
+      [
+        0,
+        "."
+      ]
+    ],
+    "text": "a b.",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "o21",
+    "category": "output_undo",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "{}"
+      },
+      {
+        "undo": true
+      },
+      {
+        "apply": "y"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        ""
+      ],
+      [
+        0,
+        ""
+      ],
+      [
+        0,
+        "y"
+      ]
+    ],
+    "text": "y",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n01",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "日本"
+      },
+      {
+        "apply": "語"
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "日本"
+      ],
+      [
+        0,
+        " 語"
+      ],
+      [
+        2,
+        ""
+      ]
+    ],
+    "text": "日本",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n02",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "café"
+      },
+      {
+        "apply": "{*<}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "café"
+      ],
+      [
+        4,
+        "CAFÉ"
+      ]
+    ],
+    "text": "CAFÉ",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n03",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "naïve"
+      },
+      {
+        "apply": "x"
+      },
+      {
+        "apply": "{*!}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "naïve"
+      ],
+      [
+        0,
+        " x"
+      ],
+      [
+        2,
+        "x"
+      ]
+    ],
+    "text": "naïvex",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n04",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "über"
+      },
+      {
+        "apply": "{*-|}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "über"
+      ],
+      [
+        4,
+        "Über"
+      ]
+    ],
+    "text": "Über",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n05",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "ñ"
+      },
+      {
+        "apply": "ñ"
+      },
+      {
+        "undo": true
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "ñ"
+      ],
+      [
+        0,
+        " ñ"
+      ],
+      [
+        2,
+        ""
+      ],
+      [
+        1,
+        ""
+      ]
+    ],
+    "text": "",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n06",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "東京"
+      },
+      {
+        "apply": "{.}"
+      },
+      {
+        "apply": "大阪"
+      },
+      {
+        "undo": true
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "東京"
+      ],
+      [
+        0,
+        "."
+      ],
+      [
+        0,
+        " 大阪"
+      ],
+      [
+        3,
+        ""
+      ]
+    ],
+    "text": "東京.",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n07",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "Émile"
+      },
+      {
+        "apply": "{*>}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "Émile"
+      ],
+      [
+        5,
+        "émile"
+      ]
+    ],
+    "text": "émile",
+    "oracle": "reference",
+    "plover_agrees": true
+  },
+  {
+    "name": "n08",
+    "category": "non_ascii_backspaces",
+    "kind": "ops",
+    "ops": [
+      {
+        "apply": "a"
+      },
+      {
+        "apply": "日本"
+      },
+      {
+        "apply": "{*!}"
+      }
+    ],
+    "outputs": [
+      [
+        0,
+        "a"
+      ],
+      [
+        0,
+        " 日本"
+      ],
+      [
+        3,
+        "日本"
+      ]
+    ],
+    "text": "a日本",
+    "oracle": "reference",
+    "plover_agrees": true
+  }
+]

@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# generate [--handcheck] <out_dir> — build grader/goldens.json from gen/inputs.json.
+#
+# Authoring time only; no bench run calls this, and goldens.json is committed as data.
+#   1. Hand-check: Plover on the cases named in gen/handcheck.json must give exactly the
+#      text written there (the Plover docs' examples and config probes, written before any
+#      generation). A mismatch means the generator's Plover config is wrong; nothing else
+#      runs. --handcheck stops after this step.
+#   2. Plover (5.4.0 from nixpkgs, ephemeral `nix shell`, nothing installed) and the Rust
+#      reference (tasks/T5/solution on a scratch clone) both judge every case.
+#   3. A case whose oracle is plover (every format case unless it says otherwise) is
+#      admitted only where Plover's text equals the reference's. Cases Plover cannot judge
+#      (Output deltas, undo, non-ASCII backspaces, unknown metas) carry "oracle":
+#      "reference" and come from the reference; Plover's agreement is recorded beside them.
+# Writes <out_dir>/{plover.json,reference.json,report.json} and, without --handcheck,
+# grader/goldens.json. Needs network or a warm store for nixpkgs#python3Packages.plover.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+T5="$(cd "$here/../.." && pwd)"
+BENCH="$(cd "$T5/../.." && pwd)"
+# shellcheck source=/dev/null
+. "$BENCH/lib/fs.sh"
+# shellcheck source=/dev/null
+. "$BENCH/lib/repo.sh"
+
+die() { printf 'generate: %s\n' "$*" >&2; exit 1; }
+handcheck=false
+[ "${1:-}" = --handcheck ] && { handcheck=true; shift; }
+out="${1:?usage: generate [--handcheck] <out_dir>}"
+mkdir -p "$out" || die "cannot create $out"
+out="$(cd "$out" && pwd)"
+
+# shellcheck disable=SC2016 # a nix expression, not shell
+PLOVER_EXPR='let p = (builtins.getFlake "nixpkgs").legacyPackages.${builtins.currentSystem};
+  in p.python3.withPackages (ps: [ ps.plover ])'
+plover() { # plover <inputs.json> <out.json>
+  nix shell --impure --expr "$PLOVER_EXPR" --command python -I "$here/plover_goldens.py" "$1" \
+    > "$2" 2> "$out/plover.err" || { cat "$out/plover.err" >&2; return 1; }
+}
+
+# ---------------------------------------------------------------- 1. hand-check
+jq --slurpfile h "$here/handcheck.json" '[.[] | select($h[0][.name] != null)]' "$here/inputs.json" \
+  > "$out/handcheck-inputs.json" || die "cannot select the hand-check cases"
+[ "$(jq length "$out/handcheck-inputs.json")" -eq "$(jq length "$here/handcheck.json")" ] \
+  || die "handcheck.json names a case inputs.json does not have"
+plover "$out/handcheck-inputs.json" "$out/handcheck-plover.json" || die "Plover failed on the hand-check"
+jq -r --slurpfile h "$here/handcheck.json" '
+  . as $p | $h[0] | to_entries[]
+  | "\(if $p[.key].text == .value then "ok  " else "BAD " end) \(.key): want \(.value | @json), plover \($p[.key].text // $p[.key].error | @json)"' \
+  "$out/handcheck-plover.json" | tee "$out/handcheck.txt"
+grep -q '^BAD' "$out/handcheck.txt" && die "hand-check failed: fix the Plover config before generating"
+echo "generate: hand-check passed ($(jq -r ._plover_version "$out/handcheck-plover.json"))"
+[ "$handcheck" = true ] && exit 0
+
+# ---------------------------------------------------------------- 2. both oracles
+plover "$here/inputs.json" "$out/plover.json" || die "Plover failed"
+
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+ws="$scratch/ws"
+repo_install "$T5" "$ws" || die "cannot clone the T5 repository"
+install_tree "$T5/solution/crates" "$ws/crates" || die "cannot install the reference"
+install -m 0644 "$here/dump.rs" "$ws/crates/steno-core/tests/zz_dump.rs" || die "cannot install dump.rs"
+(cd "$ws" && CARGO_HOME="$ws.cargo" CARGO_NET_OFFLINE=true T5_DUMP_IN="$here/inputs.json" \
+  T5_DUMP_OUT="$out/reference.json" cargo test -q -p steno-core --offline --test zz_dump \
+  > "$out/reference.log" 2>&1) || { cat "$out/reference.log" >&2; die "the reference dump failed"; }
+
+# ---------------------------------------------------------------- 3. merge
+# shellcheck disable=SC2016 # a jq program
+jq -n --slurpfile cases "$here/inputs.json" --slurpfile p "$out/plover.json" \
+  --slurpfile r "$out/reference.json" '
+  $cases[0] as $cs | $p[0] as $P | $r[0] as $R
+  | [ $cs[] | . as $c
+      | ($R[$c.name] // error("no reference verdict for \($c.name)")) as $ref
+      | ($P[$c.name] // {error: "missing"}) as $pl
+      | ($c.oracle // (if $c.ops then "reference" else "plover" end)) as $oracle
+      | (if $pl.error then null else ($pl.text == $ref.text) end) as $text_agrees
+      | (if $pl.error then null else ($pl.text == $ref.text and $pl.outputs == $ref.outputs) end) as $all_agree
+      | {c: $c, oracle: $oracle, ref: $ref, pl: $pl, text_agrees: $text_agrees, all_agree: $all_agree,
+         admitted: ($oracle == "reference" or $text_agrees == true)} ] as $v
+  | {goldens: [ $v[] | select(.admitted)
+        | {name: .c.name, category: .c.category}
+          + (if .c.ops then {kind: "ops", ops: .c.ops, outputs: .ref.outputs}
+             else {kind: "format", input: .c.input} end)
+          + {text: .ref.text,
+             oracle: (if .oracle == "reference" then "reference" else "plover+reference" end),
+             plover_agrees: .all_agree} ],
+     report: {
+       plover_version: $P._plover_version,
+       inputs: ($v | length),
+       admitted: ([$v[] | select(.admitted)] | length),
+       per_category: ([$v[] | select(.admitted) | .c.category] | group_by(.) | map({(.[0]): length}) | add),
+       disagreements: [ $v[] | select(.oracle == "plover" and (.admitted | not))
+         | {name: .c.name, input: .c.input, plover: (.pl.text // .pl.error), reference: .ref.text} ],
+       reference_only: [ $v[] | select(.oracle == "reference")
+         | {name: .c.name, plover_agrees: .all_agree}
+           + (if .all_agree == false then {plover: .pl, reference: .ref} else {} end) ] } }' \
+  > "$out/merged.json" || die "cannot merge the verdicts"
+jq '.report' "$out/merged.json" > "$out/report.json"
+jq '.goldens' "$out/merged.json" > "$T5/grader/goldens.json" || die "cannot write goldens.json"
+jq -r '"generate: \(.admitted) of \(.inputs) cases admitted, \(.disagreements | length) disagreements"' "$out/report.json"
