@@ -1098,6 +1098,13 @@
               go
               rustc
               cargo
+              # The T4 grader's formatter/linter verdicts; without one on PATH the
+              # verdict for that language is null (gofmt and go vet ship with go).
+              rustfmt
+              clippy
+              ruff
+              shfmt
+              shellcheck
               nodejs
               gcc
               llama-cpp

@@ -62,6 +62,14 @@ install_broken() {
   "$2/run" check < /dev/null > /dev/null
 }
 
+# perf_spec — "<postings> <budget seconds>" from the Performance sentence of
+# skeleton/SPEC.md; fails when the sentence is missing or changed shape.
+perf_spec() {
+  # shellcheck disable=SC2016 # the backquotes are literal Markdown, not a command
+  sed -nE 's/.*`awk -f gen-journal\.awk -v postings=([0-9]+)` prints must finish within ([0-9]+(\.[0-9]+)?) seconds .*/\1 \2/p' \
+    "$T4_DIR/skeleton/SPEC.md" | grep -E '^[0-9]+ [0-9.]+$'
+}
+
 # broken_names — every variant under grader/broken/, one per line.
 broken_names() {
   local d
