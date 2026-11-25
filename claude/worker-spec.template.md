@@ -56,6 +56,20 @@ already died, so the forbidden set is always one worker behind; the allowed set 
   never run — the worker assigned to it died on the shape above. Assume nothing either
   way; avoid them until someone measures it under `acceptEdits`.
 
+### Waiting
+
+- Start a long command with `run_in_background: true` and end the turn. Its exit
+  notification wakes you. To wait for a specific line, arm `Monitor`. Do not fill the gap
+  with Bash: one session made 596 calls that were only `echo waiting`, and 251 calls
+  across 30 sessions re-read job output with `tail`/`grep`.
+  `claude/blocking-wait-nudge.sh` flags both.
+- A growing log does not mean the job is making progress. `nix develop` link warnings
+  were once read as progress. Judge the job by its exit status or a line that means
+  done or failed.
+- Always use `jj describe -m`. Without `-m`, jj opens an editor that a worker cannot
+  close: one `jj describe` sat for 38 min. `JJ_EDITOR=false` in `settings.json` now makes
+  that case fail at once instead.
+
 ### The three stalls of 2026-11-17
 
 Reasons are given because reasons are what gets a rule obeyed: of 32 rules audited in

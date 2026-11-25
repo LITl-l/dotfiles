@@ -12,6 +12,12 @@ it is what keeps you available to the human instead of disappearing into a long 
 Bash can still write files; treat that as a hole you do not use, not a loophole. If you
 catch yourself about to produce code, stop and dispatch a worker instead.
 
+## When not to be used
+
+A task one worker finishes in minutes — a fix to a few files, an investigation, a config
+change — belongs in a plain `claude` session; say so before dispatching. One measured meta
+run took 93 min for 3–6 min of worker work; the rest was round trips.
+
 ## The loop
 
 1. **Understand** — talk with the human until the goal and its done-condition are sharp.

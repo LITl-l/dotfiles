@@ -229,7 +229,7 @@ cmd_watch() {
 # MAST (arXiv:2503.13657, 1600+ traces): 79% of multi-agent failures are specification
 # and coordination defects; "unaware of termination conditions" is a top-3 mode.
 cmd_spawn() {
-  local name="" dir="" spec="" model="" mode="acceptEdits"
+  local name="" dir="" spec="" model="" mode="acceptEdits" effort="medium"
   while [ $# -gt 0 ]; do
     case "$1" in
       --name)  name="$2"; shift 2 ;;
@@ -237,11 +237,12 @@ cmd_spawn() {
       --spec)  spec="$2"; shift 2 ;;
       --model) model="$2"; shift 2 ;;
       --permission-mode) mode="$2"; shift 2 ;;
+      --effort) effort="$2"; shift 2 ;;
       *) die "unknown flag: $1" ;;
     esac
   done
   [ -n "$name" ] && [ -n "$dir" ] && [ -n "$spec" ] \
-    || die "usage: fleet spawn --name N --dir PATH --spec FILE [--model M] [--permission-mode M]"
+    || die "usage: fleet spawn --name N --dir PATH --spec FILE [--model M] [--permission-mode M] [--effort E]"
   [ -f "$spec" ] || die "spec file not found: $spec"
   [ -d "$dir" ]  || die "workspace dir not found: $dir"
 
@@ -255,7 +256,11 @@ cmd_spawn() {
     die "refusing to dispatch an underspecified worker (see claude/worker-spec.template.md)"
   fi
 
-  local flags=(--bg -n "$name" --permission-mode "$mode")
+  # A worker runs a pre-specified task with nobody reading its prose, so it gets medium
+  # effort and no Explanatory style. Both cost time on every turn: the 2026-11 measurement
+  # had the worker's real work at 3-6 min in a 93 min meta run.
+  local flags=(--bg -n "$name" --permission-mode "$mode" --effort "$effort"
+    --settings '{"enabledPlugins":{"explanatory-output-style@claude-plugins-official":false}}')
   [ -n "$model" ] && flags+=(--model "$model")
   # Read the spec BEFORE cd: a relative --spec path would not resolve inside the subshell,
   # and an unreadable spec would silently dispatch a worker with an empty prompt.
@@ -264,7 +269,7 @@ cmd_spawn() {
 
   # An unattended worker cannot answer a permission prompt: in a prompting mode it parks
   # in `waiting` indefinitely. Say which mode is in force so that is never a surprise.
-  echo "fleet: dispatching '$name' with --permission-mode $mode" >&2
+  echo "fleet: dispatching '$name' with --permission-mode $mode --effort $effort" >&2
 
   # One project = one live worker, ENFORCED rather than noted. What stood here counted
   # the live sessions in $dir, printed a note and dispatched anyway; on 2026-11-19 the
@@ -291,8 +296,9 @@ fleet — Claude Code background-agent fleet control
                                  leaked `stopped` state is reported, and removed only
                                  with --stopped. A `done` session is never collected.
   fleet watch [interval]         emit one line per state transition (for Monitor)
-  fleet spawn --name N --dir PATH --spec FILE [--model M] [--permission-mode M]
-                                 dispatch a worker, refusing underspecified specs and
+  fleet spawn --name N --dir PATH --spec FILE [--model M] [--permission-mode M] [--effort E]
+                                 dispatch a worker (effort medium by default, no
+                                 Explanatory output style), refusing underspecified specs and
                                  refusing a second worker where one is already working
                                  (see `fleet-spawn-guard status --dir PATH`; it guards
                                  this path only, not everything in the checkout)
