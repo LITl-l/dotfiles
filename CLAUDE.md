@@ -47,8 +47,11 @@ This repo is `LITl-l/dotfiles` on GitHub — use that for every `gh` command.
 
 ## Meta-Agent Orchestration
 
-One project = one always-interactive orchestrator session; implementation happens in
-disposable worker sessions, each in its own jj workspace.
+For parallel or long work, one project has one always-interactive orchestrator session,
+and the implementation happens in disposable worker sessions, each in its own jj
+workspace. A task one worker would finish in minutes goes to a plain `claude` session
+instead. The criterion and the 93-minute measurement behind it are in
+`claude/agents/meta.md` under "When not to be used".
 
 ```
 claude --agent meta          # orchestrator: no Edit/Write, cannot drift into coding

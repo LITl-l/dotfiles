@@ -1,7 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "cleanupPeriodDays": 36500,
-  "env": {},
+  "env": {
+    "JJ_EDITOR": "false"
+  },
   "permissions": {
     "allow": [
       "Bash(./node_modules/.bin/vitest *)",
@@ -34,6 +36,8 @@
       "Bash(find *)",
       "Bash(find:*)",
       "Bash(fish:*)",
+      "Bash(free)",
+      "Bash(free *)",
       "Bash(fleet:*)",
       "Bash(gh api user*)",
       "Bash(gh api:*)",
@@ -139,6 +143,7 @@
       "Bash(npx tsc *)",
       "Bash(npx vitest *)",
       "Bash(npx:*)",
+      "Bash(nproc)",
       "Bash(nvim --headless:*)",
       "Bash(printf *)",
       "Bash(pwd*)",
@@ -162,6 +167,7 @@
       "Bash(uniq *)",
       "Bash(uniq:*)",
       "Bash(unzip -p *)",
+      "Bash(uptime)",
       "Bash(uv run alembic current*)",
       "Bash(uv run alembic heads*)",
       "Bash(uv run alembic history*)",
@@ -322,7 +328,7 @@
     "sourcegraph@claude-plugins-official": false
   },
   "feedbackDrafts": "notify",
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "askUserQuestionTimeout": "never",
   "dialogExpiry": "never",
   "timeFormat": "24-hour",
